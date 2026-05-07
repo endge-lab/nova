@@ -1,0 +1,46 @@
+{
+  "name": "@endge/nova",
+  "private": false,
+  "version": "0.1.0",
+  "type": "module",
+  "module": "./dist/nova.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/nova.js"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "dev": "vite build --watch",
+    "dev:watch": "vite build --watch",
+    "build": "vite build",
+    "pretest": "pnpm --filter @endge/utils build && pnpm --filter @endge/raph build",
+    "test": "vitest run --config vite.config.ts",
+    "test:perf": "vitest run --config vite.config.ts src/tests/**/*.performance.test.ts",
+    "test:coverage": "vitest run --config vite.config.ts --coverage"
+  },
+  "dependencies": {
+    "@endge/raph": "workspace:*",
+    "@endge/utils": "workspace:*",
+    "class-transformer": "^0.5.1",
+    "gl-matrix": "^3.4.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/tsconfig": "^0.7.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "jsdom": "^26.1.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~5.7.3",
+    "vite": "^6.1.0",
+    "vite-plugin-dts": "^4.5.0",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^2.2.0"
+  }
+}
