@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NovaRenderer2D } from '@/model/renderers/web2d/NovaRenderer2D'
+import { NovaRendererWebGL } from '@/model/renderers/webgl/NovaRendererWebGL'
 import { NovaRendererWebGLOld } from '@/model/renderers/webgl_old/NovaRendererWebGLOld'
 import { NovaRenderQueueRenderer } from '@/model/renderers/shared/NovaRenderQueueRenderer'
+import { NovaRenderBuilder } from '@/model/rendering/compiler/NovaRenderBuilder'
+import { NovaRenderCommandWriter } from '@/model/rendering/compiler/NovaRenderCommandWriter'
+import { NovaRenderFrameBuilder } from '@/model/rendering/compiler/NovaRenderFrameBuilder'
+import { NovaTextAtlasManager } from '@/model/rendering/resources/NovaTextAtlasManager'
+import { resolveNovaRendererConfig } from '@/model/rendering/policy/NovaRenderPolicy'
+import { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import type { NovaRenderer, NovaSchema } from '@/domain/types/renderer-types'
 
@@ -228,6 +235,22 @@ function measureRenderer(renderer: NovaRenderer, schema: NovaSchema, frames = ST
   }
 }
 
+function compileSchemaFrame(canvas: NovaCanvas, schema: NovaSchema): ReturnType<NovaRenderFrameBuilder['build']> {
+  const frameBuilder = new NovaRenderFrameBuilder('perf-surface', {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    dpr: canvas.dpr,
+  })
+  const writer = new NovaRenderCommandWriter(frameBuilder)
+  const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+
+  builder.schemaBatched(schema)
+
+  return frameBuilder.build()
+}
+
 function expectFastRenderer(name: string, result: RendererMeasure): void {
   console.info(`[NovaRendererPerf] ${name}: ${result.fps.toFixed(0)} fps, ${result.frameMs.toFixed(2)} ms/frame`)
   expect(result.fps).toBeGreaterThan(MIN_MOCK_FPS)
@@ -272,6 +295,55 @@ describe('Nova renderer performance smoke tests', () => {
     console.info(`[NovaRendererPerf] webgl mixed fallback stress: ${result.fps.toFixed(0)} fps, ${result.frameMs.toFixed(2)} ms/frame`)
     expect(result.fps).toBeGreaterThan(MIN_FALLBACK_MOCK_FPS)
     expect(gl.__stats.drawArrays / 60).toBeGreaterThan(1)
+  })
+
+  it('keeps new WebGL compiled frame replay within a mock benchmark budget', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(1600, 900, gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schema = createRectStressSchema()
+    const frame = compileSchemaFrame(canvas, schema)
+
+    for (let i = 0; i < 10; i++) {
+      renderer.renderFrame(frame)
+    }
+
+    const startedAt = performance.now()
+    for (let frameIndex = 0; frameIndex < STRESS_FRAMES; frameIndex++) {
+      renderer.renderFrame(frame)
+    }
+    const elapsedMs = performance.now() - startedAt
+    const frameMs = elapsedMs / STRESS_FRAMES
+    const fps = frameMs > 0 ? 1000 / frameMs : Number.POSITIVE_INFINITY
+
+    console.info(`[NovaRendererPerf] webgl new compiled frame rect stress: ${fps.toFixed(0)} fps, ${frameMs.toFixed(2)} ms/frame`)
+    expect(fps).toBeGreaterThan(MIN_FALLBACK_MOCK_FPS)
+    expect(renderer.diagnostics.lastFrame?.items).toHaveLength(STRESS_RECT_COUNT)
+  })
+
+  it('keeps TextRunAtlas static and partial-change workloads within a mock budget', () => {
+    const atlas = new NovaTextAtlasManager(resolveNovaRendererConfig().text)
+    const labels = Array.from({ length: 1000 }, (_, index) => ({
+      type: 'text' as const,
+      text: `Label ${index}`,
+      x: 0,
+      y: index * 16,
+      width: 100,
+      height: 16,
+    }))
+
+    const startedAt = performance.now()
+    for (const label of labels) {
+      atlas.resolve(label, 1)
+    }
+    for (let index = 0; index < labels.length; index += 20) {
+      atlas.resolve({ ...labels[index], text: `${labels[index].text}*` }, 1)
+    }
+    const elapsedMs = performance.now() - startedAt
+
+    console.info(`[NovaRendererPerf] text atlas 1k labels + 5% changes: ${elapsedMs.toFixed(2)} ms, ${atlas.memoryMB.toFixed(2)} MB`)
+    expect(elapsedMs).toBeLessThan(120)
+    expect(atlas.memoryMB).toBeLessThan(128)
   })
 
   it('keeps queue collection and flush overhead within a mock budget', () => {

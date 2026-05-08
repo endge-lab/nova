@@ -12,110 +12,137 @@ import type {
   NovaSchema,
   NovaText,
 } from '@/domain/types/renderer-types'
+import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
 import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
-
-const WEBGL_NOT_IMPLEMENTED_MESSAGE =
-  'NovaRendererWebGL is not implemented yet. Use RendererType.WebGLOld for the current legacy WebGL backend.'
+import { NovaRendererWebGLOld } from '@/model/renderers/webgl_old/NovaRendererWebGLOld'
+import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
+import { NovaSchemaRegistry as NovaSchemaRegistryCtor } from '@/model/core/NovaSchemaRegistry'
+import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/rendering/policy/NovaRenderPolicy'
+import { NovaWebGLDevice } from '@/model/renderers/webgl/NovaWebGLDevice'
+import { NovaWebGLDiagnostics } from '@/model/renderers/webgl/NovaWebGLDiagnostics'
+import { NovaWebGLFrameRenderer } from '@/model/renderers/webgl/NovaWebGLFrameRenderer'
+import { NovaWebGLTargetManager } from '@/model/renderers/webgl/NovaWebGLTargetManager'
+import { NovaWebGLTextRenderer } from '@/model/renderers/webgl/NovaWebGLTextRenderer'
+import { NovaWebGLTextureManager } from '@/model/renderers/webgl/NovaWebGLTextureManager'
 
 export class NovaRendererWebGL implements NovaRenderer {
   readonly id: string = randomString(5)
-  readonly novaCanvas: NovaCanvas
   readonly capabilities: NovaRendererCapabilities = {
     canvas2d: false,
     webgl: true,
-    schema: false,
-    rect: false,
-    border: false,
-    line: false,
-    circle: false,
-    polygon: false,
-    icon: false,
-    text: false,
-    measureText: false,
+    schema: true,
+    rect: true,
+    border: true,
+    line: true,
+    circle: true,
+    polygon: true,
+    icon: true,
+    text: true,
+    measureText: true,
   }
 
-  constructor(novaCanvas: NovaCanvas) {
-    this.novaCanvas = novaCanvas
-    this.notImplemented()
+  readonly device: NovaWebGLDevice
+  readonly diagnostics = new NovaWebGLDiagnostics()
+  readonly targets: NovaWebGLTargetManager
+  readonly textures: NovaWebGLTextureManager
+  readonly textRenderer: NovaWebGLTextRenderer
+
+  private readonly _compatRenderer: NovaRendererWebGLOld
+  private readonly _frameRenderer: NovaWebGLFrameRenderer
+
+  constructor(
+    readonly novaCanvas: NovaCanvas,
+    schemaRegistry: NovaSchemaRegistry = new NovaSchemaRegistryCtor(),
+    rendererConfig: NovaRendererConfig = DEFAULT_NOVA_RENDERER_CONFIG,
+  ) {
+    this.device = new NovaWebGLDevice(novaCanvas)
+    this.targets = new NovaWebGLTargetManager(this.device.gl)
+    this.textures = new NovaWebGLTextureManager(this.device.gl)
+    this.textRenderer = new NovaWebGLTextRenderer(rendererConfig.text)
+    this._compatRenderer = new NovaRendererWebGLOld(novaCanvas, schemaRegistry)
+    this._frameRenderer = new NovaWebGLFrameRenderer(this._compatRenderer)
   }
 
-  schema(_schema: NovaSchema<any>): void {
-    this.notImplemented()
+  renderFrame(frame: NovaRenderFrame): NovaRenderMetrics {
+    const metrics = this._frameRenderer.render(frame)
+    this.diagnostics.capture(frame, metrics)
+    return metrics
   }
 
-  schemaBatched(_schema: NovaSchema<any>): void {
-    this.notImplemented()
+  schema(schema: NovaSchema<any>): void {
+    this._compatRenderer.schema(schema)
   }
 
-  schemaOrdered(_schema: NovaSchema<any>): void {
-    this.notImplemented()
+  schemaBatched(schema: NovaSchema<any>): void {
+    this._compatRenderer.schemaBatched(schema)
+  }
+
+  schemaOrdered(schema: NovaSchema<any>): void {
+    this._compatRenderer.schemaOrdered(schema)
   }
 
   save(): void {
-    this.notImplemented()
+    this._compatRenderer.save()
   }
 
   restore(): void {
-    this.notImplemented()
+    this._compatRenderer.restore()
   }
 
   clear(): void {
-    this.notImplemented()
+    this._compatRenderer.clear()
   }
 
-  clip(_x: number, _y: number, _width: number, _height: number): void {
-    this.notImplemented()
+  clip(x: number, y: number, width: number, height: number): void {
+    this._compatRenderer.clip(x, y, width, height)
   }
 
   clearClip(): void {
-    this.notImplemented()
+    this._compatRenderer.clearClip()
   }
 
-  setTransform(_matrix: mat3): void {
-    this.notImplemented()
+  setTransform(matrix: mat3): void {
+    this._compatRenderer.setTransform(matrix)
   }
 
-  text(_params: NovaText): void {
-    this.notImplemented()
+  text(params: NovaText): void {
+    this._compatRenderer.text(params)
   }
 
-  rect(_params: NovaRect): void {
-    this.notImplemented()
+  rect(params: NovaRect): void {
+    this._compatRenderer.rect(params)
   }
 
-  border(_params: NovaBorder): void {
-    this.notImplemented()
+  border(params: NovaBorder): void {
+    this._compatRenderer.border(params)
   }
 
-  line(_params: NovaLine): void {
-    this.notImplemented()
+  line(params: NovaLine): void {
+    this._compatRenderer.line(params)
   }
 
-  circle(_params: NovaCircle): void {
-    this.notImplemented()
+  circle(params: NovaCircle): void {
+    this._compatRenderer.circle(params)
   }
 
-  polygon(_params: NovaPolygon): void {
-    this.notImplemented()
+  polygon(params: NovaPolygon): void {
+    this._compatRenderer.polygon(params)
   }
 
-  icon(_params: NovaIcon): void {
-    this.notImplemented()
+  icon(params: NovaIcon): void {
+    this._compatRenderer.icon(params)
   }
 
-  measureText(_params: NovaText): { width: number; height: number } {
-    this.notImplemented()
+  measureText(params: NovaText): { width: number; height: number } {
+    return this._compatRenderer.measureText(params)
   }
 
-  cursor(_type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): void {
-    this.notImplemented()
+  cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): void {
+    this._compatRenderer.cursor(type)
   }
 
   destroy(): void {
-    /* no resources until the new renderer is implemented */
-  }
-
-  private notImplemented(): never {
-    throw new Error(WEBGL_NOT_IMPLEMENTED_MESSAGE)
+    this.textures.destroy()
+    this._compatRenderer.destroy()
   }
 }

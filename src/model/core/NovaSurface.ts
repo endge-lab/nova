@@ -2,6 +2,8 @@ import type { NovaApp } from '@/model/app/NovaApp'
 import { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import { NovaRenderQueueRenderer, type NovaRenderQueueSnapshot } from '@/model/renderers/shared/NovaRenderQueueRenderer'
 import { assertNovaRendererTypeImplemented, createNovaRenderer } from '@/model/renderers/shared/NovaRendererFactory'
+import { NovaRendererWebGL } from '@/model/renderers/webgl/NovaRendererWebGL'
+import { NovaRenderCompiler } from '@/model/rendering/compiler/NovaRenderCompiler'
 import {
   RendererType,
   type NovaRenderer,
@@ -25,6 +27,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   private _renderer: NovaRenderer
   private _queueRenderer: NovaRenderQueueRenderer
   private _activeRenderer: NovaRenderer
+  private _renderCompiler?: NovaRenderCompiler<E>
 
   protected _dirty: boolean = false
   private _renderPipeline: NovaRenderPipeline = 'immediate'
@@ -55,9 +58,15 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
     assertNovaRendererTypeImplemented(type)
     this._canvas = this._createCanvas(app.width, app.height)
-    this._renderer = createNovaRenderer(type, this._canvas, app.schema)
+    this._renderer = createNovaRenderer(type, this._canvas, app.schema, app.rendererConfig)
     this._queueRenderer = new NovaRenderQueueRenderer(this._renderer)
     this._activeRenderer = this._renderer
+    if (type === RendererType.WebGL) {
+      this._renderCompiler = new NovaRenderCompiler({
+        schemaRegistry: app.schema,
+        rendererConfig: app.rendererConfig,
+      })
+    }
 
     this._subscribeToCanvasContextEvents()
 
@@ -87,7 +96,6 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   // Помимо базовой отрисовки в локальных координатах,
   // Очищаем второй буфер
   doRender(): void {
-    this._renderer.clear()
     this._renderSubtreeStats = {
       rebuiltNodes: 0,
       cachedNodes: 0,
@@ -96,6 +104,19 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
       testedNodes: 0,
       culledNodes: 0,
     }
+
+    if (this._rendererType === RendererType.WebGL && this._renderer instanceof NovaRendererWebGL && this._renderCompiler) {
+      const { frame } = this._renderCompiler.compileSurface(this)
+      this._renderer.renderFrame(frame)
+      this._renderQueueStats = {
+        commands: frame.metrics.commands,
+        items: frame.metrics.items,
+        batches: frame.metrics.batches,
+      }
+      return
+    }
+
+    this._renderer.clear()
 
     if (this._renderPipeline === 'queue') {
       this._queueRenderer.clearQueue()
@@ -114,7 +135,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   canUseRenderSubtreeQueue(): boolean {
-    return this._renderPipeline === 'queue' && this._renderDirtyMode === 'subtree'
+    return this._rendererType !== RendererType.WebGL && this._renderPipeline === 'queue' && this._renderDirtyMode === 'subtree'
   }
 
   beginRenderQueueSnapshot(): number {
@@ -128,6 +149,16 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   replayRenderQueueSnapshot(snapshot: NovaRenderQueueSnapshot): void {
     this._queueRenderer.appendSnapshot(snapshot)
     this._renderSubtreeStats.cachedNodes += 1
+  }
+
+  renderWithRenderer(renderer: NovaRenderer): void {
+    const previous = this._activeRenderer
+    this._activeRenderer = renderer
+    try {
+      super.doRender()
+    } finally {
+      this._activeRenderer = previous
+    }
   }
 
   markRenderNodeRebuilt(): void {
@@ -196,7 +227,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
     // Создаём новый канвас и рендерер
     const newCanvas = this._createCanvas(this._novaApp.width, this._novaApp.height)
-    const newRenderer = createNovaRenderer(this._rendererType, newCanvas, this._novaApp.schema)
+    const newRenderer = createNovaRenderer(this._rendererType, newCanvas, this._novaApp.schema, this._novaApp.rendererConfig)
 
     // Подписываемся на события снова
     newCanvas.onContextLost(() => {
@@ -208,6 +239,12 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     this._renderer = newRenderer
     this._queueRenderer.setTarget(newRenderer)
     this._activeRenderer = newRenderer
+    if (this._rendererType === RendererType.WebGL) {
+      this._renderCompiler = new NovaRenderCompiler({
+        schemaRegistry: this._novaApp.schema,
+        rendererConfig: this._novaApp.rendererConfig,
+      })
+    }
 
     // Восстанавливаем размеры
     this.options({

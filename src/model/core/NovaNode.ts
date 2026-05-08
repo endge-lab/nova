@@ -16,6 +16,19 @@ import type { EventList } from '@endge/utils'
 import { boundsEquals, boundsIntersects, copyBounds, createEmptyBounds, transformBounds } from '@/domain/utils/bounds'
 import { resolveSchemaBounds } from '@/domain/utils/schemaBounds'
 import type { NovaRenderQueueSnapshot } from '@/model/renderers/shared/NovaRenderQueueRenderer'
+import type {
+  NovaRenderDirtyFlags,
+  NovaRenderPolicy,
+  NovaRenderPolicyInput,
+  NovaRenderVersions,
+} from '@/domain/types/rendering/index'
+import {
+  bumpRenderVersions,
+  createCleanRenderDirtyFlags,
+  createRenderVersions,
+  mergeRenderDirtyFlags,
+  resolveNovaRenderPolicy,
+} from '@/model/rendering/policy/NovaRenderPolicy'
 
 function hasSpatialOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number }): boolean {
   return (
@@ -53,6 +66,9 @@ export class NovaNode<
   private _renderQueueSnapshot: NovaRenderQueueSnapshot | null = null
   private _lifecycleState: NovaLifecycleState = 'created'
   private _hasLocalRenderBounds = false
+  private _renderPolicy: NovaRenderPolicy = resolveNovaRenderPolicy()
+  private readonly _renderDirtyFlags: NovaRenderDirtyFlags = createCleanRenderDirtyFlags()
+  private readonly _renderVersions: NovaRenderVersions = createRenderVersions()
 
   //
   // CTOR
@@ -332,6 +348,7 @@ export class NovaNode<
     const { matrix, update, render } = opts
     if (update) this.raph.dirty('update', this)
     if (matrix) {
+      this.markRenderDirtyFlags({ transform: true, layout: true, visibility: true })
       this.markRenderSubtreeDirty(true)
       this.nova.events.markSpatialDirty(this, true)
       this.raph.dirty('matrix', this)
@@ -339,6 +356,7 @@ export class NovaNode<
       this.raph.dirty('flush', this.surface)
     }
     if (render) {
+      this.markRenderDirtyFlags({ paint: true, resource: true, cache: true })
       this.markRenderSubtreeDirty(true)
       this.nova.events.markSpatialDirty(this)
       this.raph.dirty('render', this.surface) // отрисовка всегда от корня слоя
@@ -556,6 +574,59 @@ export class NovaNode<
     return this._renderSubtreeDirty
   }
 
+  get renderPolicy(): NovaRenderPolicy {
+    return this._renderPolicy
+  }
+
+  set renderPolicy(value: NovaRenderPolicyInput) {
+    this._renderPolicy = resolveNovaRenderPolicy(value)
+    this.markRenderDirtyFlags({ cache: true })
+    this.markRenderSubtreeDirty(true)
+  }
+
+  get renderDirtyFlags(): NovaRenderDirtyFlags {
+    return { ...this._renderDirtyFlags }
+  }
+
+  get renderVersions(): NovaRenderVersions {
+    return { ...this._renderVersions }
+  }
+
+  get transformVersion(): number {
+    return this._renderVersions.transform
+  }
+
+  get layoutVersion(): number {
+    return this._renderVersions.layout
+  }
+
+  get paintVersion(): number {
+    return this._renderVersions.paint
+  }
+
+  get childrenVersion(): number {
+    return this._renderVersions.children
+  }
+
+  get resourceVersion(): number {
+    return this._renderVersions.resource
+  }
+
+  configureRenderPolicy(value: NovaRenderPolicyInput): this {
+    this.renderPolicy = value
+    return this
+  }
+
+  markRenderDirtyFlags(flags: Partial<NovaRenderDirtyFlags>): void {
+    mergeRenderDirtyFlags(this._renderDirtyFlags, flags)
+    bumpRenderVersions(this._renderVersions, flags)
+  }
+
+  clearRenderDirtyFlags(): void {
+    const clean = createCleanRenderDirtyFlags()
+    Object.assign(this._renderDirtyFlags, clean)
+  }
+
   get lifecycleState(): NovaLifecycleState {
     return this._lifecycleState
   }
@@ -698,6 +769,7 @@ export class NovaNode<
       this.ensureRenderOrder(node)
     }
     const result = super.addChild(node, options)
+    this.markRenderDirtyFlags({ children: true, cache: true })
     this.markRenderSubtreeDirty(false)
     if (node instanceof NovaNode) {
       if (this._lifecycleState === 'mounted' || this._lifecycleState === 'paused') {

@@ -2,6 +2,7 @@ import type { RaphProperties } from '@endge/raph'
 import type { RaphSchedulerType } from '@endge/raph'
 import type { mat3 } from 'gl-matrix'
 import type { RendererType } from '@/domain/types/renderer-types'
+import type { NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import type { EventList } from '@endge/utils'
 import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 
@@ -92,6 +93,7 @@ export interface NovaRendererOptions {
   main?: RendererType
   defaultSurface?: RendererType
   webgl?: WebGLContextAttributes
+  config?: NovaRendererConfigInput
 }
 
 export interface NovaSchedulerOptions {

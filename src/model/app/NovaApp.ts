@@ -26,6 +26,8 @@ import type { NovaScene } from '@/model/core/NovaScene'
 import { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 import { NovaComponentRegistry } from '@/model/core/NovaComponentRegistry'
 import { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
+import type { NovaRendererConfig, NovaRendererConfigInput } from '@/domain/types/rendering/index'
+import { resolveNovaRendererConfig } from '@/model/rendering/policy/NovaRenderPolicy'
 
 export class NovaApp<E extends EventList = Record<string, any>> {
   // Ядро
@@ -35,6 +37,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   private readonly _events: NovaEvents<E>
   private readonly _inputOptions: ResolvedNovaInputOptions
   private readonly _webglAttributes?: WebGLContextAttributes
+  private _rendererConfig: NovaRendererConfig
   private readonly _surfaceOrder = new WeakMap<NovaSurface<E>, number>()
   private readonly _orderedSurfaces: Array<NovaSurface<E>> = []
   private _surfaceOrderCounter = 0
@@ -70,6 +73,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
     this._inputOptions = this.resolveInputOptions(options.input)
     this._webglAttributes = options.renderer?.webgl
+    this._rendererConfig = resolveNovaRendererConfig(options.renderer?.config)
     this._canvas = NovaCanvas.attach(options.target, {
       ...options.size,
       webgl: this._webglAttributes,
@@ -254,6 +258,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this._events.hitTestMode = mode
   }
 
+  configureRenderer(config: NovaRendererConfigInput): NovaRendererConfig {
+    this._rendererConfig = resolveNovaRendererConfig(config, this._rendererConfig)
+    return this._rendererConfig
+  }
+
   createScene<T extends NovaScene<E>>(SceneClass: new (app: NovaApp<E>, ...args: any[]) => T, ...args: any[]): T {
     const scene = new SceneClass(this, ...args)
     scene.mount()
@@ -306,6 +315,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
   get webglAttributes(): WebGLContextAttributes | undefined {
     return this._webglAttributes
+  }
+
+  get rendererConfig(): NovaRendererConfig {
+    return this._rendererConfig
   }
 
   get inputOptions(): ResolvedNovaInputOptions {

@@ -4,6 +4,7 @@ import {
   NovaNode,
   RaphSchedulerType,
   RendererType,
+  NovaRendererWebGL,
   type NovaApp,
   type NovaSurface,
 } from '@/index'
@@ -30,6 +31,97 @@ function create2DContextStub(): CanvasRenderingContext2D {
   }) as CanvasRenderingContext2D
 }
 
+function createWebGLContextStub(): WebGLRenderingContext {
+  const constants: Record<string, number> = {
+    ARRAY_BUFFER: 0x8892,
+    BLEND: 0x0be2,
+    CLAMP_TO_EDGE: 0x812f,
+    COLOR_BUFFER_BIT: 0x4000,
+    COMPILE_STATUS: 0x8b81,
+    CONTEXT_LOST_WEBGL: 0x9242,
+    DYNAMIC_DRAW: 0x88e8,
+    FLOAT: 0x1406,
+    FRAGMENT_SHADER: 0x8b30,
+    INVALID_ENUM: 0x0500,
+    INVALID_OPERATION: 0x0502,
+    INVALID_VALUE: 0x0501,
+    LINEAR: 0x2601,
+    LINK_STATUS: 0x8b82,
+    MAX_TEXTURE_SIZE: 0x0d33,
+    NEAREST: 0x2600,
+    NO_ERROR: 0,
+    ONE: 1,
+    ONE_MINUS_SRC_ALPHA: 0x0303,
+    OUT_OF_MEMORY: 0x0505,
+    RGBA: 0x1908,
+    SCISSOR_TEST: 0x0c11,
+    SRC_ALPHA: 0x0302,
+    STATIC_DRAW: 0x88e4,
+    TEXTURE0: 0x84c0,
+    TEXTURE_2D: 0x0de1,
+    TEXTURE_MAG_FILTER: 0x2800,
+    TEXTURE_MIN_FILTER: 0x2801,
+    TEXTURE_WRAP_S: 0x2802,
+    TEXTURE_WRAP_T: 0x2803,
+    TRIANGLES: 0x0004,
+    UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+    UNSIGNED_BYTE: 0x1401,
+    VERTEX_SHADER: 0x8b31,
+  }
+
+  const state: Record<PropertyKey, any> = {
+    ...constants,
+    activeTexture: vi.fn(),
+    attachShader: vi.fn(),
+    bindBuffer: vi.fn(),
+    bindTexture: vi.fn(),
+    blendFuncSeparate: vi.fn(),
+    bufferData: vi.fn(),
+    bufferSubData: vi.fn(),
+    clear: vi.fn(),
+    clearColor: vi.fn(),
+    compileShader: vi.fn(),
+    createBuffer: vi.fn(() => ({})),
+    createProgram: vi.fn(() => ({})),
+    createShader: vi.fn(() => ({})),
+    createTexture: vi.fn(() => ({})),
+    deleteBuffer: vi.fn(),
+    deleteProgram: vi.fn(),
+    deleteShader: vi.fn(),
+    deleteTexture: vi.fn(),
+    detachShader: vi.fn(),
+    disable: vi.fn(),
+    drawArrays: vi.fn(),
+    enable: vi.fn(),
+    enableVertexAttribArray: vi.fn(),
+    getAttribLocation: vi.fn(() => 0),
+    getError: vi.fn(() => constants.NO_ERROR),
+    getExtension: vi.fn(() => null),
+    getParameter: vi.fn(() => 4096),
+    getProgramInfoLog: vi.fn(() => ''),
+    getProgramParameter: vi.fn(() => true),
+    getShaderInfoLog: vi.fn(() => ''),
+    getShaderParameter: vi.fn(() => true),
+    getUniformLocation: vi.fn(() => ({})),
+    linkProgram: vi.fn(),
+    pixelStorei: vi.fn(),
+    scissor: vi.fn(),
+    shaderSource: vi.fn(),
+    texImage2D: vi.fn(),
+    texParameteri: vi.fn(),
+    uniform1f: vi.fn(),
+    uniform1i: vi.fn(),
+    uniform2f: vi.fn(),
+    uniform4f: vi.fn(),
+    uniformMatrix3fv: vi.fn(),
+    useProgram: vi.fn(),
+    vertexAttribPointer: vi.fn(),
+    viewport: vi.fn(),
+  }
+
+  return state as WebGLRenderingContext
+}
+
 function installCanvasMocks(): void {
   Object.defineProperty(window, 'devicePixelRatio', {
     value: 2,
@@ -39,6 +131,10 @@ function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
     if (type === RendererType.Web2D) {
       return create2DContextStub()
+    }
+
+    if (type === RendererType.WebGL || type === RendererType.WebGLOld || type === 'webgl' || type === 'experimental-webgl') {
+      return createWebGLContextStub()
     }
 
     return null
@@ -250,10 +346,50 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
-  it('keeps the new WebGL surface API disabled until the renderer is implemented', () => {
+  it('exposes renderer config and node renderPolicy defaults with overrides', () => {
     const app = createApp()
+    const surface = app.createSurface2D('policy-surface')
+    const node = surface.createNode()
 
-    expect(() => app.createSurfaceWebGL('new-webgl')).toThrow(/NovaRendererWebGL is not implemented yet/)
+    expect(node.renderPolicy).toMatchObject({
+      group: 'auto',
+      cache: 'auto',
+      textQuality: 'auto',
+      updateMode: 'dynamic',
+      layer: 'auto',
+    })
+
+    node.configureRenderPolicy({
+      group: 'always',
+      cache: 'texture',
+      textQuality: 'crisp',
+    })
+
+    expect(node.renderPolicy).toMatchObject({
+      group: 'always',
+      cache: 'texture',
+      textQuality: 'crisp',
+      updateMode: 'dynamic',
+    })
+    expect(node.renderDirtyFlags.cache).toBe(true)
+
+    const config = app.configureRenderer({
+      text: {
+        maxAtlasMemoryMB: 64,
+      },
+    })
+
+    expect(config.text.maxAtlasMemoryMB).toBe(64)
+    expect(config.batching.maxBatchSize).toBe(8192)
+
+    app.destroy()
+  })
+
+  it('creates the new WebGL surface through the render compiler renderer', () => {
+    const app = createApp()
+    const surface = app.createSurfaceWebGL('new-webgl')
+
+    expect(surface.renderer).toBeInstanceOf(NovaRendererWebGL)
 
     app.destroy()
   })
