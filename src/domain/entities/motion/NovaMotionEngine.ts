@@ -4,6 +4,14 @@ import { NovaComponentNode } from '@/domain/entities/core/NovaComponentNode'
 import { NovaNode } from '@/domain/entities/core/NovaNode'
 import { clampMotionProgress, resolveNovaMotionEasing } from '@/domain/entities/motion/NovaMotionEasing'
 import { interpolateNovaMotionValue } from '@/domain/entities/motion/NovaMotionInterpolation'
+import {
+  runNovaMotionPattern,
+  runNovaMotionPreset,
+  type NovaMotionPatternName,
+  type NovaMotionPatternOptions,
+  type NovaMotionPresetName,
+  type NovaMotionPresetOptions,
+} from '@/domain/entities/motion/NovaMotionPresets'
 import { compileNovaMotionTimeline } from '@/domain/entities/motion/NovaMotionTimeline'
 import type {
   NovaMotionOptions,
@@ -75,6 +83,22 @@ export class NovaMotionEngine {
     this.addPlayback(playback, segments, options)
     if (options.autoplay !== false) playback.play()
     return playback
+  }
+
+  preset(
+    target: NovaMotionTarget,
+    name: NovaMotionPresetName,
+    options: NovaMotionPresetOptions = {},
+  ): NovaMotionPlayback {
+    return runNovaMotionPreset(this, target, name, options)
+  }
+
+  pattern(
+    targets: NovaMotionTarget[],
+    name: NovaMotionPatternName,
+    options: NovaMotionPatternOptions = {},
+  ): NovaMotionPlayback {
+    return runNovaMotionPattern(this, targets, name, options)
   }
 
   cancel(target?: NovaMotionTarget): void {
