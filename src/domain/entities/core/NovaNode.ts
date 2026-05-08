@@ -28,6 +28,7 @@ function hasSpatialOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number
     || opts.rotation !== undefined
     || opts.active !== undefined
     || opts.visible !== undefined
+    || opts.opacity !== undefined
     || opts.interactive !== undefined
     || opts.zIndex !== undefined
   )
@@ -108,6 +109,14 @@ export class NovaNode<
     this.setLocal('localVisible', v)
     this.nova.events.markSpatialDirty(this, true)
     this.dirty({ render: true })
+  }
+
+  @RaphProperty({ phase: 'render', default: 1 })
+  get opacity(): number {
+    return this.get('opacity')
+  }
+  set opacity(v: number) {
+    this.set('opacity', v)
   }
 
   //
@@ -612,6 +621,7 @@ export class NovaNode<
   override dispose(): void {
     if (this._lifecycleState === 'destroyed') return
 
+    this.nova.motion.cancel(this)
     this.unmountSubtree()
     super.dispose()
     this.offAll()

@@ -25,6 +25,7 @@ import type { RaphNode } from '@endge/raph'
 import type { NovaScene } from '@/domain/entities/core/NovaScene'
 import { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
 import { NovaComponentRegistry } from '@/domain/entities/core/NovaComponentRegistry'
+import { NovaMotionEngine } from '@/domain/entities/motion/NovaMotionEngine'
 
 export class NovaApp<E extends EventList = Record<string, any>> {
   // Ядро
@@ -41,6 +42,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   readonly store = new NovaStore()
   readonly schema: NovaSchemaRegistry
   readonly components = new NovaComponentRegistry()
+  readonly motion = new NovaMotionEngine(this)
   readonly bus: EventBus<E>
 
   // NovaAppOptions
@@ -110,8 +112,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   // RAPH CORE
   //
   @RaphLocalPhase({ name: 'before', priority: -1, always: true })
-  before(): void {
+  before(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
     this.__debugger.frameStart()
+    this.motion.tick(p.frame)
   }
 
   @RaphLocalPhase({ name: 'preupdate', priority: 0 })
@@ -454,6 +457,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   }
 
   destroy(): void {
+    this.motion.destroy()
+
     // Снимаем события с canvas
     for (const [domEvent, handler] of Object.entries(this._boundCanvasEvents)) {
       this._canvas.element.removeEventListener(domEvent, handler)

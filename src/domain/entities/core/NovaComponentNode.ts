@@ -3,6 +3,7 @@ import type { NovaApp } from '@/domain/entities/app/NovaApp'
 import type { NovaSurface } from '@/domain/entities/core/NovaSurface'
 import type { NovaComponentDescriptor } from '@/domain/types/component-types'
 import type { EventList } from '@endge/utils'
+import type { NovaMotionOptions, NovaMotionPlayback } from '@/domain/types/motion-types'
 
 export abstract class NovaComponentNode<
   TProps extends Record<string, any> = Record<string, any>,
@@ -64,6 +65,10 @@ export abstract class NovaComponentNode<
 
   protected onPropsChanged(_changedKeys: (keyof TProps)[]): void {}
 
+  protected transitionTo(patch: Partial<TProps>, options?: NovaMotionOptions): NovaMotionPlayback {
+    return this.nova.motion.to(this, patch as Record<string, any>, options)
+  }
+
   private resolveDirty(changedKeys: (keyof TProps)[]): { matrix?: boolean; update?: boolean; render?: boolean } {
     const policy = this.descriptor.dirtyPolicy
     if (!policy) return { update: true, render: true }
@@ -85,4 +90,3 @@ function intersects<T>(changedKeys: readonly T[], policyKeys?: readonly T[]): bo
   if (!policyKeys?.length) return false
   return changedKeys.some(key => policyKeys.includes(key))
 }
-

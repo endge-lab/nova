@@ -29,6 +29,7 @@ export interface NovaNodeProperties extends RaphProperties {
 
   // Фаза - render. Вычисляется из localVisible и visible родителя.
   visible: boolean
+  opacity: number
   width: number
   height: number
 }
