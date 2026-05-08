@@ -632,34 +632,32 @@ export class NovaEvents<E extends EventList> {
     if (event.cancelBubble || event.repeat) return false
 
     if (this.focusedNode?.active) {
-      this.dispatchKeyboard('keydown', event, this.focusedNode)
-      return true
+      return this.dispatchKeyboard('keydown', event, this.focusedNode)
     }
 
     for (const node of this.interactiveNodes) {
       if (node.active) {
-        node.eventHandlers['keydown']?.(event)
-        if (event.cancelBubble) break
+        this.callHandler(node.eventHandlers['keydown'], event)
+        if (event.cancelBubble || event.defaultPrevented) return true
       }
     }
-    return true
+    return false
   }
 
   private onKeyUp(event: KeyboardEvent): boolean {
     if (event.cancelBubble) return false
 
     if (this.focusedNode?.active) {
-      this.dispatchKeyboard('keyup', event, this.focusedNode)
-      return true
+      return this.dispatchKeyboard('keyup', event, this.focusedNode)
     }
 
     for (const node of this.interactiveNodes) {
       if (node.active) {
-        node.eventHandlers['keyup']?.(event)
-        if (event.cancelBubble) break
+        this.callHandler(node.eventHandlers['keyup'], event)
+        if (event.cancelBubble || event.defaultPrevented) return true
       }
     }
-    return true
+    return false
   }
 
   private onCanvasEnter(event: MouseEvent): boolean {
@@ -728,11 +726,11 @@ export class NovaEvents<E extends EventList> {
       if (event.cancelBubble) return true
     }
     this.callHandler(target.eventHandlers[type], event)
-    if (event.cancelBubble) return true
+    if (event.cancelBubble || event.defaultPrevented) return true
     for (const node of path.slice(0, -1).reverse()) {
       this.callHandler(node.eventHandlers[type], event)
-      if (event.cancelBubble) return true
+      if (event.cancelBubble || event.defaultPrevented) return true
     }
-    return true
+    return false
   }
 }

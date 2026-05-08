@@ -181,6 +181,7 @@ describe('NovaRendererWebGL', () => {
 
   it('renders rect and border schema primitives without texture work', () => {
     const { renderer, gl } = createRenderer()
+    const rectProgram = vi.mocked(gl.createProgram).mock.results[0]?.value
 
     expect(() => {
       renderer.schemaOrdered([
@@ -190,6 +191,7 @@ describe('NovaRendererWebGL', () => {
     }).not.toThrow()
 
     expect(gl.drawArrays).toHaveBeenCalled()
+    expect(vi.mocked(gl.useProgram).mock.calls.at(-1)?.[0]).toBe(rectProgram)
     expect(gl.texImage2D).not.toHaveBeenCalled()
   })
 

@@ -244,6 +244,7 @@ export class NovaRendererWebGL implements NovaRenderer {
     gl.useProgram(this.program)
     gl.uniform2f(this.uResolutionLocation, this.novaCanvas.width, this.novaCanvas.height)
     this.applyTransform()
+    gl.useProgram(this.program)
 
     const rects = this._orderedRects.length
     let draws = 0

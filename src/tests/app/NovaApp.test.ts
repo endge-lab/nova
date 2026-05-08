@@ -182,6 +182,41 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
+  it('does not prevent browser shortcuts when no keyboard handler processes the event', () => {
+    const app = createApp({ keyboardScope: 'global' })
+    createInteractiveNode(app)
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'r',
+      metaKey: true,
+      cancelable: true,
+    })
+    window.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+
+    app.destroy()
+  })
+
+  it('does not prevent browser shortcuts when a keyboard handler ignores the event', () => {
+    const app = createApp({ keyboardScope: 'global' })
+    const node = createInteractiveNode(app)
+    const onKeyDown = vi.fn()
+    node.on('keydown', onKeyDown)
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'r',
+      metaKey: true,
+      cancelable: true,
+    })
+    window.dispatchEvent(event)
+
+    expect(onKeyDown).toHaveBeenCalledTimes(1)
+    expect(event.defaultPrevented).toBe(false)
+
+    app.destroy()
+  })
+
   it('keeps active keyboard scope silent until the canvas receives pointer activity', () => {
     const app = createApp({ keyboardScope: 'active' })
     const node = createInteractiveNode(app)
