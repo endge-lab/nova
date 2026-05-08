@@ -170,6 +170,28 @@ describe('NovaMotion presets and patterns', () => {
     app.motion.tick({ now: 220, delta: 170, elapsed: 220, frame: 2 })
     expect(['running', 'finished']).toContain(playback.state)
   })
+
+  it.each(Object.keys(NOVA_MOTION_PATTERNS) as NovaMotionPatternName[])('keeps looping pattern %s alive with repeat infinity', (name) => {
+    const targets = Array.from({ length: 16 }, (_, index) => {
+      const node = surface.createNode(VisualNode)
+      node.options({ x: 20 + (index % 4) * 24, y: 20 + Math.floor(index / 4) * 22 })
+      return node
+    })
+
+    const playback = app.motion.pattern(targets, name, {
+      duration: 100,
+      easing: 'linear',
+      each: 5,
+      columns: 4,
+      distance: 10,
+      repeat: Infinity,
+      yoyo: true,
+    })
+
+    app.motion.tick({ now: 1200, delta: 1200, elapsed: 1200, frame: 1 })
+    expect(playback.state).toBe('running')
+    for (const target of targets) expectMotionNumbers(target)
+  })
 })
 
 function expectMotionNumbers(node: VisualNode): void {
