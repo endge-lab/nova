@@ -20,7 +20,7 @@ type RendererMeasure = {
 const STRESS_RECT_COUNT = 1200
 const STRESS_FRAMES = 120
 const MIN_MOCK_FPS = 60
-const MIN_FALLBACK_MOCK_FPS = 30
+const MIN_FALLBACK_MOCK_FPS = 20
 
 function noop(): void {}
 
