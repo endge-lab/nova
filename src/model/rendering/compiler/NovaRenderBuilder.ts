@@ -16,6 +16,8 @@ import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 import type { NovaRenderCommandWriter } from '@/model/rendering/compiler/NovaRenderCommandWriter'
 
+const FAST_SCHEMA_BATCH_THRESHOLD = 64
+
 export class NovaRenderBuilder implements NovaRenderer {
   readonly id = 'render-builder'
   readonly capabilities: NovaRendererCapabilities = {
@@ -49,10 +51,12 @@ export class NovaRenderBuilder implements NovaRenderer {
   }
 
   schemaBatched(schema: NovaSchema<any>): void {
+    if (this.schemaBatch(schema, 'batched')) return
     this.schema(schema)
   }
 
   schemaOrdered(schema: NovaSchema<any>): void {
+    if (this.schemaBatch(schema, 'ordered')) return
     this.schema(schema)
   }
 
@@ -169,5 +173,13 @@ export class NovaRenderBuilder implements NovaRenderer {
     if (item.clip !== undefined && item.clip !== true) {
       this.clearClip()
     }
+  }
+
+  private schemaBatch(schema: NovaSchema<any>, mode: 'batched' | 'ordered'): boolean {
+    const items = Array.isArray(schema) ? schema : [schema]
+    if (items.length < FAST_SCHEMA_BATCH_THRESHOLD) return false
+
+    this._writer.drawSchemaBatch(items as NovaSchemaItem<any>[], mode)
+    return true
   }
 }

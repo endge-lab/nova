@@ -152,6 +152,7 @@ export type NovaRenderCommandType =
   | 'clip'
   | 'clearClip'
   | 'drawItem'
+  | 'drawSchemaBatch'
   | 'cursor'
   | 'beginGroup'
   | 'endGroup'
@@ -164,6 +165,8 @@ export interface NovaRenderCommand {
   groupId?: NovaRenderGroupId
   layerId?: NovaRenderLayerId
   itemId?: NovaRenderItemId
+  schemaItems?: NovaSchemaItem<any>[]
+  schemaMode?: 'batched' | 'ordered'
   transform?: mat3
   clip?: NovaRenderClip
   cursor?: 'default' | 'pointer' | 'col-resize' | 'row-resize'

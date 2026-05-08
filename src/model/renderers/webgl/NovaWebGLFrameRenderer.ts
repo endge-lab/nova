@@ -10,7 +10,7 @@ export class NovaWebGLFrameRenderer {
 
   render(frame: NovaRenderFrame): NovaRenderMetrics {
     const startedAt = performance.now()
-    const itemMap = new Map(frame.items.map(item => [item.id, item]))
+    const itemMap = frame.items.length > 0 ? new Map(frame.items.map(item => [item.id, item])) : null
     const schemaBatch: NovaSchema<any> = []
     let drawCalls = 0
 
@@ -23,7 +23,7 @@ export class NovaWebGLFrameRenderer {
 
     this._target.clear()
 
-    for (const command of [...frame.commands].sort((a, b) => a.order - b.order)) {
+    for (const command of frame.commands) {
       switch (command.type) {
         case 'clear':
           flushSchema()
@@ -53,10 +53,21 @@ export class NovaWebGLFrameRenderer {
           if (command.cursor) this._target.cursor(command.cursor)
           break
         case 'drawItem': {
-          const item = command.itemId ? itemMap.get(command.itemId) : undefined
+          const item = command.itemId ? itemMap?.get(command.itemId) : undefined
           if (item?.schemaItem) schemaBatch.push(item.schemaItem as NovaSchemaItem<any>)
           break
         }
+        case 'drawSchemaBatch':
+          flushSchema()
+          if (command.schemaItems?.length) {
+            if (command.schemaMode === 'ordered') {
+              this._target.schemaOrdered(command.schemaItems)
+            } else {
+              this._target.schemaBatched(command.schemaItems)
+            }
+            drawCalls += 1
+          }
+          break
         default:
           break
       }

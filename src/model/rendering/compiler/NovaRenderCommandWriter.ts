@@ -90,6 +90,14 @@ export class NovaRenderCommandWriter {
     return renderItem
   }
 
+  drawSchemaBatch(items: NovaSchemaItem<any>[], mode: 'batched' | 'ordered' = 'batched'): NovaRenderCommand {
+    return this.command({
+      type: 'drawSchemaBatch',
+      schemaItems: items,
+      schemaMode: mode,
+    })
+  }
+
   cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): NovaRenderCommand {
     return this.command({
       type: 'cursor',

@@ -318,7 +318,7 @@ describe('Nova renderer performance smoke tests', () => {
 
     console.info(`[NovaRendererPerf] webgl new compiled frame rect stress: ${fps.toFixed(0)} fps, ${frameMs.toFixed(2)} ms/frame`)
     expect(fps).toBeGreaterThan(MIN_FALLBACK_MOCK_FPS)
-    expect(renderer.diagnostics.lastFrame?.items).toHaveLength(STRESS_RECT_COUNT)
+    expect(renderer.diagnostics.lastFrame?.commands.some(command => command.type === 'drawSchemaBatch')).toBe(true)
   })
 
   it('keeps TextRunAtlas static and partial-change workloads within a mock budget', () => {
