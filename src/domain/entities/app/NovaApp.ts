@@ -23,6 +23,8 @@ import { NovaDebug } from '@/domain/entities/app/NovaDebug'
 import { Telemetry } from '@/domain/telemetry'
 import type { RaphNode } from '@endge/raph'
 import type { NovaScene } from '@/domain/entities/core/NovaScene'
+import { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
+import { NovaComponentRegistry } from '@/domain/entities/core/NovaComponentRegistry'
 
 export class NovaApp<E extends EventList = Record<string, any>> {
   // Ядро
@@ -37,6 +39,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   private _surfaceOrderCounter = 0
 
   readonly store = new NovaStore()
+  readonly schema: NovaSchemaRegistry
+  readonly components = new NovaComponentRegistry()
   readonly bus: EventBus<E>
 
   // NovaAppOptions
@@ -68,7 +72,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       ...options.size,
       webgl: this._webglAttributes,
     })
-    this._renderer = new NovaRenderer2D(this._canvas)
+    this.schema = options.schemaRegistry ?? new NovaSchemaRegistry()
+    this._renderer = new NovaRenderer2D(this._canvas, this.schema)
     this._events = new NovaEvents(this)
 
     this.bus = new EventBus<E>(options.predefinedEvents ?? [])
@@ -461,6 +466,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
     this.bus.offAll()
     this.events.reset()
+    this.components.clear()
 
     this.stopLoop()
     this.__debugger.stopDisplayMonitor()

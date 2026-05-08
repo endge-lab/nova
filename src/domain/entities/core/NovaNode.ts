@@ -368,8 +368,8 @@ export class NovaNode<
     return this
   }
 
-  setRenderBoundsFromSchema(schema: NovaSchema): this {
-    return this.setLocalRenderBounds(resolveSchemaBounds(schema))
+  setRenderBoundsFromSchema(schema: NovaSchema<any>): this {
+    return this.setLocalRenderBounds(resolveSchemaBounds(schema, this.nova.schema))
   }
 
   clearLocalRenderBounds(): this {
@@ -623,12 +623,12 @@ export class NovaNode<
     this.nova.events.markSpatialDirty(this, true)
   }
 
-  protected renderSchema(schema: NovaSchema): void {
+  protected renderSchema(schema: NovaSchema<any>): void {
     this.setRenderBoundsFromSchema(schema)
     this.renderer.schema(schema)
   }
 
-  protected renderSchemaOrdered(schema: NovaSchema): void {
+  protected renderSchemaOrdered(schema: NovaSchema<any>): void {
     this.setRenderBoundsFromSchema(schema)
     this.renderer.schemaOrdered(schema)
   }

@@ -19,7 +19,7 @@ type NovaRenderQueueSchemaCommand = {
   type: 'schema'
   matrix: mat3
   matrixKey: string
-  schema: NovaSchema
+  schema: NovaSchema<any>
 }
 
 type NovaRenderQueueControlCommand =
@@ -77,7 +77,7 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
   flush(): NovaRenderQueueStats {
     let batchMatrix: mat3 | null = null
     let batchKey = ''
-    let batchSchema: NovaSchema = []
+    let batchSchema: NovaSchema<any> = []
     const stats: NovaRenderQueueStats = {
       commands: this._commands.length,
       items: 0,
@@ -131,15 +131,15 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
     return stats
   }
 
-  schema(schema: NovaSchema): void {
+  schema(schema: NovaSchema<any>): void {
     this.enqueueSchema(schema)
   }
 
-  schemaBatched(schema: NovaSchema): void {
+  schemaBatched(schema: NovaSchema<any>): void {
     this.enqueueSchema(schema)
   }
 
-  schemaOrdered(schema: NovaSchema): void {
+  schemaOrdered(schema: NovaSchema<any>): void {
     this.enqueueSchema(schema)
   }
 
@@ -215,7 +215,7 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
     this.clearQueue()
   }
 
-  private enqueueSchema(schema: NovaSchema): void {
+  private enqueueSchema(schema: NovaSchema<any>): void {
     if (schema.length === 0) return
 
     this._commands.push({

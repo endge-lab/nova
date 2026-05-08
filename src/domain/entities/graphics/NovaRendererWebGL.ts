@@ -17,6 +17,7 @@ import { randomString } from '@endge/utils'
 import { mat3 } from 'gl-matrix'
 import { Telemetry } from '@/domain/telemetry.ts'
 import { NovaGraphics } from '@/domain/entities/graphics/NovaGraphics'
+import { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
 
 // Debug временно для проверки оптимизации батчинга
 export let _rectCounter = 0
@@ -92,9 +93,11 @@ export class NovaRendererWebGL implements NovaRenderer {
   private readonly _textTextureCache = new Map<string, TextureCacheEntry>()
   private readonly _quadVertices = new Float32Array(12)
   private readonly _textureCoords = new Float32Array([0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1])
+  private readonly _schemaRegistry: NovaSchemaRegistry
 
-  constructor(canvas: NovaCanvas) {
+  constructor(canvas: NovaCanvas, schemaRegistry = new NovaSchemaRegistry()) {
     this.novaCanvas = canvas
+    this._schemaRegistry = schemaRegistry
     this.gl = canvas.getContextWebGL()
     this._glId = (canvas as any)._glId ?? 'gl'
 
@@ -156,19 +159,19 @@ export class NovaRendererWebGL implements NovaRenderer {
     return this.gl
   }
 
-  pushSchema(schema: NovaSchema | NovaSchemaItem[]): void {
+  pushSchema(schema: NovaSchema<any> | NovaSchemaItem[]): void {
     const items = Array.isArray(schema) ? schema : [schema]
 
     for (const item of items) {
       if (item.active === false) continue
 
-      if (this._isBatchable(item)) {
-        this._pushBatchable(item)
+      if (this._isBatchable(item as NovaSchemaItem)) {
+        this._pushBatchable(item as NovaSchemaItem)
         continue
       }
 
       this.popSchema()
-      this._drawSchemaItem(item)
+      this._drawSchemaItem(item as NovaSchemaItem)
     }
   }
 
@@ -435,16 +438,16 @@ export class NovaRendererWebGL implements NovaRenderer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT)
   }
 
-  schema(schema: NovaSchema): void {
+  schema(schema: NovaSchema<any>): void {
     this.schemaBatched(schema)
   }
 
-  schemaBatched(schema: NovaSchema): void {
+  schemaBatched(schema: NovaSchema<any>): void {
     this.pushSchema(schema)
     this.popSchema()
   }
 
-  schemaOrdered(schema: NovaSchema): void {
+  schemaOrdered(schema: NovaSchema<any>): void {
     this.schemaBatched(schema)
   }
 
@@ -579,6 +582,7 @@ export class NovaRendererWebGL implements NovaRenderer {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
     const fontWeight = p.styles?.font?.weight || 'normal'
+    const fontStyle = p.styles?.font?.style || 'normal'
     const lineHeight = p.styles?.lineHeight || fontSize * 1.2
     const padding = this._resolvePadding(p.styles?.padding)
     const ctx = this._measureCanvas.getContext('2d')!
@@ -595,8 +599,9 @@ export class NovaRendererWebGL implements NovaRenderer {
         continue
       }
 
-      const weight = chunk.bold ? 'bold' : chunk.italic ? 'italic' : fontWeight
-      ctx.font = `${weight} ${fontSize}px ${fontFamily}`
+      const style = chunk.italic ? 'italic' : fontStyle
+      const weight = chunk.bold ? 'bold' : fontWeight
+      ctx.font = `${style} ${weight} ${fontSize}px ${fontFamily}`
       cursorX += ctx.measureText(chunk.text).width
     }
 
@@ -651,6 +656,9 @@ export class NovaRendererWebGL implements NovaRenderer {
         break
       case 'text':
         this.text(item)
+        break
+      default:
+        this._schemaRegistry.renderSchemaComponent(this, item as any, 'batched')
         break
     }
   }
@@ -993,7 +1001,8 @@ export class NovaRendererWebGL implements NovaRenderer {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
     const fontWeight = p.styles?.font?.weight || 'normal'
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+    const fontStyle = p.styles?.font?.style || 'normal'
+    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`
     ctx.fillStyle = p.styles?.color || '#000'
     ctx.globalAlpha = p.styles?.opacity ?? 1
 
@@ -1057,6 +1066,7 @@ export class NovaRendererWebGL implements NovaRenderer {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
     const fontWeight = p.styles?.font?.weight || 'normal'
+    const fontStyle = p.styles?.font?.style || 'normal'
     const lineHeight = p.styles?.lineHeight || fontSize * 1.2
     const padding = this._resolvePadding(p.styles?.padding)
     let cursorX = p.x + padding.left
@@ -1073,7 +1083,7 @@ export class NovaRendererWebGL implements NovaRenderer {
         continue
       }
 
-      ctx.font = `${chunk.bold ? 'bold' : chunk.italic ? 'italic' : fontWeight} ${fontSize}px ${fontFamily}`
+      ctx.font = `${chunk.italic ? 'italic' : fontStyle} ${chunk.bold ? 'bold' : fontWeight} ${fontSize}px ${fontFamily}`
       ctx.fillText(chunk.text, cursorX, cursorY)
       cursorX += ctx.measureText(chunk.text).width
     }

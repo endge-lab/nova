@@ -78,6 +78,7 @@ export interface NovaText extends NovaUIBase {
     font?: {
       family?: string
       size?: number
+      style?: 'normal' | 'italic'
       weight?:
         | 'normal'
         | 'bold'
@@ -185,7 +186,14 @@ export type NovaSchemaItem<TCustom extends { type: string } = never> =
   | ({ type: 'polygon' } & NovaPolygon)
   | TCustom
 
-export type NovaSchema = NovaSchemaItem[]
+export interface NovaCustomSchemaItem extends NovaUIBase {
+  type: string
+  id?: string
+  props?: Record<string, any>
+  [key: string]: any
+}
+
+export type NovaSchema<TCustom extends { type: string } = never> = Array<NovaSchemaItem<TCustom>>
 
 export interface NovaRendererCapabilities {
   canvas2d: boolean
@@ -238,9 +246,9 @@ export interface NovaRenderer {
   readonly novaCanvas: NovaCanvas
   readonly capabilities: NovaRendererCapabilities
 
-  schema(schema: NovaSchema): void
-  schemaBatched(schema: NovaSchema): void
-  schemaOrdered(schema: NovaSchema): void
+  schema(schema: NovaSchema<any>): void
+  schemaBatched(schema: NovaSchema<any>): void
+  schemaOrdered(schema: NovaSchema<any>): void
 
   save(): void
   restore(): void

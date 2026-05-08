@@ -56,7 +56,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
     this._canvas = this._createCanvas(app.width, app.height)
     this._renderer =
-      type === RendererType.Web2D ? new NovaRenderer2D(this._canvas) : new NovaRendererWebGL(this._canvas)
+      type === RendererType.Web2D
+        ? new NovaRenderer2D(this._canvas, app.schema)
+        : new NovaRendererWebGL(this._canvas, app.schema)
     this._queueRenderer = new NovaRenderQueueRenderer(this._renderer)
     this._activeRenderer = this._renderer
 
@@ -198,7 +200,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     // Создаём новый канвас и рендерер
     const newCanvas = this._createCanvas(this._novaApp.width, this._novaApp.height)
     const newRenderer =
-      this._rendererType === RendererType.Web2D ? new NovaRenderer2D(newCanvas) : new NovaRendererWebGL(newCanvas)
+      this._rendererType === RendererType.Web2D
+        ? new NovaRenderer2D(newCanvas, this._novaApp.schema)
+        : new NovaRendererWebGL(newCanvas, this._novaApp.schema)
 
     // Подписываемся на события снова
     newCanvas.onContextLost(() => {

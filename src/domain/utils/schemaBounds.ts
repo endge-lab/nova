@@ -1,17 +1,18 @@
 import type { NovaBounds, NovaSchema } from '@/domain/types/renderer-types'
 import { copyBounds, createEmptyBounds, setBounds, unionBounds } from '@/domain/utils/bounds'
+import type { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
 
 /**
  * Считает локальные bounds по реальной render-schema.
  */
-export function resolveSchemaBounds(schema: NovaSchema): NovaBounds {
+export function resolveSchemaBounds(schema: NovaSchema<any>, registry?: NovaSchemaRegistry): NovaBounds {
   let bounds = createEmptyBounds()
   let hasBounds = false
 
   for (const item of schema) {
     if (item.active === false) continue
 
-    const itemBounds = resolveSchemaItemBounds(item)
+    const itemBounds = resolveSchemaItemBounds(item, registry)
     if (!itemBounds) continue
 
     bounds = hasBounds ? unionBounds(bounds, itemBounds) : copyBounds(bounds, itemBounds)
@@ -21,7 +22,7 @@ export function resolveSchemaBounds(schema: NovaSchema): NovaBounds {
   return bounds
 }
 
-function resolveSchemaItemBounds(item: NovaSchema[number]): NovaBounds | null {
+function resolveSchemaItemBounds(item: NovaSchema<any>[number], registry?: NovaSchemaRegistry): NovaBounds | null {
   switch (item.type) {
     case 'rect':
     case 'border':
@@ -35,7 +36,7 @@ function resolveSchemaItemBounds(item: NovaSchema[number]): NovaBounds | null {
     case 'polygon':
       return resolvePolygonBounds(item.points, item.styles?.lineWidth ?? 0)
     default:
-      return null
+      return registry?.resolve(item.type)?.measureBounds?.({ registry, depth: 0 }, item as any) ?? null
   }
 }
 

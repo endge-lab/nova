@@ -3,6 +3,7 @@ import type { RaphSchedulerType } from '@endge/raph'
 import type { mat3 } from 'gl-matrix'
 import type { RendererType } from '@/domain/types/renderer-types'
 import type { EventList } from '@endge/utils'
+import type { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
 
 export interface NovaNodeProperties extends RaphProperties {
   // Локальное состояние ноды. Не наследуется от родителя.
@@ -111,6 +112,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   scheduler?: NovaSchedulerOptions
   debug?: NovaDebugOptions
   predefinedEvents?: (keyof E)[]
+  schemaRegistry?: NovaSchemaRegistry
 }
 
 export type NovaCanvasOwnership = 'external' | 'internal'

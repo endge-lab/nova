@@ -14,6 +14,7 @@ import type {
 import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
 import { NovaGraphics } from '@/domain/entities/graphics/NovaGraphics'
+import { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
 
 // TODO:
 let _CANVAS2D_TEMP_MODE = false
@@ -40,9 +41,11 @@ export class NovaRenderer2D implements NovaRenderer {
   }
 
   private readonly _measureCanvas = document.createElement('canvas')
+  private readonly _schemaRegistry: NovaSchemaRegistry
 
-  constructor(canvas: NovaCanvas) {
+  constructor(canvas: NovaCanvas, schemaRegistry = new NovaSchemaRegistry()) {
     this.novaCanvas = canvas
+    this._schemaRegistry = schemaRegistry
   }
 
   get ctx(): CanvasRenderingContext2D {
@@ -56,7 +59,7 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.scale(this.novaCanvas.dpr, this.novaCanvas.dpr)
   }
 
-  schema(schema: NovaSchema): void {
+  schema(schema: NovaSchema<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
     for (const item of items) {
       if (item.active === false) {
@@ -69,25 +72,28 @@ export class NovaRenderer2D implements NovaRenderer {
 
       switch (item.type) {
         case 'text':
-          this.text(item)
+          this.text(item as NovaText)
           break
         case 'rect':
-          this.rect(item)
+          this.rect(item as NovaRect)
           break
         case 'border':
-          this.border(item)
+          this.border(item as NovaBorder)
           break
         case 'line':
-          this.line(item)
+          this.line(item as NovaLine)
           break
         case 'circle':
-          this.circle(item)
+          this.circle(item as NovaCircle)
           break
         case 'polygon':
-          this.polygon(item)
+          this.polygon(item as NovaPolygon)
           break
         case 'icon':
-          this.icon(item)
+          this.icon(item as NovaIcon)
+          break
+        default:
+          this._schemaRegistry.renderSchemaComponent(this, item, 'schema')
           break
       }
 
@@ -97,11 +103,11 @@ export class NovaRenderer2D implements NovaRenderer {
     }
   }
 
-  schemaBatched(schema: NovaSchema): void {
+  schemaBatched(schema: NovaSchema<any>): void {
     this.schema(schema)
   }
 
-  schemaOrdered(schema: NovaSchema): void {
+  schemaOrdered(schema: NovaSchema<any>): void {
     this.schema(schema)
   }
 
@@ -437,7 +443,8 @@ export class NovaRenderer2D implements NovaRenderer {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
     const fontWeight = p.styles?.font?.weight || 'normal'
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+    const fontStyle = p.styles?.font?.style || 'normal'
+    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`
     ctx.fillStyle = p.styles?.color || '#000'
     ctx.globalAlpha = p.styles?.opacity ?? 1
 
@@ -512,6 +519,7 @@ export class NovaRenderer2D implements NovaRenderer {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
     const fontWeight = p.styles?.font?.weight || 'normal'
+    const fontStyle = p.styles?.font?.style || 'normal'
     const lineHeight = p.styles?.lineHeight || fontSize * 1.2
 
     const padding = this._resolvePadding(p.styles?.padding)
@@ -531,8 +539,9 @@ export class NovaRenderer2D implements NovaRenderer {
         continue
       }
 
-      const weight = chunk.bold ? 'bold' : chunk.italic ? 'italic' : fontWeight
-      ctx.font = `${weight} ${fontSize}px ${fontFamily}`
+      const style = chunk.italic ? 'italic' : fontStyle
+      const weight = chunk.bold ? 'bold' : fontWeight
+      ctx.font = `${style} ${weight} ${fontSize}px ${fontFamily}`
       const width = ctx.measureText(chunk.text).width
       cursorX += width
     }
@@ -554,6 +563,7 @@ export class NovaRenderer2D implements NovaRenderer {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
     const fontWeight = p.styles?.font?.weight || 'normal'
+    const fontStyle = p.styles?.font?.style || 'normal'
     const lineHeight = p.styles?.lineHeight || fontSize * 1.2
 
     const padding = this._resolvePadding(p.styles?.padding)
@@ -569,7 +579,7 @@ export class NovaRenderer2D implements NovaRenderer {
         continue
       }
 
-      ctx.font = `${chunk.bold ? 'bold' : chunk.italic ? 'italic' : fontWeight} ${fontSize}px ${fontFamily}`
+      ctx.font = `${chunk.italic ? 'italic' : fontStyle} ${chunk.bold ? 'bold' : fontWeight} ${fontSize}px ${fontFamily}`
       ctx.fillStyle = p.styles?.color || '#000'
       ctx.textBaseline = 'top'
 
