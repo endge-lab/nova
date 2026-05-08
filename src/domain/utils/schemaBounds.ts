@@ -1,6 +1,6 @@
 import type { NovaBounds, NovaSchema } from '@/domain/types/renderer-types'
 import { copyBounds, createEmptyBounds, setBounds, unionBounds } from '@/domain/utils/bounds'
-import type { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
+import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 
 /**
  * Считает локальные bounds по реальной render-schema.

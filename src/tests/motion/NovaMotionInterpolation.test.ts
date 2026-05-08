@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { interpolateNovaMotionValue } from '@/domain/entities/motion/NovaMotionInterpolation'
+import { interpolateNovaMotionValue } from '@/model/motion/NovaMotionInterpolation'
 
 describe('NovaMotionInterpolation', () => {
   it('interpolates numbers', () => {

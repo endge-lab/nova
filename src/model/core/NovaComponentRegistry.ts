@@ -1,4 +1,4 @@
-import type { NovaComponentNode } from '@/domain/entities/core/NovaComponentNode'
+import type { NovaComponentNode } from '@/model/core/NovaComponentNode'
 
 export class NovaComponentRegistry {
   private readonly _nodes = new Map<string, NovaComponentNode<any, any, any, any, any>>()

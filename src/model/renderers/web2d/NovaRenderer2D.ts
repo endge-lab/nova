@@ -1,4 +1,4 @@
-import type { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
+import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import type {
   NovaBorder,
   NovaCircle,
@@ -13,8 +13,8 @@ import type {
 } from '@/domain/types/renderer-types'
 import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
-import { NovaGraphics } from '@/domain/entities/graphics/NovaGraphics'
-import { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
+import { NovaGraphics } from '@/model/renderers/shared/NovaGraphics'
+import { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 
 // TODO:
 let _CANVAS2D_TEMP_MODE = false

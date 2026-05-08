@@ -3,7 +3,7 @@ import type { RaphSchedulerType } from '@endge/raph'
 import type { mat3 } from 'gl-matrix'
 import type { RendererType } from '@/domain/types/renderer-types'
 import type { EventList } from '@endge/utils'
-import type { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
+import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 
 export interface NovaNodeProperties extends RaphProperties {
   // Локальное состояние ноды. Не наследуется от родителя.

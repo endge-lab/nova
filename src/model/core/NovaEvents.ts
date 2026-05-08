@@ -1,8 +1,8 @@
-import { NovaNode } from '@/domain/entities/core/NovaNode'
+import { NovaNode } from '@/model/core/NovaNode'
 import type { NovaNodeEventHandlers } from '@/domain/types/events-types'
-import type { NovaApp } from '@/domain/entities/app/NovaApp'
+import type { NovaApp } from '@/model/app/NovaApp'
 import type { EventList } from '@endge/utils'
-import { NovaSpatialIndex } from '@/domain/entities/core/NovaSpatialIndex'
+import { NovaSpatialIndex } from '@/model/core/NovaSpatialIndex'
 import type { NovaHitTestMode } from '@/domain/types/renderer-types'
 import type { NovaDragEventMeta } from '@/domain/types/events-types'
 

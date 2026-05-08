@@ -1,4 +1,3 @@
-import type { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
 import type {
   NovaBorder,
   NovaCircle,
@@ -7,6 +6,7 @@ import type {
   NovaPolygon,
   NovaRect,
   NovaRenderer,
+  NovaRendererCanvas,
   NovaRendererCapabilities,
   NovaRenderQueueStats,
   NovaSchema,
@@ -43,7 +43,9 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
   private _target: NovaRenderer
   private readonly _commands: NovaRenderQueueCommand[] = []
   private readonly _matrixStack: mat3[] = []
+  private readonly _clipDepthStack: number[] = []
   private _matrix = mat3.create()
+  private _clipDepth = 0
   private _stats: NovaRenderQueueStats = { ...EMPTY_STATS }
 
   constructor(target: NovaRenderer) {
@@ -58,7 +60,9 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
   clearQueue(): void {
     this._commands.length = 0
     this._matrixStack.length = 0
+    this._clipDepthStack.length = 0
     mat3.identity(this._matrix)
+    this._clipDepth = 0
     this._stats = { ...EMPTY_STATS }
   }
 
@@ -145,10 +149,18 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
 
   save(): void {
     this._matrixStack.push(mat3.clone(this._matrix))
+    this._clipDepthStack.push(this._clipDepth)
   }
 
   restore(): void {
+    const clipDepth = this._clipDepthStack.pop()
     const matrix = this._matrixStack.pop()
+    if (clipDepth !== undefined) {
+      while (this._clipDepth > clipDepth) {
+        this._commands.push({ type: 'clearClip' })
+        this._clipDepth -= 1
+      }
+    }
     if (matrix) this._matrix = matrix
   }
 
@@ -165,9 +177,11 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
       width,
       height,
     })
+    this._clipDepth += 1
   }
 
   clearClip(): void {
+    if (this._clipDepth > 0) this._clipDepth -= 1
     this._commands.push({ type: 'clearClip' })
   }
 
@@ -226,7 +240,7 @@ export class NovaRenderQueueRenderer implements NovaRenderer {
     })
   }
 
-  get novaCanvas(): NovaCanvas {
+  get novaCanvas(): NovaRendererCanvas {
     return this._target.novaCanvas
   }
 

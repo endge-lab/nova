@@ -1,4 +1,4 @@
-import type { NovaNode } from '@/domain/entities/core/NovaNode'
+import type { NovaNode } from '@/model/core/NovaNode'
 import type { NovaBounds } from '@/domain/types/renderer-types'
 import type { EventList } from '@endge/utils'
 

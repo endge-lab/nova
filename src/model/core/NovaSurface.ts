@@ -1,8 +1,7 @@
-import type { NovaApp } from '@/domain/entities/app/NovaApp'
-import { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
-import { NovaRenderer2D } from '@/domain/entities/graphics/NovaRenderer2D'
-import { NovaRendererWebGL } from '@/domain/entities/graphics/NovaRendererWebGL'
-import { NovaRenderQueueRenderer, type NovaRenderQueueSnapshot } from '@/domain/entities/graphics/NovaRenderQueueRenderer'
+import type { NovaApp } from '@/model/app/NovaApp'
+import { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
+import { NovaRenderQueueRenderer, type NovaRenderQueueSnapshot } from '@/model/renderers/shared/NovaRenderQueueRenderer'
+import { assertNovaRendererTypeImplemented, createNovaRenderer } from '@/model/renderers/shared/NovaRendererFactory'
 import {
   RendererType,
   type NovaRenderer,
@@ -14,7 +13,7 @@ import {
   type NovaRenderSubtreeStats,
 } from '@/domain/types/renderer-types'
 import type { NovaNodeProperties } from '@/domain/types/base-types'
-import { NovaNode } from '@/domain/entities/core/NovaNode'
+import { NovaNode } from '@/model/core/NovaNode'
 import type { ConstructorOrFactory } from '@endge/utils'
 import { createInstance } from '@endge/utils'
 import type { EventList } from '@endge/utils'
@@ -54,11 +53,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     this._rendererType = type
     this._novaApp = app
 
+    assertNovaRendererTypeImplemented(type)
     this._canvas = this._createCanvas(app.width, app.height)
-    this._renderer =
-      type === RendererType.Web2D
-        ? new NovaRenderer2D(this._canvas, app.schema)
-        : new NovaRendererWebGL(this._canvas, app.schema)
+    this._renderer = createNovaRenderer(type, this._canvas, app.schema)
     this._queueRenderer = new NovaRenderQueueRenderer(this._renderer)
     this._activeRenderer = this._renderer
 
@@ -199,10 +196,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
     // Создаём новый канвас и рендерер
     const newCanvas = this._createCanvas(this._novaApp.width, this._novaApp.height)
-    const newRenderer =
-      this._rendererType === RendererType.Web2D
-        ? new NovaRenderer2D(newCanvas, this._novaApp.schema)
-        : new NovaRendererWebGL(newCanvas, this._novaApp.schema)
+    const newRenderer = createNovaRenderer(this._rendererType, newCanvas, this._novaApp.schema)
 
     // Подписываемся на события снова
     newCanvas.onContextLost(() => {

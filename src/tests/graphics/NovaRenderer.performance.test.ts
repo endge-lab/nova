@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { NovaRenderer2D } from '@/domain/entities/graphics/NovaRenderer2D'
-import { NovaRendererWebGL } from '@/domain/entities/graphics/NovaRendererWebGL'
-import { NovaRenderQueueRenderer } from '@/domain/entities/graphics/NovaRenderQueueRenderer'
-import type { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
+import { NovaRenderer2D } from '@/model/renderers/web2d/NovaRenderer2D'
+import { NovaRendererWebGLOld } from '@/model/renderers/webgl_old/NovaRendererWebGLOld'
+import { NovaRenderQueueRenderer } from '@/model/renderers/shared/NovaRenderQueueRenderer'
+import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import type { NovaRenderer, NovaSchema } from '@/domain/types/renderer-types'
 
 type WebGLStats = {
@@ -253,7 +253,7 @@ describe('Nova renderer performance smoke tests', () => {
 
   it('keeps WebGL dense rect rendering within a 60fps mock budget with ordered vertex-color batching', () => {
     const gl = createWebGLContextStub()
-    const renderer = new NovaRendererWebGL(createCanvasStub(1600, 900, gl))
+    const renderer = new NovaRendererWebGLOld(createCanvasStub(1600, 900, gl))
     const schema = createRectStressSchema()
 
     gl.__stats.drawArrays = 0
@@ -265,7 +265,7 @@ describe('Nova renderer performance smoke tests', () => {
 
   it('keeps WebGL texture fallback primitives within a mock benchmark budget', () => {
     const gl = createWebGLContextStub()
-    const renderer = new NovaRendererWebGL(createCanvasStub(1600, 900, gl))
+    const renderer = new NovaRendererWebGLOld(createCanvasStub(1600, 900, gl))
     const schema = createMixedPrimitiveSchema()
     const result = measureRenderer(renderer, schema, 60)
 

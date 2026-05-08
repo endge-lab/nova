@@ -1,6 +1,10 @@
 import type { NovaCanvasCreateOptions, NovaCanvasOwnership, NovaSizeOptions } from '@/domain/types/base-types'
 import { RendererType } from '@/domain/types/renderer-types'
-import { Telemetry } from '@/domain/telemetry.ts'
+import { Telemetry } from '@/model/telemetry.ts'
+
+const CANVAS_2D_CONTEXT_TYPE = '2d'
+const WEBGL_CONTEXT_TYPE = 'webgl'
+const WEBGL_EXPERIMENTAL_CONTEXT_TYPE = 'experimental-webgl'
 
 export class NovaCanvas {
   private readonly _element: HTMLCanvasElement
@@ -112,7 +116,7 @@ export class NovaCanvas {
 
   getContext2D(): CanvasRenderingContext2D {
     if (!this._ctx2D) {
-      const ctx = this._element.getContext(RendererType.Web2D)
+      const ctx = this._element.getContext(CANVAS_2D_CONTEXT_TYPE)
       if (!ctx) throw new Error('2D context not supported')
       this._ctx2D = ctx
       this._ctx2D.scale(this._dpr, this._dpr)
@@ -125,8 +129,8 @@ export class NovaCanvas {
     if (!this._ctxWebGL) {
       const attrs: WebGLContextAttributes = attributes ?? this._webglAttributes ?? { alpha: true, antialias: true }
       const ctx =
-        (this._element.getContext(RendererType.WebGL, attrs) as WebGLRenderingContext | null) ||
-        (this._element.getContext(RendererType.WebGLExperimental, attrs) as WebGLRenderingContext | null)
+        (this._element.getContext(WEBGL_CONTEXT_TYPE, attrs) as WebGLRenderingContext | null) ||
+        (this._element.getContext(WEBGL_EXPERIMENTAL_CONTEXT_TYPE, attrs) as WebGLRenderingContext | null)
       if (!ctx) throw new Error('WebGL context not supported')
       this._ctxWebGL = ctx
 
@@ -216,7 +220,7 @@ export class NovaCanvas {
 
     if (contextType === RendererType.Web2D) {
       instance.getContext2D()
-    } else if (contextType === RendererType.WebGL) {
+    } else if (contextType === RendererType.WebGLOld || contextType === RendererType.WebGL) {
       instance.getContextWebGL(options.webgl)
     } else {
       throw new Error(`Unsupported context type: ${contextType}`)

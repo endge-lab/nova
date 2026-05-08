@@ -1,11 +1,11 @@
-import type { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
 import type { mat3 } from 'gl-matrix'
 import type { DataRect } from '@endge/utils'
 
 export enum RendererType {
   Web2D = '2d',
+  WebGLOld = 'webgl-old',
   WebGL = 'webgl',
-  WebGLExperimental = 'experimental-webgl',
+  WebGPU = 'webgpu',
 }
 
 export type NovaStylePadding =
@@ -238,12 +238,32 @@ export interface NovaBounds {
   height: number
 }
 
+export interface NovaRendererCanvas {
+  readonly element: HTMLCanvasElement
+  readonly width: number
+  readonly height: number
+  readonly pixelWidth: number
+  readonly pixelHeight: number
+  readonly dpr: number
+  readonly maxDpr: number
+
+  getBoundingClientRect(): DOMRectReadOnly
+  invalidate(): void
+  resize(width: number, height: number, options?: { dpr?: number; maxDpr?: number }): void
+  getContext2D(): CanvasRenderingContext2D
+  getContextWebGL(attributes?: WebGLContextAttributes): WebGLRenderingContext
+  destroy(): void
+  onContextLost(callback: () => void): void
+  onContextRestored(callback: () => void): void
+  isContextLost(): boolean
+}
+
 /**
  * Рендерер.
  */
 export interface NovaRenderer {
   readonly id: string
-  readonly novaCanvas: NovaCanvas
+  readonly novaCanvas: NovaRendererCanvas
   readonly capabilities: NovaRendererCapabilities
 
   schema(schema: NovaSchema<any>): void

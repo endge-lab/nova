@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mat3 } from 'gl-matrix'
-import { NovaRenderQueueRenderer } from '@/domain/entities/graphics/NovaRenderQueueRenderer'
-import type { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
+import { NovaRenderQueueRenderer } from '@/model/renderers/shared/NovaRenderQueueRenderer'
+import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import type {
   NovaRenderer,
   NovaRendererCapabilities,
@@ -135,6 +135,32 @@ describe('NovaRenderQueueRenderer', () => {
       'restore',
       'clearClip',
       'cursor:pointer',
+    ])
+  })
+
+  it('clears clips opened inside a saved render scope on restore', () => {
+    const target = createRendererSpy()
+    const queue = new NovaRenderQueueRenderer(target)
+
+    queue.save()
+    queue.clip(0, 0, 100, 100)
+    queue.rect({ x: 0, y: 0, width: 10, height: 10 })
+    queue.restore()
+    queue.rect({ x: 120, y: 0, width: 10, height: 10 })
+    queue.flush()
+
+    expect(target.calls).toEqual([
+      'matrix:0:0',
+      'clip:0:0:100:100',
+      'save',
+      'matrix:0:0',
+      'schemaOrdered:1',
+      'restore',
+      'clearClip',
+      'save',
+      'matrix:0:0',
+      'schemaOrdered:1',
+      'restore',
     ])
   })
 })

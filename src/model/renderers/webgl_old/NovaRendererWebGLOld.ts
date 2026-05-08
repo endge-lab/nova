@@ -11,13 +11,13 @@ import type {
   NovaPolygon,
   NovaTextChunk,
 } from '@/domain/types/renderer-types'
-import type { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
-import { NovaWebGLShader } from '@/domain/entities/graphics/NovaWebGLShader'
+import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
+import { NovaWebGLShader } from '@/model/renderers/webgl_old/NovaWebGLShader'
 import { randomString } from '@endge/utils'
 import { mat3 } from 'gl-matrix'
-import { Telemetry } from '@/domain/telemetry.ts'
-import { NovaGraphics } from '@/domain/entities/graphics/NovaGraphics'
-import { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
+import { Telemetry } from '@/model/telemetry.ts'
+import { NovaGraphics } from '@/model/renderers/shared/NovaGraphics'
+import { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 
 // Debug временно для проверки оптимизации батчинга
 export let _rectCounter = 0
@@ -46,7 +46,7 @@ const FLOATS_PER_RECT = FLOATS_PER_VERTEX * VERTICES_PER_RECT
 const TEXTURE_CACHE_LIMIT = 128
 const COLOR_KEY_SEPARATOR = '\u0000'
 
-export class NovaRendererWebGL implements NovaRenderer {
+export class NovaRendererWebGLOld implements NovaRenderer {
   readonly id: string = randomString(5)
   readonly novaCanvas: NovaCanvas
   readonly capabilities = {
@@ -1329,7 +1329,7 @@ export class NovaRendererWebGL implements NovaRenderer {
       this._colorCache.clear()
 
     } catch (err) {
-      console.error('[NovaRendererWebGL] Error during destroy:', err)
+      console.error('[NovaRendererWebGLOld] Error during destroy:', err)
     }
   }
 

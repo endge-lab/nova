@@ -1,5 +1,5 @@
-import type { NovaApp } from '@/domain/entities/app/NovaApp'
-import { NovaNode } from '@/domain/entities/core/NovaNode'
+import type { NovaApp } from '@/model/app/NovaApp'
+import { NovaNode } from '@/model/core/NovaNode'
 import type { NovaLifecycleState } from '@/domain/types/renderer-types'
 import type { EventList } from '@endge/utils'
 

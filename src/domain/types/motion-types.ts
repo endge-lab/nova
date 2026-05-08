@@ -1,6 +1,6 @@
 import type { RaphFrameContext } from '@endge/raph'
-import type { NovaComponentNode } from '@/domain/entities/core/NovaComponentNode'
-import type { NovaNode } from '@/domain/entities/core/NovaNode'
+import type { NovaComponentNode } from '@/model/core/NovaComponentNode'
+import type { NovaNode } from '@/model/core/NovaNode'
 
 export type NovaMotionTarget = NovaNode<any> | NovaComponentNode<any, any, any, any, any>
 export type NovaMotionValue = number | string | boolean | undefined

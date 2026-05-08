@@ -1,5 +1,5 @@
-import { NovaSurface } from '@/domain/entities/core/NovaSurface'
-import { NovaRenderer2D } from '@/domain/entities/graphics/NovaRenderer2D'
+import { NovaSurface } from '@/model/core/NovaSurface'
+import { NovaRenderer2D } from '@/model/renderers/web2d/NovaRenderer2D'
 import type {
   NovaAppCreateOptions,
   NovaAppOptions,
@@ -9,23 +9,23 @@ import type {
   NovaSizeOptions,
 } from '@/domain/types/base-types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events-types'
-import { NovaStore } from '@/domain/entities/core/NovaStore'
+import { NovaStore } from '@/model/core/NovaStore'
 import type { EventList } from '@endge/utils'
 import { EventBus } from '@endge/utils'
-import { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
+import { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import { RendererType } from '@/domain/types/renderer-types'
 import type { NovaHitTestMode } from '@/domain/types/renderer-types'
 import type { RaphApp, RaphLocalPhaseContext } from '@endge/raph'
 import { Raph, RaphLocalPhase, RaphSchedulerType } from '@endge/raph'
-import { NovaNode } from '@/domain/entities/core/NovaNode'
-import { NovaEvents } from '@/domain/entities/core/NovaEvents'
-import { NovaDebug } from '@/domain/entities/app/NovaDebug'
-import { Telemetry } from '@/domain/telemetry'
+import { NovaNode } from '@/model/core/NovaNode'
+import { NovaEvents } from '@/model/core/NovaEvents'
+import { NovaDebug } from '@/model/app/NovaDebug'
+import { Telemetry } from '@/model/telemetry'
 import type { RaphNode } from '@endge/raph'
-import type { NovaScene } from '@/domain/entities/core/NovaScene'
-import { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
-import { NovaComponentRegistry } from '@/domain/entities/core/NovaComponentRegistry'
-import { NovaMotionEngine } from '@/domain/entities/motion/NovaMotionEngine'
+import type { NovaScene } from '@/model/core/NovaScene'
+import { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
+import { NovaComponentRegistry } from '@/model/core/NovaComponentRegistry'
+import { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
 
 export class NovaApp<E extends EventList = Record<string, any>> {
   // Ядро
@@ -322,6 +322,15 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     ...args: any[]
   ): T {
     const surface = new SurfaceClass(name, this, RendererType.Web2D, ...args)
+    return this.addSurface(surface)
+  }
+
+  createSurfaceWebGLOld<T extends NovaSurface<E>>(
+    name: string,
+    SurfaceClass: new (...args: any[]) => T = NovaSurface as any,
+    ...args: any[]
+  ): T {
+    const surface = new SurfaceClass(name, this, RendererType.WebGLOld, ...args)
     return this.addSurface(surface)
   }
 

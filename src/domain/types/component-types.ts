@@ -1,7 +1,7 @@
-import type { NovaApp } from '@/domain/entities/app/NovaApp'
-import type { NovaComponentNode } from '@/domain/entities/core/NovaComponentNode'
-import type { NovaSchemaRegistry } from '@/domain/entities/core/NovaSchemaRegistry'
-import type { NovaSurface } from '@/domain/entities/core/NovaSurface'
+import type { NovaApp } from '@/model/app/NovaApp'
+import type { NovaComponentNode } from '@/model/core/NovaComponentNode'
+import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
+import type { NovaSurface } from '@/model/core/NovaSurface'
 import type { NovaBounds, NovaRenderer, NovaSchema } from '@/domain/types/renderer-types'
 import type { EventList } from '@endge/utils'
 

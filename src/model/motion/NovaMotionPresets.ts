@@ -1,4 +1,4 @@
-import type { NovaMotionEngine } from '@/domain/entities/motion/NovaMotionEngine'
+import type { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
 import type {
   NovaMotionOptions,
   NovaMotionPatch,

@@ -250,4 +250,11 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
+  it('keeps the new WebGL surface API disabled until the renderer is implemented', () => {
+    const app = createApp()
+
+    expect(() => app.createSurfaceWebGL('new-webgl')).toThrow(/NovaRendererWebGL is not implemented yet/)
+
+    app.destroy()
+  })
 })

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { NovaRendererWebGL } from '@/domain/entities/graphics/NovaRendererWebGL'
-import type { NovaCanvas } from '@/domain/entities/graphics/NovaCanvas'
+import { NovaRendererWebGLOld } from '@/model/renderers/webgl_old/NovaRendererWebGLOld'
+import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
+import { createNovaRenderer } from '@/model/renderers/shared/NovaRendererFactory'
+import { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 import { RendererType } from '@/domain/types/renderer-types'
 
 function create2DContextStub(): CanvasRenderingContext2D {
@@ -114,19 +116,21 @@ function createWebGLContextStub(): WebGLRenderingContext {
   return state as WebGLRenderingContext
 }
 
-function createRenderer(): { renderer: NovaRendererWebGL; gl: WebGLRenderingContext } {
-  const gl = createWebGLContextStub()
+function createCanvasStub(gl: WebGLRenderingContext): NovaCanvas {
   const element = document.createElement('canvas')
-  const canvas = {
+  return {
     dpr: 2,
     element,
     height: 180,
     width: 320,
     getContextWebGL: () => gl,
   } as unknown as NovaCanvas
+}
 
+function createRenderer(): { renderer: NovaRendererWebGLOld; gl: WebGLRenderingContext } {
+  const gl = createWebGLContextStub()
   return {
-    renderer: new NovaRendererWebGL(canvas),
+    renderer: new NovaRendererWebGLOld(createCanvasStub(gl)),
     gl,
   }
 }
@@ -152,7 +156,7 @@ function expectRectColor(
   expect(data[colorOffset + 3]).toBeCloseTo(expected[3])
 }
 
-describe('NovaRendererWebGL', () => {
+describe('NovaRendererWebGLOld', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
@@ -177,6 +181,15 @@ describe('NovaRendererWebGL', () => {
       text: true,
       webgl: true,
     })
+  })
+
+  it('is selected by the renderer factory for RendererType.WebGLOld', () => {
+    const gl = createWebGLContextStub()
+    const renderer = createNovaRenderer(RendererType.WebGLOld, createCanvasStub(gl), new NovaSchemaRegistry())
+
+    expect(renderer).toBeInstanceOf(NovaRendererWebGLOld)
+
+    renderer.destroy()
   })
 
   it('renders rect and border schema primitives without texture work', () => {
