@@ -1,4 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  NovaRenderBuilder,
+  NovaRenderCommandWriter,
+  NovaRenderFrameBuilder,
+  NovaRendererWebGL,
+  NovaSchemaRegistry,
+  type NovaCanvas,
+  type NovaSchema,
+} from '@/index'
 
 type RetainedContractCase = {
   id: string
@@ -104,6 +113,139 @@ function ids(cases: RetainedContractCase[]): string[] {
   return cases.map(testCase => testCase.id)
 }
 
+function noop(): void {}
+
+function createWebGLContextStub(): WebGL2RenderingContext {
+  const constants: Record<string, number> = {
+    ARRAY_BUFFER: 0x8892,
+    BLEND: 0x0be2,
+    CLAMP_TO_EDGE: 0x812f,
+    COLOR_BUFFER_BIT: 0x4000,
+    COMPILE_STATUS: 0x8b81,
+    CULL_FACE: 0x0b44,
+    DEPTH_TEST: 0x0b71,
+    DYNAMIC_DRAW: 0x88e8,
+    FLOAT: 0x1406,
+    FRAGMENT_SHADER: 0x8b30,
+    LINEAR: 0x2601,
+    LINK_STATUS: 0x8b82,
+    NO_ERROR: 0,
+    ONE: 1,
+    ONE_MINUS_SRC_ALPHA: 0x0303,
+    RGBA: 0x1908,
+    SCISSOR_TEST: 0x0c11,
+    SRC_ALPHA: 0x0302,
+    TEXTURE0: 0x84c0,
+    TEXTURE_2D: 0x0de1,
+    TEXTURE_MAG_FILTER: 0x2800,
+    TEXTURE_MIN_FILTER: 0x2801,
+    TEXTURE_WRAP_S: 0x2802,
+    TEXTURE_WRAP_T: 0x2803,
+    TRIANGLES: 0x0004,
+    UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+    UNSIGNED_BYTE: 0x1401,
+    VERTEX_SHADER: 0x8b31,
+  }
+
+  return {
+    ...constants,
+    activeTexture: noop,
+    attachShader: noop,
+    bindBuffer: noop,
+    bindTexture: noop,
+    bindVertexArray: noop,
+    blendFuncSeparate: noop,
+    bufferData: vi.fn(),
+    bufferSubData: vi.fn(),
+    clear: noop,
+    clearColor: noop,
+    compileShader: noop,
+    createBuffer: () => ({}),
+    createProgram: () => ({}),
+    createShader: () => ({}),
+    createTexture: () => ({}),
+    createVertexArray: () => ({}),
+    deleteBuffer: noop,
+    deleteProgram: noop,
+    deleteShader: noop,
+    deleteTexture: noop,
+    deleteVertexArray: noop,
+    detachShader: noop,
+    disable: noop,
+    drawArrays: vi.fn(),
+    enable: noop,
+    enableVertexAttribArray: noop,
+    getAttribLocation: () => 0,
+    getError: () => constants.NO_ERROR,
+    getExtension: () => null,
+    getParameter: () => 4096,
+    getProgramInfoLog: () => '',
+    getProgramParameter: () => true,
+    getShaderInfoLog: () => '',
+    getShaderParameter: () => true,
+    getUniformLocation: () => ({}),
+    linkProgram: noop,
+    pixelStorei: noop,
+    scissor: noop,
+    shaderSource: noop,
+    texImage2D: noop,
+    texParameteri: noop,
+    uniform1f: noop,
+    uniform1i: noop,
+    uniform2f: noop,
+    uniform4f: noop,
+    uniformMatrix3fv: vi.fn(),
+    useProgram: noop,
+    vertexAttribPointer: noop,
+    viewport: noop,
+  } as unknown as WebGL2RenderingContext
+}
+
+function createCanvasStub(gl: WebGL2RenderingContext): NovaCanvas {
+  const canvas = document.createElement('canvas')
+  vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
+    if (type === 'webgl2') return gl
+    return null
+  })
+
+  return {
+    dpr: 1,
+    element: canvas,
+    height: 600,
+    maxDpr: 1,
+    pixelHeight: 600,
+    pixelWidth: 800,
+    width: 800,
+  } as unknown as NovaCanvas
+}
+
+function createRectSchema(count: number): NovaSchema {
+  return Array.from({ length: count }, (_, index) => ({
+    type: 'rect' as const,
+    x: (index % 100) * 8,
+    y: Math.floor(index / 100) * 8,
+    width: 6,
+    height: 6,
+    styles: {
+      background: index % 2 === 0 ? '#334155' : '#64748b',
+    },
+  }))
+}
+
+function createCompiledFrame(canvas: NovaCanvas, schema: NovaSchema) {
+  const frameBuilder = new NovaRenderFrameBuilder('retained-test', {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    dpr: canvas.dpr,
+  })
+  const writer = new NovaRenderCommandWriter(frameBuilder)
+  const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+  builder.schema(schema)
+  return frameBuilder.build()
+}
+
 describe('Nova retained WebGL2 renderer target contract matrix', () => {
   it('keeps retained-renderer contract case ids unique', () => {
     expect(new Set(ids(RETAINED_CONTRACT_CASES)).size).toBe(RETAINED_CONTRACT_CASES.length)
@@ -122,8 +264,33 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     }
   })
 
+  it('uses one ordered schema batch for large target WebGL schema arrays', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const frame = createCompiledFrame(canvas, createRectSchema(100))
+
+    expect(frame.commands.filter(command => command.type === 'drawSchemaBatch')).toHaveLength(1)
+    expect(frame.items).toHaveLength(0)
+  })
+
+  it('replays unchanged cached rect streams without a second GPU upload', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const frame = createCompiledFrame(canvas, createRectSchema(100))
+
+    const first = renderer.renderFrame(frame)
+    const second = renderer.renderFrame(frame)
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(second.uploadBytes).toBe(0)
+    expect(second.fullUploads).toBe(0)
+    expect(second.bufferDataCalls).toBe(0)
+    expect(second.bufferSubDataCalls).toBe(0)
+    expect(gl.drawArrays).toHaveBeenCalledTimes(2)
+  })
+
   for (const testCase of RETAINED_CONTRACT_CASES) {
     it.todo(`${testCase.priority} ${testCase.id}: ${testCase.assertion}`)
   }
 })
-

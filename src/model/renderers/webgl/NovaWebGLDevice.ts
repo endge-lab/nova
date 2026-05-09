@@ -8,8 +8,8 @@ export class NovaWebGLDevice {
     attributes: WebGLContextAttributes = {
       alpha: true,
       antialias: false,
-      depth: true,
-      stencil: true,
+      depth: false,
+      stencil: false,
       preserveDrawingBuffer: false,
     },
   ) {
@@ -28,7 +28,7 @@ export class NovaWebGLDevice {
 
   clear(): void {
     this.gl.clearColor(0, 0, 0, 0)
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT | this.gl.STENCIL_BUFFER_BIT)
+    this.gl.clear(this.gl.COLOR_BUFFER_BIT)
   }
 
   private configure(): void {

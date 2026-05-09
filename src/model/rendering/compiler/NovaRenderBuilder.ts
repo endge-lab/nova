@@ -45,6 +45,8 @@ export class NovaRenderBuilder implements NovaRenderer {
   schema(schema: NovaSchema<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
 
+    if (this.schemaBatch(schema, 'ordered')) return
+
     for (const item of items) {
       this.schemaItem(item as NovaSchemaItem<any>)
     }

@@ -651,6 +651,19 @@ export class NovaNode<
     }
   }
 
+  markRenderSubtreeClean(includeChildren = false): void {
+    this._renderSubtreeDirty = false
+    this.clearRenderDirtyFlags()
+
+    if (!includeChildren) return
+
+    for (const child of this.children) {
+      if (child instanceof NovaNode) {
+        child.markRenderSubtreeClean(true)
+      }
+    }
+  }
+
   setScale(x: number, y: number): void {
     if (this.scaleX === x && this.scaleY === y) return
 

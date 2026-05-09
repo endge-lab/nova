@@ -21,12 +21,22 @@ function createEmptyMetrics(): NovaRenderMetrics {
     drawMs: 0,
     drawCalls: 0,
     batches: 0,
+    bufferDataCalls: 0,
+    bufferSubDataCalls: 0,
+    compiledGroups: 0,
     commands: 0,
+    dirtyRangeCount: 0,
+    dirtyStreamRanges: 0,
+    fullUploads: 0,
+    gpuBufferCapacityBytes: 0,
     items: 0,
     groups: 0,
+    nodeRenderCalls: 0,
     textRasterMs: 0,
+    updatedHandles: 0,
     atlasMemoryMB: 0,
     cachedTextureMemoryMB: 0,
+    reusedGroups: 0,
   }
 }
 

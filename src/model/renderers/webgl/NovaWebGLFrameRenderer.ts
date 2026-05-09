@@ -36,6 +36,11 @@ interface RenderStats {
   instances: number
   uploadBytes: number
   uploadMs: number
+  bufferDataCalls: number
+  bufferSubDataCalls: number
+  fullUploads: number
+  dirtyRangeCount: number
+  gpuBufferCapacityBytes: number
   textRasterMs: number
   atlasMemoryMB: number
 }
@@ -56,6 +61,16 @@ interface RasterizedText {
   scale: number
 }
 
+interface RectBatchCache {
+  data: Float32Array
+  instances: number
+}
+
+interface WebGLUploadState {
+  capacityBytes: number
+  lastData?: Float32Array
+}
+
 export class NovaWebGLFrameRenderer {
   private readonly _gl: WebGL2RenderingContext
   private readonly _roundedProgram: NovaWebGLProgram
@@ -71,11 +86,19 @@ export class NovaWebGLFrameRenderer {
   private readonly _textRasterCanvas = document.createElement('canvas')
   private readonly _textures = new Map<string, TextureEntry>()
   private readonly _sourceTextureKeys = new WeakMap<object, string>()
+  private readonly _rectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
+  private readonly _roundedUpload: WebGLUploadState = { capacityBytes: 0 }
+  private readonly _solidUpload: WebGLUploadState = { capacityBytes: 0 }
+  private readonly _textureUpload: WebGLUploadState = { capacityBytes: 0 }
 
   private _rectData: number[] = []
+  private _rectCachedData: Float32Array | null = null
   private _solidData: number[] = []
   private _textureData: number[] = []
   private _textureBatch: TextureEntry | null = null
+  private _roundedTransform = mat3.create()
+  private _solidTransform = mat3.create()
+  private _textureTransform = mat3.create()
   private _time = 0
 
   constructor(private readonly _device: NovaWebGLDevice) {
@@ -99,6 +122,11 @@ export class NovaWebGLFrameRenderer {
       instances: 0,
       uploadBytes: 0,
       uploadMs: 0,
+      bufferDataCalls: 0,
+      bufferSubDataCalls: 0,
+      fullUploads: 0,
+      dirtyRangeCount: 0,
+      gpuBufferCapacityBytes: 0,
       textRasterMs: 0,
       atlasMemoryMB: this.textureMemoryMB(),
     }
@@ -161,8 +189,10 @@ export class NovaWebGLFrameRenderer {
           break
         }
         case 'drawSchemaBatch':
-          for (const schemaItem of command.schemaItems ?? []) {
-            drawSchemaItem(schemaItem, currentTransform)
+          if (!this.drawSchemaBatch(command.schemaItems ?? [], currentTransform, stats)) {
+            for (const schemaItem of command.schemaItems ?? []) {
+              drawSchemaItem(schemaItem, currentTransform)
+            }
           }
           break
         case 'cursor':
@@ -185,6 +215,11 @@ export class NovaWebGLFrameRenderer {
       batches: stats.batches,
       instances: stats.instances,
       uploadBytes: stats.uploadBytes,
+      bufferDataCalls: stats.bufferDataCalls,
+      bufferSubDataCalls: stats.bufferSubDataCalls,
+      fullUploads: stats.fullUploads,
+      dirtyRangeCount: stats.dirtyRangeCount,
+      gpuBufferCapacityBytes: stats.gpuBufferCapacityBytes,
       uploadMs: stats.uploadMs,
       textRasterMs: stats.textRasterMs,
       atlasMemoryMB: this.textureMemoryMB(),
@@ -225,6 +260,56 @@ export class NovaWebGLFrameRenderer {
   private drawRenderItem(item: NovaRenderItem, stats: RenderStats): void {
     if (!item.schemaItem) return
     this.drawPrimitive(item.schemaItem, item.transform ?? mat3.create(), stats)
+  }
+
+  private drawSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats): boolean {
+    if (items.length === 0 || !items.every(item => item.type === 'rect' && item.active !== false && (item.clip === undefined || item.clip === true))) {
+      return false
+    }
+
+    let batch = this._rectBatchCache.get(items)
+    if (!batch) {
+      const data: number[] = []
+      let instances = 0
+
+      for (const item of items) {
+        const rect = item as NovaRect
+        const style = compileNovaRectStyle(rect)
+        const background = rect.styles?.background
+        if (background && typeof background !== 'string') return false
+        if (rect.width <= 0 || rect.height <= 0) continue
+        if (style.fill.a <= 0 && (style.borderColor.a <= 0 || style.borderWidth <= 0)) continue
+
+        this.pushRoundedRectVertices(
+          data,
+          rect.x,
+          rect.y,
+          rect.width,
+          rect.height,
+          style.borderRadius,
+          style.fill,
+          style.opacity,
+          style.borderColor,
+          style.borderWidth,
+        )
+        instances += 1
+      }
+
+      batch = {
+        data: new Float32Array(data),
+        instances,
+      }
+      this._rectBatchCache.set(items, batch)
+    }
+
+    if (batch.data.length === 0) return true
+    this.flushTexture(stats)
+    this.flushSolid(stats)
+    this.prepareRoundedTransform(transform, stats)
+    if (this._rectData.length > 0 || this._rectCachedData) this.flushRounded(stats)
+    this._rectCachedData = batch.data
+    stats.instances += batch.instances
+    return true
   }
 
   private drawPrimitive(item: NovaSchemaItem<any>, transform: mat3, stats: RenderStats): void {
@@ -375,7 +460,24 @@ export class NovaWebGLFrameRenderer {
     if (fill.a <= 0 && (border.a <= 0 || borderWidth <= 0)) return
     this.flushTexture(stats)
     this.flushSolid(stats)
+    this.prepareRoundedTransform(transform, stats)
 
+    this.pushRoundedRectVertices(this._rectData, x, y, width, height, radius, fill, opacity, border, borderWidth)
+    stats.instances += 1
+  }
+
+  private pushRoundedRectVertices(
+    target: number[],
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+    fill: NovaParsedColor,
+    opacity: number,
+    border: NovaParsedColor,
+    borderWidth: number,
+  ): void {
     const clampedRadius = Math.max(0, Math.min(radius, width / 2, height / 2))
     const vertices = [
       [x, y, 0, 0],
@@ -387,10 +489,9 @@ export class NovaWebGLFrameRenderer {
     ]
 
     for (const [px, py, localX, localY] of vertices) {
-      const world = transformPoint(transform, px, py)
-      this._rectData.push(
-        world.x,
-        world.y,
+      target.push(
+        px,
+        py,
         localX,
         localY,
         width,
@@ -407,8 +508,6 @@ export class NovaWebGLFrameRenderer {
         borderWidth,
       )
     }
-
-    stats.instances += 1
   }
 
   private queueSolidTriangle(
@@ -425,9 +524,10 @@ export class NovaWebGLFrameRenderer {
   ): void {
     this.flushTexture(stats)
     this.flushRounded(stats)
-    this.pushSolidVertex(x1, y1, color, opacity, transform)
-    this.pushSolidVertex(x2, y2, color, opacity, transform)
-    this.pushSolidVertex(x3, y3, color, opacity, transform)
+    this.prepareSolidTransform(transform, stats)
+    this.pushSolidVertex(x1, y1, color, opacity)
+    this.pushSolidVertex(x2, y2, color, opacity)
+    this.pushSolidVertex(x3, y3, color, opacity)
     stats.instances += 1
   }
 
@@ -456,15 +556,16 @@ export class NovaWebGLFrameRenderer {
 
     this.flushTexture(stats)
     this.flushRounded(stats)
+    this.prepareSolidTransform(transform, stats)
 
     const nx = (-dy / length) * (width / 2)
     const ny = (dx / length) * (width / 2)
-    this.pushSolidVertex(x1 - nx, y1 - ny, color, opacity, transform)
-    this.pushSolidVertex(x2 - nx, y2 - ny, color, opacity, transform)
-    this.pushSolidVertex(x1 + nx, y1 + ny, color, opacity, transform)
-    this.pushSolidVertex(x1 + nx, y1 + ny, color, opacity, transform)
-    this.pushSolidVertex(x2 - nx, y2 - ny, color, opacity, transform)
-    this.pushSolidVertex(x2 + nx, y2 + ny, color, opacity, transform)
+    this.pushSolidVertex(x1 - nx, y1 - ny, color, opacity)
+    this.pushSolidVertex(x2 - nx, y2 - ny, color, opacity)
+    this.pushSolidVertex(x1 + nx, y1 + ny, color, opacity)
+    this.pushSolidVertex(x1 + nx, y1 + ny, color, opacity)
+    this.pushSolidVertex(x2 - nx, y2 - ny, color, opacity)
+    this.pushSolidVertex(x2 + nx, y2 + ny, color, opacity)
     stats.instances += 1
   }
 
@@ -511,6 +612,7 @@ export class NovaWebGLFrameRenderer {
     if (width <= 0 || height <= 0 || opacity <= 0) return
     this.flushRounded(stats)
     this.flushSolid(stats)
+    this.prepareTextureTransform(transform, stats)
 
     if (this._textureBatch && this._textureBatch !== texture) this.flushTexture(stats)
     this._textureBatch = texture
@@ -525,16 +627,14 @@ export class NovaWebGLFrameRenderer {
     ]
 
     for (const [px, py, u, v] of vertices) {
-      const world = transformPoint(transform, px, py)
-      this._textureData.push(world.x, world.y, u, v, 1, 1, 1, opacity)
+      this._textureData.push(px, py, u, v, 1, 1, 1, opacity)
     }
 
     stats.instances += 1
   }
 
-  private pushSolidVertex(x: number, y: number, color: NovaParsedColor, opacity: number, transform: mat3): void {
-    const world = transformPoint(transform, x, y)
-    this._solidData.push(world.x, world.y, color.r, color.g, color.b, color.a * opacity)
+  private pushSolidVertex(x: number, y: number, color: NovaParsedColor, opacity: number): void {
+    this._solidData.push(x, y, color.r, color.g, color.b, color.a * opacity)
   }
 
   private flush(stats: RenderStats): void {
@@ -543,24 +643,43 @@ export class NovaWebGLFrameRenderer {
     this.flushTexture(stats)
   }
 
+  private prepareRoundedTransform(transform: mat3, stats: RenderStats): void {
+    if (mat3Equals(this._roundedTransform, transform)) return
+    this.flushRounded(stats)
+    mat3.copy(this._roundedTransform, transform)
+  }
+
+  private prepareSolidTransform(transform: mat3, stats: RenderStats): void {
+    if (mat3Equals(this._solidTransform, transform)) return
+    this.flushSolid(stats)
+    mat3.copy(this._solidTransform, transform)
+  }
+
+  private prepareTextureTransform(transform: mat3, stats: RenderStats): void {
+    if (mat3Equals(this._textureTransform, transform)) return
+    this.flushTexture(stats)
+    mat3.copy(this._textureTransform, transform)
+  }
+
   private flushRounded(stats: RenderStats): void {
-    if (this._rectData.length === 0) return
+    if (this._rectData.length === 0 && !this._rectCachedData) return
     const gl = this._gl
-    const data = new Float32Array(this._rectData)
+    const data = this._rectCachedData ?? new Float32Array(this._rectData)
     const uploadStartedAt = performance.now()
     gl.bindVertexArray(this._roundedVao)
     gl.bindBuffer(gl.ARRAY_BUFFER, this._roundedBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+    this.uploadArrayBuffer(data, this._roundedUpload, stats)
     stats.uploadMs += performance.now() - uploadStartedAt
-    stats.uploadBytes += data.byteLength
 
     this._roundedProgram.use()
     gl.uniform2f(this._roundedProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._roundedProgram.uniformLocation('u_transform'), false, this._roundedTransform)
     gl.drawArrays(gl.TRIANGLES, 0, data.length / RECT_STRIDE)
 
     stats.drawCalls += 1
     stats.batches += 1
     this._rectData = []
+    this._rectCachedData = null
   }
 
   private flushSolid(stats: RenderStats): void {
@@ -570,12 +689,12 @@ export class NovaWebGLFrameRenderer {
     const uploadStartedAt = performance.now()
     gl.bindVertexArray(this._solidVao)
     gl.bindBuffer(gl.ARRAY_BUFFER, this._solidBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+    this.uploadArrayBuffer(data, this._solidUpload, stats)
     stats.uploadMs += performance.now() - uploadStartedAt
-    stats.uploadBytes += data.byteLength
 
     this._solidProgram.use()
     gl.uniform2f(this._solidProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._solidProgram.uniformLocation('u_transform'), false, this._solidTransform)
     gl.drawArrays(gl.TRIANGLES, 0, data.length / SOLID_STRIDE)
 
     stats.drawCalls += 1
@@ -590,12 +709,12 @@ export class NovaWebGLFrameRenderer {
     const uploadStartedAt = performance.now()
     gl.bindVertexArray(this._textureVao)
     gl.bindBuffer(gl.ARRAY_BUFFER, this._textureBuffer)
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+    this.uploadArrayBuffer(data, this._textureUpload, stats)
     stats.uploadMs += performance.now() - uploadStartedAt
-    stats.uploadBytes += data.byteLength
 
     this._textureProgram.use()
     gl.uniform2f(this._textureProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._textureProgram.uniformLocation('u_transform'), false, this._textureTransform)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._textureBatch.texture)
     gl.uniform1i(this._textureProgram.uniformLocation('u_texture'), 0)
@@ -605,6 +724,32 @@ export class NovaWebGLFrameRenderer {
     stats.batches += 1
     this._textureData = []
     this._textureBatch = null
+  }
+
+  private uploadArrayBuffer(data: Float32Array, state: WebGLUploadState, stats: RenderStats): void {
+    const gl = this._gl
+    stats.gpuBufferCapacityBytes += Math.max(state.capacityBytes, data.byteLength)
+
+    if (state.lastData === data && state.capacityBytes >= data.byteLength) {
+      return
+    }
+
+    if (state.capacityBytes >= data.byteLength) {
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data)
+      state.lastData = data
+      stats.bufferSubDataCalls += 1
+      stats.dirtyRangeCount += 1
+      stats.uploadBytes += data.byteLength
+      return
+    }
+
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
+    state.capacityBytes = data.byteLength
+    state.lastData = data
+    stats.bufferDataCalls += 1
+    stats.fullUploads += 1
+    stats.dirtyRangeCount += 1
+    stats.uploadBytes += data.byteLength
   }
 
   private createBuffer(): WebGLBuffer {
@@ -812,6 +957,13 @@ function transformPoint(matrix: mat3, x: number, y: number): { x: number; y: num
   }
 }
 
+function mat3Equals(a: mat3, b: mat3): boolean {
+  for (let i = 0; i < 9; i += 1) {
+    if (Math.abs(a[i] - b[i]) > 0.0001) return false
+  }
+  return true
+}
+
 function transformRectBounds(matrix: mat3, x: number, y: number, width: number, height: number): NovaRenderClip {
   const p1 = transformPoint(matrix, x, y)
   const p2 = transformPoint(matrix, x + width, y)
@@ -862,6 +1014,7 @@ in vec4 a_fill;
 in vec4 a_border;
 in float a_borderWidth;
 uniform vec2 u_resolution;
+uniform mat3 u_transform;
 out vec2 v_local;
 out vec2 v_size;
 out float v_radius;
@@ -869,7 +1022,8 @@ out vec4 v_fill;
 out vec4 v_border;
 out float v_borderWidth;
 void main() {
-  vec2 zeroToOne = a_position / u_resolution;
+  vec3 world = u_transform * vec3(a_position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
   vec2 clipSpace = zeroToOne * 2.0 - 1.0;
   gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
   v_local = a_local;
@@ -915,9 +1069,11 @@ const SOLID_VERTEX_SHADER = `#version 300 es
 in vec2 a_position;
 in vec4 a_color;
 uniform vec2 u_resolution;
+uniform mat3 u_transform;
 out vec4 v_color;
 void main() {
-  vec2 zeroToOne = a_position / u_resolution;
+  vec3 world = u_transform * vec3(a_position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
   vec2 clipSpace = zeroToOne * 2.0 - 1.0;
   gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
   v_color = a_color;
@@ -938,10 +1094,12 @@ in vec2 a_position;
 in vec2 a_uv;
 in vec4 a_color;
 uniform vec2 u_resolution;
+uniform mat3 u_transform;
 out vec2 v_uv;
 out vec4 v_color;
 void main() {
-  vec2 zeroToOne = a_position / u_resolution;
+  vec3 world = u_transform * vec3(a_position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
   vec2 clipSpace = zeroToOne * 2.0 - 1.0;
   gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
   v_uv = a_uv;

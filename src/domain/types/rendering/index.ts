@@ -222,6 +222,16 @@ export interface NovaRenderMetrics {
   batches: number
   instances?: number
   uploadBytes?: number
+  bufferDataCalls?: number
+  bufferSubDataCalls?: number
+  fullUploads?: number
+  dirtyRangeCount?: number
+  gpuBufferCapacityBytes?: number
+  nodeRenderCalls?: number
+  compiledGroups?: number
+  reusedGroups?: number
+  updatedHandles?: number
+  dirtyStreamRanges?: number
   commands: number
   items: number
   groups: number
