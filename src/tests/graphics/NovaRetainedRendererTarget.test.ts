@@ -290,6 +290,31 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(gl.drawArrays).toHaveBeenCalledTimes(2)
   })
 
+  it('uploads only dirty rect ranges when a stable schema batch changes paint', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schema = createRectSchema(100)
+
+    const first = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const warm = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    for (let index = 0; index < 5; index += 1) {
+      const item = schema[index]
+      if (item.type === 'rect') item.styles = { ...item.styles, background: '#f97316' }
+    }
+
+    const dirty = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.uploadBytes).toBe(0)
+    expect(dirty.uploadBytes).toBeGreaterThan(0)
+    expect(dirty.uploadBytes).toBeLessThan(first.uploadBytes!)
+    expect(dirty.fullUploads).toBe(0)
+    expect(dirty.bufferSubDataCalls).toBeGreaterThan(0)
+    expect(dirty.updatedHandles).toBe(5)
+  })
+
   for (const testCase of RETAINED_CONTRACT_CASES) {
     it.todo(`${testCase.priority} ${testCase.id}: ${testCase.assertion}`)
   }

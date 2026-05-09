@@ -9,6 +9,8 @@ export type NovaRenderLayerId = 'main' | 'overlay' | 'selection' | 'drag-preview
 export type NovaRenderTargetId = string
 export type NovaRenderGroupId = string
 export type NovaRenderItemId = string
+export type NovaRenderHandleId = string
+export type NovaRenderStreamId = string
 
 export type NovaRenderPolicyGroup = 'auto' | 'always' | 'never'
 export type NovaRenderPolicyCache = 'auto' | 'texture' | 'none'
@@ -144,6 +146,34 @@ export interface NovaRenderItem {
   dirtyFlags?: Partial<NovaRenderDirtyFlags>
 }
 
+export type NovaRenderStreamKind =
+  | 'plain-rect'
+  | 'rounded-rect'
+  | 'border'
+  | 'line'
+  | 'circle'
+  | 'polygon'
+  | 'texture-quad'
+  | 'text-run'
+  | 'icon'
+  | 'cached-group'
+
+export interface NovaRenderHandle {
+  id: NovaRenderHandleId
+  nodeId: string
+  itemId: NovaRenderItemId
+  groupId: NovaRenderGroupId
+  layerId: NovaRenderLayerId
+  streamId: NovaRenderStreamId
+  streamKind: NovaRenderStreamKind
+  offset: number
+  count: number
+  batchKey: string
+  versions: NovaRenderVersions
+  resourceKey?: string
+  localBounds?: NovaBounds
+}
+
 export type NovaRenderCommandType =
   | 'clear'
   | 'save'
@@ -192,6 +222,7 @@ export interface NovaRenderGroup {
   dirtyFlags: NovaRenderDirtyFlags
   versions: NovaRenderVersions
   instructionBuffer: NovaInstructionBuffer
+  renderHandlesByNodeId?: Map<string, NovaRenderHandle[]>
   childGroupIds: NovaRenderGroupId[]
   bounds?: NovaBounds
   lastCompiledVersion: number

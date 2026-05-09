@@ -3,6 +3,8 @@ import { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import { NovaRenderQueueRenderer, type NovaRenderQueueSnapshot } from '@/model/renderers/shared/NovaRenderQueueRenderer'
 import { assertNovaRendererTypeImplemented, createNovaRenderer } from '@/model/renderers/shared/NovaRendererFactory'
 import { NovaRendererWebGL } from '@/model/renderers/webgl/NovaRendererWebGL'
+import { createNovaRenderLayer } from '@/model/rendering/NovaRenderLayer'
+import { NovaRenderGraph } from '@/model/rendering/NovaRenderGraph'
 import { NovaRenderCompiler } from '@/model/rendering/compiler/NovaRenderCompiler'
 import {
   RendererType,
@@ -29,6 +31,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   private _queueRenderer: NovaRenderQueueRenderer
   private _activeRenderer: NovaRenderer
   private _renderCompiler?: NovaRenderCompiler<E>
+  private _renderGraph?: NovaRenderGraph
 
   protected _dirty: boolean = false
   private _renderPipeline: NovaRenderPipeline = 'immediate'
@@ -67,6 +70,8 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
         schemaRegistry: app.schema,
         rendererConfig: app.rendererConfig,
       })
+      const rootLayer = createNovaRenderLayer('main')
+      this._renderGraph = new NovaRenderGraph(name, rootLayer.rootGroup)
     }
 
     this._subscribeToCanvasContextEvents()
@@ -245,6 +250,8 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
         schemaRegistry: this._novaApp.schema,
         rendererConfig: this._novaApp.rendererConfig,
       })
+      const rootLayer = createNovaRenderLayer('main')
+      this._renderGraph = new NovaRenderGraph(this.name, rootLayer.rootGroup)
     }
 
     // Восстанавливаем размеры
@@ -290,6 +297,10 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
   get renderer(): NovaRenderer {
     return this._activeRenderer
+  }
+
+  get renderGraph(): NovaRenderGraph | undefined {
+    return this._renderGraph
   }
 
   get renderPipeline(): NovaRenderPipeline {

@@ -36,6 +36,7 @@ export function createNovaRenderGroup(options: CreateNovaRenderGroupOptions): No
     dirtyFlags: createCleanRenderDirtyFlags(),
     versions: createRenderVersions(),
     instructionBuffer: createNovaInstructionBuffer(`${options.id}:instructions`),
+    renderHandlesByNodeId: new Map(),
     childGroupIds: [],
     lastCompiledVersion: 0,
     lastRenderedVersion: 0,

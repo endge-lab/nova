@@ -40,6 +40,8 @@ interface RenderStats {
   bufferSubDataCalls: number
   fullUploads: number
   dirtyRangeCount: number
+  updatedHandles: number
+  dirtyStreamRanges: number
   gpuBufferCapacityBytes: number
   textRasterMs: number
   atlasMemoryMB: number
@@ -64,11 +66,23 @@ interface RasterizedText {
 interface RectBatchCache {
   data: Float32Array
   instances: number
+  itemOffsets: number[]
+  signatures: string[]
 }
 
 interface WebGLUploadState {
   capacityBytes: number
   lastData?: Float32Array
+}
+
+interface FloatDirtyRange {
+  start: number
+  end: number
+}
+
+interface RectBatchUpdate {
+  dirtyRanges: FloatDirtyRange[]
+  changedItems: number
 }
 
 export class NovaWebGLFrameRenderer {
@@ -93,6 +107,7 @@ export class NovaWebGLFrameRenderer {
 
   private _rectData: number[] = []
   private _rectCachedData: Float32Array | null = null
+  private _rectCachedDirtyRanges: FloatDirtyRange[] | null = null
   private _solidData: number[] = []
   private _textureData: number[] = []
   private _textureBatch: TextureEntry | null = null
@@ -126,6 +141,8 @@ export class NovaWebGLFrameRenderer {
       bufferSubDataCalls: 0,
       fullUploads: 0,
       dirtyRangeCount: 0,
+      updatedHandles: 0,
+      dirtyStreamRanges: 0,
       gpuBufferCapacityBytes: 0,
       textRasterMs: 0,
       atlasMemoryMB: this.textureMemoryMB(),
@@ -220,6 +237,8 @@ export class NovaWebGLFrameRenderer {
       fullUploads: stats.fullUploads,
       dirtyRangeCount: stats.dirtyRangeCount,
       gpuBufferCapacityBytes: stats.gpuBufferCapacityBytes,
+      updatedHandles: stats.updatedHandles,
+      dirtyStreamRanges: stats.dirtyStreamRanges,
       uploadMs: stats.uploadMs,
       textRasterMs: stats.textRasterMs,
       atlasMemoryMB: this.textureMemoryMB(),
@@ -268,38 +287,24 @@ export class NovaWebGLFrameRenderer {
     }
 
     let batch = this._rectBatchCache.get(items)
+    let dirtyRanges: FloatDirtyRange[] | null = null
+    let changedItems = 0
     if (!batch) {
-      const data: number[] = []
-      let instances = 0
-
-      for (const item of items) {
-        const rect = item as NovaRect
-        const style = compileNovaRectStyle(rect)
-        const background = rect.styles?.background
-        if (background && typeof background !== 'string') return false
-        if (rect.width <= 0 || rect.height <= 0) continue
-        if (style.fill.a <= 0 && (style.borderColor.a <= 0 || style.borderWidth <= 0)) continue
-
-        this.pushRoundedRectVertices(
-          data,
-          rect.x,
-          rect.y,
-          rect.width,
-          rect.height,
-          style.borderRadius,
-          style.fill,
-          style.opacity,
-          style.borderColor,
-          style.borderWidth,
-        )
-        instances += 1
+      const nextBatch = this.buildRectBatch(items)
+      if (!nextBatch) return false
+      batch = nextBatch
+      this._rectBatchCache.set(items, nextBatch)
+    } else {
+      const update = this.updateRectBatch(items, batch)
+      if (!update) {
+        const nextBatch = this.buildRectBatch(items)
+        if (!nextBatch) return false
+        batch = nextBatch
+        this._rectBatchCache.set(items, nextBatch)
+      } else {
+        dirtyRanges = update.dirtyRanges
+        changedItems = update.changedItems
       }
-
-      batch = {
-        data: new Float32Array(data),
-        instances,
-      }
-      this._rectBatchCache.set(items, batch)
     }
 
     if (batch.data.length === 0) return true
@@ -308,8 +313,112 @@ export class NovaWebGLFrameRenderer {
     this.prepareRoundedTransform(transform, stats)
     if (this._rectData.length > 0 || this._rectCachedData) this.flushRounded(stats)
     this._rectCachedData = batch.data
+    this._rectCachedDirtyRanges = dirtyRanges
     stats.instances += batch.instances
+    if (dirtyRanges?.length) {
+      stats.updatedHandles += changedItems
+      stats.dirtyStreamRanges += dirtyRanges.length
+    }
     return true
+  }
+
+  private buildRectBatch(items: NovaSchemaItem<any>[]): RectBatchCache | null {
+    const data: number[] = []
+    const itemOffsets: number[] = new Array(items.length).fill(-1)
+    const signatures: string[] = new Array(items.length).fill('')
+    let instances = 0
+
+    for (let index = 0; index < items.length; index += 1) {
+      const rect = items[index] as NovaRect
+      signatures[index] = this.createRectSignature(rect)
+      const background = rect.styles?.background
+      if (background && typeof background !== 'string') return null
+      const style = compileNovaRectStyle(rect)
+      if (rect.width <= 0 || rect.height <= 0) continue
+      if (style.fill.a <= 0 && (style.borderColor.a <= 0 || style.borderWidth <= 0)) continue
+
+      itemOffsets[index] = data.length
+      this.pushRoundedRectVertices(
+        data,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+        style.borderRadius,
+        style.fill,
+        style.opacity,
+        style.borderColor,
+        style.borderWidth,
+      )
+      instances += 1
+    }
+
+    return {
+      data: new Float32Array(data),
+      instances,
+      itemOffsets,
+      signatures,
+    }
+  }
+
+  private updateRectBatch(items: NovaSchemaItem<any>[], batch: RectBatchCache): RectBatchUpdate | null {
+    if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
+
+    const dirtyRanges: FloatDirtyRange[] = []
+    let changedItems = 0
+
+    for (let index = 0; index < items.length; index += 1) {
+      const rect = items[index] as NovaRect
+      const signature = this.createRectSignature(rect)
+      if (signature === batch.signatures[index]) continue
+
+      const offset = batch.itemOffsets[index]
+      if (offset < 0) return null
+      const background = rect.styles?.background
+      if (background && typeof background !== 'string') return null
+      const style = compileNovaRectStyle(rect)
+      if (rect.width <= 0 || rect.height <= 0) return null
+      if (style.fill.a <= 0 && (style.borderColor.a <= 0 || style.borderWidth <= 0)) return null
+
+      this.writeRoundedRectVertices(
+        batch.data,
+        offset,
+        rect.x,
+        rect.y,
+        rect.width,
+        rect.height,
+        style.borderRadius,
+        style.fill,
+        style.opacity,
+        style.borderColor,
+        style.borderWidth,
+      )
+      batch.signatures[index] = signature
+      changedItems += 1
+      dirtyRanges.push({ start: offset, end: offset + RECT_STRIDE * 6 })
+    }
+
+    return {
+      dirtyRanges: mergeFloatDirtyRanges(dirtyRanges),
+      changedItems,
+    }
+  }
+
+  private createRectSignature(rect: NovaRect): string {
+    const border = rect.styles?.border
+    return [
+      rect.active === false ? 0 : 1,
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+      typeof rect.styles?.background === 'string' ? rect.styles.background : rect.styles?.background ? 'texture' : '',
+      rect.styles?.opacity ?? 1,
+      border?.color ?? '',
+      border?.width ?? 0,
+      border?.radius ?? 0,
+      border?.dashPattern?.join(',') ?? '',
+    ].join('|')
   }
 
   private drawPrimitive(item: NovaSchemaItem<any>, transform: mat3, stats: RenderStats): void {
@@ -510,6 +619,50 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  private writeRoundedRectVertices(
+    target: Float32Array,
+    offset: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number,
+    fill: NovaParsedColor,
+    opacity: number,
+    border: NovaParsedColor,
+    borderWidth: number,
+  ): void {
+    const clampedRadius = Math.max(0, Math.min(radius, width / 2, height / 2))
+    const vertices = [
+      [x, y, 0, 0],
+      [x + width, y, width, 0],
+      [x, y + height, 0, height],
+      [x, y + height, 0, height],
+      [x + width, y, width, 0],
+      [x + width, y + height, width, height],
+    ]
+
+    let cursor = offset
+    for (const [px, py, localX, localY] of vertices) {
+      target[cursor++] = px
+      target[cursor++] = py
+      target[cursor++] = localX
+      target[cursor++] = localY
+      target[cursor++] = width
+      target[cursor++] = height
+      target[cursor++] = clampedRadius
+      target[cursor++] = fill.r
+      target[cursor++] = fill.g
+      target[cursor++] = fill.b
+      target[cursor++] = fill.a * opacity
+      target[cursor++] = border.r
+      target[cursor++] = border.g
+      target[cursor++] = border.b
+      target[cursor++] = border.a * opacity
+      target[cursor++] = borderWidth
+    }
+  }
+
   private queueSolidTriangle(
     x1: number,
     y1: number,
@@ -665,10 +818,11 @@ export class NovaWebGLFrameRenderer {
     if (this._rectData.length === 0 && !this._rectCachedData) return
     const gl = this._gl
     const data = this._rectCachedData ?? new Float32Array(this._rectData)
+    const dirtyRanges = this._rectCachedData ? this._rectCachedDirtyRanges : null
     const uploadStartedAt = performance.now()
     gl.bindVertexArray(this._roundedVao)
     gl.bindBuffer(gl.ARRAY_BUFFER, this._roundedBuffer)
-    this.uploadArrayBuffer(data, this._roundedUpload, stats)
+    this.uploadArrayBuffer(data, this._roundedUpload, stats, dirtyRanges)
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._roundedProgram.use()
@@ -680,6 +834,7 @@ export class NovaWebGLFrameRenderer {
     stats.batches += 1
     this._rectData = []
     this._rectCachedData = null
+    this._rectCachedDirtyRanges = null
   }
 
   private flushSolid(stats: RenderStats): void {
@@ -726,11 +881,22 @@ export class NovaWebGLFrameRenderer {
     this._textureBatch = null
   }
 
-  private uploadArrayBuffer(data: Float32Array, state: WebGLUploadState, stats: RenderStats): void {
+  private uploadArrayBuffer(data: Float32Array, state: WebGLUploadState, stats: RenderStats, dirtyRanges: FloatDirtyRange[] | null = null): void {
     const gl = this._gl
     stats.gpuBufferCapacityBytes += Math.max(state.capacityBytes, data.byteLength)
 
     if (state.lastData === data && state.capacityBytes >= data.byteLength) {
+      if (dirtyRanges?.length) {
+        for (const range of dirtyRanges) {
+          const start = Math.max(0, range.start)
+          const end = Math.min(data.length, range.end)
+          if (end <= start) continue
+          gl.bufferSubData(gl.ARRAY_BUFFER, start * FLOAT_BYTES, data.subarray(start, end))
+          stats.bufferSubDataCalls += 1
+          stats.dirtyRangeCount += 1
+          stats.uploadBytes += (end - start) * FLOAT_BYTES
+        }
+      }
       return
     }
 
@@ -962,6 +1128,28 @@ function mat3Equals(a: mat3, b: mat3): boolean {
     if (Math.abs(a[i] - b[i]) > 0.0001) return false
   }
   return true
+}
+
+function mergeFloatDirtyRanges(ranges: FloatDirtyRange[]): FloatDirtyRange[] {
+  if (ranges.length <= 1) return ranges
+
+  const sorted = [...ranges].sort((a, b) => a.start - b.start)
+  const merged: FloatDirtyRange[] = []
+  let current = { ...sorted[0] }
+
+  for (let index = 1; index < sorted.length; index += 1) {
+    const next = sorted[index]
+    if (next.start <= current.end) {
+      current.end = Math.max(current.end, next.end)
+      continue
+    }
+
+    merged.push(current)
+    current = { ...next }
+  }
+
+  merged.push(current)
+  return merged
 }
 
 function transformRectBounds(matrix: mat3, x: number, y: number, width: number, height: number): NovaRenderClip {
