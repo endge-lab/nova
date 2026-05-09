@@ -220,6 +220,8 @@ export interface NovaRenderMetrics {
   drawMs: number
   drawCalls: number
   batches: number
+  instances?: number
+  uploadBytes?: number
   commands: number
   items: number
   groups: number

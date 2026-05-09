@@ -54,7 +54,7 @@ function create2DContextStub(): CanvasRenderingContext2D {
   }) as CanvasRenderingContext2D
 }
 
-function createWebGLContextStub(): WebGLRenderingContext & { __stats: WebGLStats } {
+function createWebGLContextStub(): WebGL2RenderingContext & { __stats: WebGLStats } {
   const stats: WebGLStats = {
     bufferData: 0,
     bufferSubData: 0,
@@ -68,6 +68,9 @@ function createWebGLContextStub(): WebGLRenderingContext & { __stats: WebGLStats
     COLOR_BUFFER_BIT: 0x4000,
     COMPILE_STATUS: 0x8b81,
     CONTEXT_LOST_WEBGL: 0x9242,
+    CULL_FACE: 0x0b44,
+    DEPTH_BUFFER_BIT: 0x0100,
+    DEPTH_TEST: 0x0b71,
     DYNAMIC_DRAW: 0x88e8,
     FLOAT: 0x1406,
     FRAGMENT_SHADER: 0x8b30,
@@ -86,6 +89,7 @@ function createWebGLContextStub(): WebGLRenderingContext & { __stats: WebGLStats
     SCISSOR_TEST: 0x0c11,
     SRC_ALPHA: 0x0302,
     STATIC_DRAW: 0x88e4,
+    STENCIL_BUFFER_BIT: 0x0400,
     TEXTURE0: 0x84c0,
     TEXTURE_2D: 0x0de1,
     TEXTURE_MAG_FILTER: 0x2800,
@@ -105,6 +109,7 @@ function createWebGLContextStub(): WebGLRenderingContext & { __stats: WebGLStats
     attachShader: noop,
     bindBuffer: noop,
     bindTexture: noop,
+    bindVertexArray: noop,
     blendFuncSeparate: noop,
     bufferData: () => {
       stats.bufferData += 1
@@ -119,10 +124,12 @@ function createWebGLContextStub(): WebGLRenderingContext & { __stats: WebGLStats
     createProgram: () => ({}),
     createShader: () => ({}),
     createTexture: () => ({}),
+    createVertexArray: () => ({}),
     deleteBuffer: noop,
     deleteProgram: noop,
     deleteShader: noop,
     deleteTexture: noop,
+    deleteVertexArray: noop,
     detachShader: noop,
     disable: noop,
     drawArrays: () => {
@@ -152,17 +159,23 @@ function createWebGLContextStub(): WebGLRenderingContext & { __stats: WebGLStats
     uniformMatrix3fv: noop,
     useProgram: noop,
     vertexAttribPointer: noop,
-  } as unknown as WebGLRenderingContext & { __stats: WebGLStats }
+    viewport: noop,
+  } as unknown as WebGL2RenderingContext & { __stats: WebGLStats }
 }
 
 function createCanvasStub(
   width: number,
   height: number,
-  context: CanvasRenderingContext2D | WebGLRenderingContext,
+  context: CanvasRenderingContext2D | WebGL2RenderingContext,
 ): NovaCanvas {
   const element = document.createElement('canvas')
   element.width = width
   element.height = height
+  vi.spyOn(element, 'getContext').mockImplementation((type: string) => {
+    if (type === '2d') return context as CanvasRenderingContext2D
+    if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') return context as WebGL2RenderingContext
+    return null
+  })
 
   return {
     dpr: 1,
@@ -173,7 +186,7 @@ function createCanvasStub(
     pixelWidth: width,
     width,
     getContext2D: () => context as CanvasRenderingContext2D,
-    getContextWebGL: () => context as WebGLRenderingContext,
+    getContextWebGL: () => context as unknown as WebGLRenderingContext,
   } as unknown as NovaCanvas
 }
 

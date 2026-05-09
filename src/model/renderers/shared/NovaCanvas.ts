@@ -80,23 +80,6 @@ export class NovaCanvas {
     this._dpr = this.resolveDpr(options.dpr, this._maxDpr)
     const dpr = this._dpr
 
-    // // Временно закомментировано, т.к. аффектит ОУ ресайзинг
-    // // Если не изменился реальный размер canvas
-    // const nextW = Math.max(0, Math.floor(width * dpr))
-    // const nextH = Math.max(0, Math.floor(height * dpr))
-    // if (this._element.width === nextW && this._element.height === nextH) {
-    //   const cssW = `${width}px`
-    //   const cssH = `${height}px`
-    //   if (this._element.style.width !== cssW) this._element.style.width = cssW
-    //   if (this._element.style.height !== cssH) this._element.style.height = cssH
-    //   return
-    // }
-    //
-    // //
-    // //
-    // this._element.width = nextW
-    // this._element.height = nextH
-
     this._element.width = Math.max(0, Math.floor(width * dpr))
     this._element.height = Math.max(0, Math.floor(height * dpr))
     this._element.style.width = `${width}px`
@@ -220,8 +203,10 @@ export class NovaCanvas {
 
     if (contextType === RendererType.Web2D) {
       instance.getContext2D()
-    } else if (contextType === RendererType.WebGLOld || contextType === RendererType.WebGL) {
+    } else if (contextType === RendererType.WebGLOld) {
       instance.getContextWebGL(options.webgl)
+    } else if (contextType === RendererType.WebGL) {
+      // Target WebGL renderer owns WebGL2 context creation and must not bind WebGL1 first.
     } else {
       throw new Error(`Unsupported context type: ${contextType}`)
     }
@@ -236,7 +221,14 @@ export class NovaCanvas {
     const height = options.height ?? rect.height
     instance.resize(width, height, options)
 
-    instance.getContext2D()
+    const contextType = options.contextType ?? RendererType.Web2D
+
+    if (contextType === RendererType.Web2D) {
+      instance.getContext2D()
+    } else if (contextType === RendererType.WebGLOld) {
+      instance.getContextWebGL(options.webgl)
+    }
+
     return instance
   }
 

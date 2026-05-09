@@ -24,6 +24,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   readonly name: string
 
   private _canvas: NovaCanvas
+  private _ownsCanvas = true
   private _renderer: NovaRenderer
   private _queueRenderer: NovaRenderQueueRenderer
   private _activeRenderer: NovaRenderer
@@ -198,7 +199,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   destroy(): void {
     this._queueRenderer?.destroy()
     this._renderer?.destroy()
-    this._canvas?.destroy()
+    if (this._ownsCanvas) this._canvas?.destroy()
   }
 
   //
@@ -223,7 +224,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
     //
     this._renderer.destroy()
-    this._canvas.destroy()
+    if (this._ownsCanvas) this._canvas.destroy()
 
     // Создаём новый канвас и рендерер
     const newCanvas = this._createCanvas(this._novaApp.width, this._novaApp.height)
@@ -266,6 +267,12 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   private _createCanvas(width: number, height: number): NovaCanvas {
+    if (this._rendererType === RendererType.WebGL && this._novaApp.mainRendererType === RendererType.WebGL) {
+      this._ownsCanvas = false
+      return this._novaApp.canvas
+    }
+
+    this._ownsCanvas = true
     return NovaCanvas.create(width, height, this._rendererType, {
       dpr: this._novaApp.dpr,
       maxDpr: this._novaApp.maxDpr,

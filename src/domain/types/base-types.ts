@@ -122,6 +122,7 @@ export type NovaCanvasOwnership = 'external' | 'internal'
 
 export interface NovaCanvasCreateOptions extends Partial<NovaSizeOptions> {
   webgl?: WebGLContextAttributes
+  contextType?: RendererType
 }
 
 export interface SurfaceOptions {

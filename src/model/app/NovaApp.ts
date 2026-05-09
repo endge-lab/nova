@@ -20,6 +20,7 @@ import { Raph, RaphLocalPhase, RaphSchedulerType } from '@endge/raph'
 import { NovaNode } from '@/model/core/NovaNode'
 import { NovaEvents } from '@/model/core/NovaEvents'
 import { NovaDebug } from '@/model/app/NovaDebug'
+import { NovaMetrics } from '@/model/app/NovaMetrics'
 import { Telemetry } from '@/model/telemetry'
 import type { RaphNode } from '@endge/raph'
 import type { NovaScene } from '@/model/core/NovaScene'
@@ -33,7 +34,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   // Ядро
   private readonly _raph: RaphApp<NovaNodeProperties>
   private readonly _canvas: NovaCanvas
-  private readonly _renderer: NovaRenderer2D
+  private readonly _renderer: NovaRenderer2D | null
+  private readonly _mainRendererType: RendererType
   private readonly _events: NovaEvents<E>
   private readonly _inputOptions: ResolvedNovaInputOptions
   private readonly _webglAttributes?: WebGLContextAttributes
@@ -47,6 +49,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   readonly components = new NovaComponentRegistry()
   readonly motion = new NovaMotionEngine(this)
   readonly bus: EventBus<E>
+  readonly metrics: NovaMetrics
 
   // NovaAppOptions
   private _debug: boolean | string | string[] = false
@@ -67,19 +70,19 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       throw new Error('NovaApp target must be an HTMLCanvasElement')
     }
 
-    if (options.renderer?.main !== undefined && options.renderer.main !== RendererType.Web2D) {
-      throw new Error('NovaApp main renderer supports only Canvas2D target at the moment')
-    }
-
     this._inputOptions = this.resolveInputOptions(options.input)
     this._webglAttributes = options.renderer?.webgl
+    this._mainRendererType = options.renderer?.main ?? RendererType.Web2D
     this._rendererConfig = resolveNovaRendererConfig(options.renderer?.config)
     this._canvas = NovaCanvas.attach(options.target, {
       ...options.size,
       webgl: this._webglAttributes,
+      contextType: this._mainRendererType,
     })
     this.schema = options.schemaRegistry ?? new NovaSchemaRegistry()
-    this._renderer = new NovaRenderer2D(this._canvas, this.schema)
+    this._renderer = this._mainRendererType === RendererType.Web2D
+      ? new NovaRenderer2D(this._canvas, this.schema)
+      : null
     this._events = new NovaEvents(this)
 
     this.bus = new EventBus<E>(options.predefinedEvents ?? [])
@@ -101,9 +104,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       () => new NovaNode(this),
     )
     this._raph = conf.app
+    this.metrics = new NovaMetrics(() => this.raph.UPS)
     this.raph.setScheduler(options.scheduler?.type ?? RaphSchedulerType.AnimationFrame)
     this.raph.init()
     this.resize(options.size)
+    this.metrics.start()
 
     if (options.scheduler?.loop) {
       this.startLoop()
@@ -117,6 +122,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   //
   @RaphLocalPhase({ name: 'before', priority: -1, always: true })
   before(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
+    this.metrics.markFrameStart()
     this.__debugger.frameStart()
     this.motion.tick(p.frame)
   }
@@ -173,31 +179,16 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   flush(): void {
     this.__debugger.phaseStart('flush')
 
-    this._renderer.clear()
-    const ctx = this.canvas.getContext2D()!
-    for (const surface of this.getOrderedSurfaces()) {
-      surface.doFlush(ctx)
+    if (this._mainRendererType === RendererType.Web2D && this._renderer) {
+      this._renderer.clear()
+      const ctx = this.canvas.getContext2D()!
+      for (const surface of this.getOrderedSurfaces()) {
+        surface.doFlush(ctx)
+      }
     }
-    this.__debugger.markRenderedFrame()
 
-    if (this._debug) {
-      const fps = this.__debugger.displayFps
-      this._renderer.schema([
-        {
-          type: 'text',
-          text: `${!this.raph.loopEnabled ? 'LAST ' : ''}FPS: ${fps.toFixed(0)} (Задач: ${this.__tasks}, Групп: ${this.__groups})`,
-          x: this.width - 300,
-          y: 5,
-          width: 300,
-          height: 10,
-          styles: {
-            ellipsis: true,
-            align: { horizontal: 'center', vertical: 'middle' },
-            font: { family: 'monospace', size: 10 },
-          },
-        },
-      ])
-    }
+    this.__debugger.markRenderedFrame()
+    this.metrics.markDraw()
 
     this.__debugger.phaseEnd()
   }
@@ -205,6 +196,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   @RaphLocalPhase({ name: 'after', priority: 10, always: true })
   after(): void {
     this.__debugger.frameEnd()
+    this.metrics.markFrameEnd()
   }
 
   // При наличии изменений запустит нужные фазы у нужных узлов.
@@ -282,6 +274,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   }
 
   get renderer(): NovaRenderer2D {
+    if (!this._renderer) {
+      throw new Error('NovaApp.renderer is available only when main renderer is RendererType.Web2D.')
+    }
     return this._renderer
   }
 
@@ -315,6 +310,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
   get webglAttributes(): WebGLContextAttributes | undefined {
     return this._webglAttributes
+  }
+
+  get mainRendererType(): RendererType {
+    return this._mainRendererType
   }
 
   get rendererConfig(): NovaRendererConfig {
@@ -497,11 +496,12 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
     this.stopLoop()
     this.__debugger.stopDisplayMonitor()
+    this.metrics.stop()
 
-    this._canvas.destroy()
     for (const surface of this.surfaces) {
       surface.destroy()
     }
+    this._canvas.destroy()
 
     this.raph.clear()
   }

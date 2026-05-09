@@ -27,7 +27,7 @@ function create2DContextStub(): CanvasRenderingContext2D {
   }) as CanvasRenderingContext2D
 }
 
-function createWebGLContextStub(): WebGLRenderingContext {
+function createWebGLContextStub(): WebGL2RenderingContext {
   const constants: Record<string, number> = {
     ARRAY_BUFFER: 0x8892,
     BLEND: 0x0be2,
@@ -35,6 +35,9 @@ function createWebGLContextStub(): WebGLRenderingContext {
     COLOR_BUFFER_BIT: 0x4000,
     COMPILE_STATUS: 0x8b81,
     CONTEXT_LOST_WEBGL: 0x9242,
+    CULL_FACE: 0x0b44,
+    DEPTH_BUFFER_BIT: 0x0100,
+    DEPTH_TEST: 0x0b71,
     DYNAMIC_DRAW: 0x88e8,
     FLOAT: 0x1406,
     FRAGMENT_SHADER: 0x8b30,
@@ -53,6 +56,7 @@ function createWebGLContextStub(): WebGLRenderingContext {
     SCISSOR_TEST: 0x0c11,
     SRC_ALPHA: 0x0302,
     STATIC_DRAW: 0x88e4,
+    STENCIL_BUFFER_BIT: 0x0400,
     TEXTURE0: 0x84c0,
     TEXTURE_2D: 0x0de1,
     TEXTURE_MAG_FILTER: 0x2800,
@@ -71,6 +75,7 @@ function createWebGLContextStub(): WebGLRenderingContext {
     attachShader: vi.fn(),
     bindBuffer: vi.fn(),
     bindTexture: vi.fn(),
+    bindVertexArray: vi.fn(),
     blendFuncSeparate: vi.fn(),
     bufferData: vi.fn(),
     bufferSubData: vi.fn(),
@@ -81,10 +86,12 @@ function createWebGLContextStub(): WebGLRenderingContext {
     createProgram: vi.fn(() => ({})),
     createShader: vi.fn(() => ({})),
     createTexture: vi.fn(() => ({})),
+    createVertexArray: vi.fn(() => ({})),
     deleteBuffer: vi.fn(),
     deleteProgram: vi.fn(),
     deleteShader: vi.fn(),
     deleteTexture: vi.fn(),
+    deleteVertexArray: vi.fn(),
     detachShader: vi.fn(),
     disable: vi.fn(),
     drawArrays: vi.fn(),
@@ -113,11 +120,16 @@ function createWebGLContextStub(): WebGLRenderingContext {
     useProgram: vi.fn(),
     vertexAttribPointer: vi.fn(),
     viewport: vi.fn(),
-  } as unknown as WebGLRenderingContext
+  } as unknown as WebGL2RenderingContext
 }
 
-function createCanvasStub(gl: WebGLRenderingContext = createWebGLContextStub()): NovaCanvas {
+function createCanvasStub(gl: WebGL2RenderingContext = createWebGLContextStub()): NovaCanvas {
   const canvas = document.createElement('canvas')
+  vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
+    if (type === '2d') return create2DContextStub()
+    if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') return gl
+    return null
+  })
   return {
     dpr: 1,
     element: canvas,
@@ -127,7 +139,7 @@ function createCanvasStub(gl: WebGLRenderingContext = createWebGLContextStub()):
     pixelWidth: 200,
     width: 200,
     getContext2D: () => create2DContextStub(),
-    getContextWebGL: () => gl,
+    getContextWebGL: () => gl as unknown as WebGLRenderingContext,
   } as unknown as NovaCanvas
 }
 

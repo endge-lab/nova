@@ -14,9 +14,7 @@ import type {
 } from '@/domain/types/renderer-types'
 import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
 import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
-import { NovaRendererWebGLOld } from '@/model/renderers/webgl_old/NovaRendererWebGLOld'
 import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
-import { NovaSchemaRegistry as NovaSchemaRegistryCtor } from '@/model/core/NovaSchemaRegistry'
 import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/rendering/policy/NovaRenderPolicy'
 import { NovaWebGLDevice } from '@/model/renderers/webgl/NovaWebGLDevice'
 import { NovaWebGLDiagnostics } from '@/model/renderers/webgl/NovaWebGLDiagnostics'
@@ -47,20 +45,18 @@ export class NovaRendererWebGL implements NovaRenderer {
   readonly textures: NovaWebGLTextureManager
   readonly textRenderer: NovaWebGLTextRenderer
 
-  private readonly _compatRenderer: NovaRendererWebGLOld
   private readonly _frameRenderer: NovaWebGLFrameRenderer
 
   constructor(
     readonly novaCanvas: NovaCanvas,
-    schemaRegistry: NovaSchemaRegistry = new NovaSchemaRegistryCtor(),
+    _schemaRegistry: NovaSchemaRegistry,
     rendererConfig: NovaRendererConfig = DEFAULT_NOVA_RENDERER_CONFIG,
   ) {
     this.device = new NovaWebGLDevice(novaCanvas)
     this.targets = new NovaWebGLTargetManager(this.device.gl)
     this.textures = new NovaWebGLTextureManager(this.device.gl)
     this.textRenderer = new NovaWebGLTextRenderer(rendererConfig.text)
-    this._compatRenderer = new NovaRendererWebGLOld(novaCanvas, schemaRegistry)
-    this._frameRenderer = new NovaWebGLFrameRenderer(this._compatRenderer)
+    this._frameRenderer = new NovaWebGLFrameRenderer(this.device)
   }
 
   renderFrame(frame: NovaRenderFrame): NovaRenderMetrics {
@@ -69,80 +65,86 @@ export class NovaRendererWebGL implements NovaRenderer {
     return metrics
   }
 
-  schema(schema: NovaSchema<any>): void {
-    this._compatRenderer.schema(schema)
+  schema(_schema: NovaSchema<any>): void {
+    this.throwImmediateApiError('schema')
   }
 
-  schemaBatched(schema: NovaSchema<any>): void {
-    this._compatRenderer.schemaBatched(schema)
+  schemaBatched(_schema: NovaSchema<any>): void {
+    this.throwImmediateApiError('schemaBatched')
   }
 
-  schemaOrdered(schema: NovaSchema<any>): void {
-    this._compatRenderer.schemaOrdered(schema)
+  schemaOrdered(_schema: NovaSchema<any>): void {
+    this.throwImmediateApiError('schemaOrdered')
   }
 
   save(): void {
-    this._compatRenderer.save()
+    this.throwImmediateApiError('save')
   }
 
   restore(): void {
-    this._compatRenderer.restore()
+    this.throwImmediateApiError('restore')
   }
 
   clear(): void {
-    this._compatRenderer.clear()
+    this.throwImmediateApiError('clear')
   }
 
-  clip(x: number, y: number, width: number, height: number): void {
-    this._compatRenderer.clip(x, y, width, height)
+  clip(_x: number, _y: number, _width: number, _height: number): void {
+    this.throwImmediateApiError('clip')
   }
 
   clearClip(): void {
-    this._compatRenderer.clearClip()
+    this.throwImmediateApiError('clearClip')
   }
 
-  setTransform(matrix: mat3): void {
-    this._compatRenderer.setTransform(matrix)
+  setTransform(_matrix: mat3): void {
+    this.throwImmediateApiError('setTransform')
   }
 
-  text(params: NovaText): void {
-    this._compatRenderer.text(params)
+  text(_params: NovaText): void {
+    this.throwImmediateApiError('text')
   }
 
-  rect(params: NovaRect): void {
-    this._compatRenderer.rect(params)
+  rect(_params: NovaRect): void {
+    this.throwImmediateApiError('rect')
   }
 
-  border(params: NovaBorder): void {
-    this._compatRenderer.border(params)
+  border(_params: NovaBorder): void {
+    this.throwImmediateApiError('border')
   }
 
-  line(params: NovaLine): void {
-    this._compatRenderer.line(params)
+  line(_params: NovaLine): void {
+    this.throwImmediateApiError('line')
   }
 
-  circle(params: NovaCircle): void {
-    this._compatRenderer.circle(params)
+  circle(_params: NovaCircle): void {
+    this.throwImmediateApiError('circle')
   }
 
-  polygon(params: NovaPolygon): void {
-    this._compatRenderer.polygon(params)
+  polygon(_params: NovaPolygon): void {
+    this.throwImmediateApiError('polygon')
   }
 
-  icon(params: NovaIcon): void {
-    this._compatRenderer.icon(params)
+  icon(_params: NovaIcon): void {
+    this.throwImmediateApiError('icon')
   }
 
   measureText(params: NovaText): { width: number; height: number } {
-    return this._compatRenderer.measureText(params)
+    return this._frameRenderer.measureText(params)
   }
 
   cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): void {
-    this._compatRenderer.cursor(type)
+    this.novaCanvas.element.style.cursor = type
   }
 
   destroy(): void {
+    this._frameRenderer.destroy()
     this.textures.destroy()
-    this._compatRenderer.destroy()
+  }
+
+  private throwImmediateApiError(method: string): never {
+    throw new Error(
+      `NovaRendererWebGL.${method}() is not an immediate rendering API. Use NovaRenderCompiler/NovaRenderContext and renderFrame() for RendererType.WebGL.`,
+    )
   }
 }
