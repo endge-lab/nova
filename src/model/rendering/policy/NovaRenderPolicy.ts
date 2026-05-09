@@ -18,15 +18,22 @@ export const DEFAULT_NOVA_RENDER_POLICY: NovaRenderPolicy = Object.freeze({
 export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
   batching: Object.freeze({
     maxBatchSize: 8192,
+    semanticScopes: 'safe',
+    maxDrawCallsWarning: 1000,
   }),
   text: Object.freeze({
     quality: 'balanced',
+    mode: 'auto',
     maxAtlasMemoryMB: 128,
-    zoomBuckets: Object.freeze([1, 1.5, 2, 3]) as unknown as number[],
+    zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as number[],
+    dynamicBuckets: true,
+    prewarmAdjacentBuckets: true,
     rasterBudgetMs: 4,
   }),
   cache: Object.freeze({
     maxTextureMemoryMB: 256,
+    maxTextAtlasMemoryMB: 128,
+    maxGlyphAtlasMemoryMB: 64,
     groupCache: 'auto',
   }),
   diagnostics: Object.freeze({

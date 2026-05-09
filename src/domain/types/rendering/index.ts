@@ -1,6 +1,7 @@
 import type { mat3 } from 'gl-matrix'
 import type {
   NovaBounds,
+  NovaSemanticScopeKind,
   NovaSchemaItem,
   RendererType,
 } from '@/domain/types/renderer-types'
@@ -30,17 +31,24 @@ export type NovaRenderPolicyInput = Partial<NovaRenderPolicy>
 
 export interface NovaRendererBatchingConfig {
   maxBatchSize: number
+  semanticScopes: 'off' | 'safe' | 'manual'
+  maxDrawCallsWarning: number
 }
 
 export interface NovaRendererTextConfig {
   quality: 'performance' | 'balanced' | 'quality'
+  mode: 'auto' | 'run-atlas' | 'glyph-atlas' | 'msdf'
   maxAtlasMemoryMB: number
   zoomBuckets: number[]
+  dynamicBuckets: boolean
+  prewarmAdjacentBuckets: boolean
   rasterBudgetMs: number
 }
 
 export interface NovaRendererCacheConfig {
   maxTextureMemoryMB: number
+  maxTextAtlasMemoryMB: number
+  maxGlyphAtlasMemoryMB: number
   groupCache: 'auto' | 'off' | 'aggressive'
 }
 
@@ -197,6 +205,8 @@ export interface NovaRenderCommand {
   itemId?: NovaRenderItemId
   schemaItems?: NovaSchemaItem<any>[]
   schemaMode?: 'batched' | 'ordered'
+  schemaSemanticScope?: NovaSemanticScopeKind
+  schemaContentVersion?: number
   transform?: mat3
   clip?: NovaRenderClip
   cursor?: 'default' | 'pointer' | 'col-resize' | 'row-resize'

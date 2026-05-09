@@ -8,6 +8,7 @@ import type {
   NovaPolygon,
   NovaRect,
   NovaSchemaItem,
+  NovaSemanticScopeKind,
   NovaText,
 } from '@/domain/types/renderer-types'
 import { NovaGraphics } from '@/model/renderers/shared/NovaGraphics'
@@ -29,6 +30,7 @@ const RECT_STRIDE = 16
 const SOLID_STRIDE = 6
 const TEXTURE_STRIDE = 8
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
+const TEXT_RASTER_ZOOM_BUCKETS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 8, 16]
 
 interface RenderStats {
   drawCalls: number
@@ -68,6 +70,26 @@ interface RectBatchCache {
   instances: number
   itemOffsets: number[]
   signatures: string[]
+  contentVersion?: number
+}
+
+interface TextureBatchCache {
+  data: Float32Array
+  instances: number
+  itemOffsets: number[]
+  signatures: string[]
+  texture: TextureEntry
+  upload: WebGLUploadState
+  contentVersion?: number
+  rasterScale?: number
+  buffer?: WebGLBuffer
+  vao?: WebGLVertexArrayObject
+}
+
+interface NonOverlapLayeredBatchCache {
+  rects: NovaSchemaItem<any>[]
+  icons: NovaSchemaItem<any>[]
+  texts: NovaSchemaItem<any>[]
 }
 
 interface WebGLUploadState {
@@ -83,6 +105,21 @@ interface FloatDirtyRange {
 interface RectBatchUpdate {
   dirtyRanges: FloatDirtyRange[]
   changedItems: number
+}
+
+interface TextureBatchUpdate {
+  dirtyRanges: FloatDirtyRange[]
+  changedItems: number
+}
+
+interface TextureBatchItem {
+  texture: TextureEntry
+  signature: string
+  x: number
+  y: number
+  width: number
+  height: number
+  opacity: number
 }
 
 export class NovaWebGLFrameRenderer {
@@ -101,6 +138,9 @@ export class NovaWebGLFrameRenderer {
   private readonly _textures = new Map<string, TextureEntry>()
   private readonly _sourceTextureKeys = new WeakMap<object, string>()
   private readonly _rectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
+  private readonly _textureBatchCache = new WeakMap<NovaSchemaItem<any>[], TextureBatchCache>()
+  private readonly _semanticBatchCache = new WeakMap<NovaSchemaItem<any>[], NonOverlapLayeredBatchCache>()
+  private readonly _ownedTextureBatchCaches = new Set<TextureBatchCache>()
   private readonly _roundedUpload: WebGLUploadState = { capacityBytes: 0 }
   private readonly _solidUpload: WebGLUploadState = { capacityBytes: 0 }
   private readonly _textureUpload: WebGLUploadState = { capacityBytes: 0 }
@@ -111,6 +151,9 @@ export class NovaWebGLFrameRenderer {
   private _solidData: number[] = []
   private _textureData: number[] = []
   private _textureBatch: TextureEntry | null = null
+  private _textureCachedData: Float32Array | null = null
+  private _textureCachedDirtyRanges: FloatDirtyRange[] | null = null
+  private _textureCachedBatch: TextureBatchCache | null = null
   private _roundedTransform = mat3.create()
   private _solidTransform = mat3.create()
   private _textureTransform = mat3.create()
@@ -206,7 +249,7 @@ export class NovaWebGLFrameRenderer {
           break
         }
         case 'drawSchemaBatch':
-          if (!this.drawSchemaBatch(command.schemaItems ?? [], currentTransform, stats)) {
+          if (!this.drawSchemaBatch(command.schemaItems ?? [], currentTransform, stats, command.schemaSemanticScope, command.schemaContentVersion)) {
             for (const schemaItem of command.schemaItems ?? []) {
               drawSchemaItem(schemaItem, currentTransform)
             }
@@ -265,6 +308,11 @@ export class NovaWebGLFrameRenderer {
   destroy(): void {
     for (const texture of this._textures.values()) this._gl.deleteTexture(texture.texture)
     this._textures.clear()
+    for (const cache of this._ownedTextureBatchCaches) {
+      if (cache.buffer) this._gl.deleteBuffer(cache.buffer)
+      if (cache.vao) this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedTextureBatchCaches.clear()
     this._gl.deleteBuffer(this._roundedBuffer)
     this._gl.deleteBuffer(this._solidBuffer)
     this._gl.deleteBuffer(this._textureBuffer)
@@ -281,7 +329,17 @@ export class NovaWebGLFrameRenderer {
     this.drawPrimitive(item.schemaItem, item.transform ?? mat3.create(), stats)
   }
 
-  private drawSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats): boolean {
+  private drawSchemaBatch(
+    items: NovaSchemaItem<any>[],
+    transform: mat3,
+    stats: RenderStats,
+    semanticScope?: NovaSemanticScopeKind,
+    contentVersion?: number,
+  ): boolean {
+    if (semanticScope === 'non-overlap-layered' && this.drawNonOverlapLayeredSchemaBatch(items, transform, stats, contentVersion)) {
+      return true
+    }
+
     if (items.length === 0 || !items.every(item => item.type === 'rect' && item.active !== false && (item.clip === undefined || item.clip === true))) {
       return false
     }
@@ -292,18 +350,21 @@ export class NovaWebGLFrameRenderer {
     if (!batch) {
       const nextBatch = this.buildRectBatch(items)
       if (!nextBatch) return false
+      nextBatch.contentVersion = contentVersion
       batch = nextBatch
       this._rectBatchCache.set(items, nextBatch)
-    } else {
+    } else if (contentVersion === undefined || batch.contentVersion !== contentVersion) {
       const update = this.updateRectBatch(items, batch)
       if (!update) {
         const nextBatch = this.buildRectBatch(items)
         if (!nextBatch) return false
+        nextBatch.contentVersion = contentVersion
         batch = nextBatch
         this._rectBatchCache.set(items, nextBatch)
       } else {
         dirtyRanges = update.dirtyRanges
         changedItems = update.changedItems
+        batch.contentVersion = contentVersion
       }
     }
 
@@ -320,6 +381,56 @@ export class NovaWebGLFrameRenderer {
       stats.dirtyStreamRanges += dirtyRanges.length
     }
     return true
+  }
+
+  private drawNonOverlapLayeredSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
+    if (items.length === 0) return true
+
+    const batch = this.resolveNonOverlapLayeredBatch(items)
+    if (!batch) return false
+
+    if (batch.rects.length > 0 && !this.drawSchemaBatch(batch.rects, transform, stats, undefined, contentVersion)) return false
+
+    if (batch.icons.length > 0 && !this.drawTextureSchemaBatch(batch.icons, transform, stats, contentVersion)) return false
+
+    if (batch.texts.length > 0 && !this.drawTextureSchemaBatch(batch.texts, transform, stats, contentVersion)) return false
+
+    return true
+  }
+
+  private resolveNonOverlapLayeredBatch(items: NovaSchemaItem<any>[]): NonOverlapLayeredBatchCache | null {
+    const cached = this._semanticBatchCache.get(items)
+    if (cached) return cached
+
+    const rects: NovaSchemaItem<any>[] = []
+    const icons: NovaSchemaItem<any>[] = []
+    const texts: NovaSchemaItem<any>[] = []
+
+    for (const item of items) {
+      if (item.active === false) continue
+      if (item.clip !== undefined && item.clip !== true) return null
+
+      if (item.type === 'rect') {
+        rects.push(item)
+        continue
+      }
+
+      if (item.type === 'icon') {
+        icons.push(item)
+        continue
+      }
+
+      if (item.type === 'text') {
+        texts.push(item)
+        continue
+      }
+
+      return null
+    }
+
+    const batch = { rects, icons, texts }
+    this._semanticBatchCache.set(items, batch)
+    return batch
   }
 
   private buildRectBatch(items: NovaSchemaItem<any>[]): RectBatchCache | null {
@@ -404,6 +515,167 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  private drawTextureSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
+    if (items.length === 0) return true
+
+    let batch: TextureBatchCache | null = this._textureBatchCache.get(items) ?? null
+    let dirtyRanges: FloatDirtyRange[] | null = null
+    let changedItems = 0
+    const rasterScale = this.resolveTextureRasterScale(items, transform)
+
+    if (!batch) {
+      batch = this.buildTextureBatch(items, stats, rasterScale)
+      if (!batch) return false
+      batch.contentVersion = contentVersion
+      batch.rasterScale = rasterScale
+      this._textureBatchCache.set(items, batch)
+      this._ownedTextureBatchCaches.add(batch)
+    } else if (contentVersion === undefined || batch.contentVersion !== contentVersion || batch.rasterScale !== rasterScale) {
+      const update = this.updateTextureBatch(items, batch, stats, rasterScale)
+      if (!update) {
+        batch = this.buildTextureBatch(items, stats, rasterScale)
+        if (!batch) return false
+        batch.contentVersion = contentVersion
+        batch.rasterScale = rasterScale
+        this._textureBatchCache.set(items, batch)
+        this._ownedTextureBatchCaches.add(batch)
+      } else {
+        dirtyRanges = update.dirtyRanges
+        changedItems = update.changedItems
+        batch.contentVersion = contentVersion
+        batch.rasterScale = rasterScale
+      }
+    }
+
+    if (batch.data.length === 0) return true
+
+    this.flushRounded(stats)
+    this.flushSolid(stats)
+    this.prepareTextureTransform(transform, stats)
+    if (this._textureData.length > 0 || this._textureCachedData) this.flushTexture(stats)
+
+    this._textureCachedData = batch.data
+    this._textureCachedDirtyRanges = dirtyRanges
+    this._textureCachedBatch = batch
+    stats.instances += batch.instances
+    if (dirtyRanges?.length) {
+      stats.updatedHandles += changedItems
+      stats.dirtyStreamRanges += dirtyRanges.length
+    }
+
+    return true
+  }
+
+  private buildTextureBatch(items: NovaSchemaItem<any>[], stats: RenderStats, rasterScale?: number): TextureBatchCache | null {
+    const data: number[] = []
+    const itemOffsets: number[] = new Array(items.length).fill(-1)
+    const signatures: string[] = new Array(items.length).fill('')
+    let texture: TextureEntry | null = null
+    let instances = 0
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = this.resolveTextureBatchItem(items[index], stats, rasterScale)
+      if (!item) return null
+      if (texture && texture !== item.texture) return null
+
+      texture = item.texture
+      signatures[index] = item.signature
+      if (item.width <= 0 || item.height <= 0 || item.opacity <= 0) continue
+
+      itemOffsets[index] = data.length
+      this.pushTextureQuadVertices(data, item.x, item.y, item.width, item.height, item.opacity)
+      instances += 1
+    }
+
+    if (!texture) return null
+
+    return {
+      data: new Float32Array(data),
+      instances,
+      itemOffsets,
+      signatures,
+      texture,
+      upload: { capacityBytes: 0 },
+      rasterScale,
+    }
+  }
+
+  private updateTextureBatch(items: NovaSchemaItem<any>[], batch: TextureBatchCache, stats: RenderStats, rasterScale?: number): TextureBatchUpdate | null {
+    if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
+
+    const dirtyRanges: FloatDirtyRange[] = []
+    let changedItems = 0
+
+    for (let index = 0; index < items.length; index += 1) {
+      const item = this.resolveTextureBatchItem(items[index], stats, rasterScale)
+      if (!item || item.texture !== batch.texture) return null
+      if (item.signature === batch.signatures[index]) continue
+
+      const offset = batch.itemOffsets[index]
+      if (offset < 0) return null
+      if (item.width <= 0 || item.height <= 0 || item.opacity <= 0) return null
+
+      this.writeTextureQuadVertices(batch.data, offset, item.x, item.y, item.width, item.height, item.opacity)
+      batch.signatures[index] = item.signature
+      changedItems += 1
+      dirtyRanges.push({ start: offset, end: offset + TEXTURE_STRIDE * 6 })
+    }
+
+    return {
+      dirtyRanges: mergeFloatDirtyRanges(dirtyRanges),
+      changedItems,
+    }
+  }
+
+  private resolveTextureBatchItem(item: NovaSchemaItem<any>, stats: RenderStats, rasterScale?: number): TextureBatchItem | null {
+    if (item.active === false) return null
+
+    if (item.type === 'icon') {
+      const source = typeof item.icon === 'string' ? NovaGraphics.getAsset(item.icon) : item.icon
+      if (!source) return null
+      const key = typeof item.icon === 'string' ? `icon:${item.icon}` : `icon:${this.resolveSourceKey(source)}`
+      let texture = this._textures.get(key)
+      if (!texture) texture = this.createTextureFromSource(key, source, stats)
+      texture.lastUsed = this._time
+      const opacity = item.styles?.opacity ?? 1
+      return {
+        texture,
+        signature: [key, item.x, item.y, item.width, item.height, opacity].join('|'),
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+        opacity,
+      }
+    }
+
+    if (item.type === 'text') {
+      const style = compileNovaTextStyle(item)
+      const scale = rasterScale ?? this._device.canvas.dpr
+      const key = this.createTextKey(item, style, scale)
+      let texture = this._textures.get(key)
+      if (!texture) {
+        const rasterStartedAt = performance.now()
+        const raster = this.rasterizeText(item, style, scale)
+        stats.textRasterMs += performance.now() - rasterStartedAt
+        texture = this.createTextureFromSource(key, raster.canvas, stats)
+      }
+
+      texture.lastUsed = this._time
+      return {
+        texture,
+        signature: [key, item.x, item.y, item.width, item.height, style.opacity].join('|'),
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+        opacity: style.opacity,
+      }
+    }
+
+    return null
+  }
+
   private createRectSignature(rect: NovaRect): string {
     const border = rect.styles?.border
     return [
@@ -482,7 +754,7 @@ export class NovaWebGLFrameRenderer {
 
   private drawText(text: NovaText, transform: mat3, stats: RenderStats): void {
     const style = compileNovaTextStyle(text)
-    const scale = this._device.canvas.dpr
+    const scale = this.resolveTextRasterScale(transform)
     const key = this.createTextKey(text, style, scale)
     let texture = this._textures.get(key)
 
@@ -495,6 +767,28 @@ export class NovaWebGLFrameRenderer {
 
     texture.lastUsed = this._time
     this.queueTextureQuad(texture, text.x, text.y, text.width, text.height, transform, style.opacity, stats)
+  }
+
+  private resolveTextureRasterScale(items: NovaSchemaItem<any>[], transform: mat3): number | undefined {
+    return items.some(item => item.type === 'text') ? this.resolveTextRasterScale(transform) : undefined
+  }
+
+  private resolveTextRasterScale(transform: mat3): number {
+    const scaleX = Math.hypot(transform[0], transform[1])
+    const scaleY = Math.hypot(transform[3], transform[4])
+    const zoom = Math.max(0.01, scaleX, scaleY)
+    let best = TEXT_RASTER_ZOOM_BUCKETS[0]
+    let bestDistance = Math.abs(zoom - best)
+
+    for (const bucket of TEXT_RASTER_ZOOM_BUCKETS) {
+      const distance = Math.abs(zoom - bucket)
+      if (distance < bestDistance) {
+        best = bucket
+        bestDistance = distance
+      }
+    }
+
+    return this._device.canvas.dpr * best
   }
 
   private drawLine(line: NovaLine, transform: mat3, stats: RenderStats): void {
@@ -767,9 +1061,15 @@ export class NovaWebGLFrameRenderer {
     this.flushSolid(stats)
     this.prepareTextureTransform(transform, stats)
 
+    if (this._textureCachedData) this.flushTexture(stats)
     if (this._textureBatch && this._textureBatch !== texture) this.flushTexture(stats)
     this._textureBatch = texture
 
+    this.pushTextureQuadVertices(this._textureData, x, y, width, height, opacity)
+    stats.instances += 1
+  }
+
+  private pushTextureQuadVertices(target: number[], x: number, y: number, width: number, height: number, opacity: number): void {
     const vertices = [
       [x, y, 0, 0],
       [x + width, y, 1, 0],
@@ -780,10 +1080,31 @@ export class NovaWebGLFrameRenderer {
     ]
 
     for (const [px, py, u, v] of vertices) {
-      this._textureData.push(px, py, u, v, 1, 1, 1, opacity)
+      target.push(px, py, u, v, 1, 1, 1, opacity)
     }
+  }
 
-    stats.instances += 1
+  private writeTextureQuadVertices(target: Float32Array, offset: number, x: number, y: number, width: number, height: number, opacity: number): void {
+    const vertices = [
+      [x, y, 0, 0],
+      [x + width, y, 1, 0],
+      [x, y + height, 0, 1],
+      [x, y + height, 0, 1],
+      [x + width, y, 1, 0],
+      [x + width, y + height, 1, 1],
+    ]
+
+    let cursor = offset
+    for (const [px, py, u, v] of vertices) {
+      target[cursor++] = px
+      target[cursor++] = py
+      target[cursor++] = u
+      target[cursor++] = v
+      target[cursor++] = 1
+      target[cursor++] = 1
+      target[cursor++] = 1
+      target[cursor++] = opacity
+    }
   }
 
   private pushSolidVertex(x: number, y: number, color: NovaParsedColor, opacity: number): void {
@@ -858,20 +1179,25 @@ export class NovaWebGLFrameRenderer {
   }
 
   private flushTexture(stats: RenderStats): void {
-    if (this._textureData.length === 0 || !this._textureBatch) return
+    if (this._textureData.length === 0 && !this._textureCachedData) return
+    const texture = this._textureCachedBatch?.texture ?? this._textureBatch
+    if (!texture) return
+
     const gl = this._gl
-    const data = new Float32Array(this._textureData)
+    const data = this._textureCachedData ?? new Float32Array(this._textureData)
+    const dirtyRanges = this._textureCachedData ? this._textureCachedDirtyRanges : null
+    const upload = this._textureCachedBatch?.upload ?? this._textureUpload
     const uploadStartedAt = performance.now()
-    gl.bindVertexArray(this._textureVao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._textureBuffer)
-    this.uploadArrayBuffer(data, this._textureUpload, stats)
+    gl.bindVertexArray(this.resolveTextureVao(this._textureCachedBatch))
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.resolveTextureBuffer(this._textureCachedBatch))
+    this.uploadArrayBuffer(data, upload, stats, dirtyRanges)
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._textureProgram.use()
     gl.uniform2f(this._textureProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
     gl.uniformMatrix3fv(this._textureProgram.uniformLocation('u_transform'), false, this._textureTransform)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, this._textureBatch.texture)
+    gl.bindTexture(gl.TEXTURE_2D, texture.texture)
     gl.uniform1i(this._textureProgram.uniformLocation('u_texture'), 0)
     gl.drawArrays(gl.TRIANGLES, 0, data.length / TEXTURE_STRIDE)
 
@@ -879,6 +1205,9 @@ export class NovaWebGLFrameRenderer {
     stats.batches += 1
     this._textureData = []
     this._textureBatch = null
+    this._textureCachedData = null
+    this._textureCachedDirtyRanges = null
+    this._textureCachedBatch = null
   }
 
   private uploadArrayBuffer(data: Float32Array, state: WebGLUploadState, stats: RenderStats, dirtyRanges: FloatDirtyRange[] | null = null): void {
@@ -953,12 +1282,12 @@ export class NovaWebGLFrameRenderer {
     return vao
   }
 
-  private createTextureVao(): WebGLVertexArrayObject {
+  private createTextureVao(buffer: WebGLBuffer = this._textureBuffer): WebGLVertexArrayObject {
     const gl = this._gl
     const vao = this.createVao()
     const stride = TEXTURE_STRIDE * FLOAT_BYTES
     gl.bindVertexArray(vao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._textureBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     this.bindAttrib(this._textureProgram, 'a_position', 2, stride, 0)
     this.bindAttrib(this._textureProgram, 'a_uv', 2, stride, 2)
     this.bindAttrib(this._textureProgram, 'a_color', 4, stride, 4)
@@ -976,6 +1305,18 @@ export class NovaWebGLFrameRenderer {
     const location = program.attribLocation(name)
     this._gl.enableVertexAttribArray(location)
     this._gl.vertexAttribPointer(location, size, this._gl.FLOAT, false, stride, offsetFloats * FLOAT_BYTES)
+  }
+
+  private resolveTextureBuffer(batch: TextureBatchCache | null): WebGLBuffer {
+    if (!batch) return this._textureBuffer
+    if (!batch.buffer) batch.buffer = this.createBuffer()
+    return batch.buffer
+  }
+
+  private resolveTextureVao(batch: TextureBatchCache | null): WebGLVertexArrayObject {
+    if (!batch) return this._textureVao
+    if (!batch.vao) batch.vao = this.createTextureVao(this.resolveTextureBuffer(batch))
+    return batch.vao
   }
 
   private createTextureFromSource(key: string, source: CanvasImageSource, stats: RenderStats): TextureEntry {
@@ -1241,12 +1582,11 @@ void main() {
   float dist = radius <= 0.0
     ? max(max(-v_local.x, v_local.x - v_size.x), max(-v_local.y, v_local.y - v_size.y))
     : sdRoundRect(v_local, v_size * 0.5, radius);
-  float aa = max(fwidth(dist), 0.75);
-  float shapeAlpha = 1.0 - smoothstep(0.0, aa, dist);
+  float aa = max(fwidth(dist), 0.001);
+  float shapeAlpha = 1.0 - smoothstep(-aa, aa, dist);
   float borderMask = 0.0;
   if (v_borderWidth > 0.0 && v_border.a > 0.0) {
-    borderMask = 1.0 - smoothstep(-v_borderWidth - aa, -v_borderWidth + aa, dist);
-    borderMask = 1.0 - borderMask;
+    borderMask = smoothstep(-v_borderWidth - aa, -v_borderWidth + aa, dist);
   }
   vec4 color = mix(v_fill, v_border, borderMask);
   outColor = vec4(color.rgb, color.a * shapeAlpha);

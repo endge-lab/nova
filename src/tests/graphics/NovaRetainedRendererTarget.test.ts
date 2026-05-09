@@ -232,6 +232,78 @@ function createRectSchema(count: number): NovaSchema {
   }))
 }
 
+function createMixedSemanticSchema(count: number): NovaSchema {
+  const icon = document.createElement('canvas')
+  icon.width = 8
+  icon.height = 8
+  const schema = [] as NovaSchema
+
+  for (let index = 0; index < count; index += 1) {
+    const x = (index % 100) * 12
+    const y = Math.floor(index / 100) * 12
+
+    schema.push(
+      {
+        type: 'rect',
+        x,
+        y,
+        width: 10,
+        height: 10,
+        styles: {
+          background: index % 2 === 0 ? '#334155' : '#64748b',
+          border: {
+            color: '#0f172a',
+            width: 1,
+            radius: 2,
+          },
+        },
+      },
+      {
+        type: 'icon',
+        x: x + 1,
+        y: y + 1,
+        width: 4,
+        height: 4,
+        icon,
+      },
+      {
+        type: 'text',
+        x: x + 5,
+        y: y + 1,
+        width: 5,
+        height: 8,
+        text: 'text',
+        styles: {
+          color: '#ffffff',
+          font: { size: 8 },
+          ellipsis: true,
+        },
+      },
+    )
+  }
+
+  schema.semanticScope = 'non-overlap-layered'
+  schema.contentVersion = 1
+  return schema
+}
+
+function mockCanvas2D(): void {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function getContextMock(this: HTMLCanvasElement, type: string) {
+    if (type !== '2d') return null
+
+    return {
+      canvas: this,
+      clearRect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: (text: string) => ({ width: text.length * 5 }),
+      setTransform: vi.fn(),
+      textBaseline: 'alphabetic',
+      fillStyle: '#000000',
+      font: '10px sans-serif',
+    } as unknown as CanvasRenderingContext2D
+  } as unknown as typeof HTMLCanvasElement.prototype.getContext)
+}
+
 function createCompiledFrame(canvas: NovaCanvas, schema: NovaSchema) {
   const frameBuilder = new NovaRenderFrameBuilder('retained-test', {
     x: 0,
@@ -271,6 +343,16 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     expect(frame.commands.filter(command => command.type === 'drawSchemaBatch')).toHaveLength(1)
     expect(frame.items).toHaveLength(0)
+  })
+
+  it('keeps semantic scope on compiled schema batch commands', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const frame = createCompiledFrame(canvas, createMixedSemanticSchema(40))
+    const command = frame.commands.find(item => item.type === 'drawSchemaBatch')
+
+    expect(command?.schemaSemanticScope).toBe('non-overlap-layered')
+    expect(command?.schemaContentVersion).toBe(1)
   })
 
   it('replays unchanged cached rect streams without a second GPU upload', () => {
@@ -313,6 +395,25 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(dirty.fullUploads).toBe(0)
     expect(dirty.bufferSubDataCalls).toBeGreaterThan(0)
     expect(dirty.updatedHandles).toBe(5)
+  })
+
+  it('semantic-batches non-overlapping mixed rect/icon/text grids into layered draws', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const frame = createCompiledFrame(canvas, createMixedSemanticSchema(100))
+
+    const first = renderer.renderFrame(frame)
+    const warm = renderer.renderFrame(frame)
+
+    expect(first.drawCalls).toBeLessThanOrEqual(3)
+    expect(first.batches).toBeLessThanOrEqual(3)
+    expect(first.instances).toBe(300)
+    expect(warm.drawCalls).toBeLessThanOrEqual(3)
+    expect(warm.uploadBytes).toBe(0)
+    expect(warm.bufferDataCalls).toBe(0)
+    expect(warm.bufferSubDataCalls).toBe(0)
   })
 
   for (const testCase of RETAINED_CONTRACT_CASES) {

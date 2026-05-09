@@ -193,7 +193,12 @@ export interface NovaCustomSchemaItem extends NovaUIBase {
   [key: string]: any
 }
 
-export type NovaSchema<TCustom extends { type: string } = never> = Array<NovaSchemaItem<TCustom>>
+export type NovaSemanticScopeKind = 'strict' | 'grid' | 'table' | 'timeline-row' | 'non-overlap-layered'
+
+export type NovaSchema<TCustom extends { type: string } = never> = Array<NovaSchemaItem<TCustom>> & {
+  semanticScope?: NovaSemanticScopeKind
+  contentVersion?: number
+}
 
 export interface NovaRendererCapabilities {
   canvas2d: boolean

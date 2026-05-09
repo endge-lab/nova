@@ -5,7 +5,7 @@ import type {
   NovaRenderGroup,
   NovaRenderItem,
 } from '@/domain/types/rendering/index'
-import type { NovaSchemaItem } from '@/domain/types/renderer-types'
+import type { NovaSchemaItem, NovaSemanticScopeKind } from '@/domain/types/renderer-types'
 import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind } from '@/model/rendering/NovaRenderItem'
 import type { NovaRenderFrameBuilder } from '@/model/rendering/compiler/NovaRenderFrameBuilder'
 
@@ -90,11 +90,18 @@ export class NovaRenderCommandWriter {
     return renderItem
   }
 
-  drawSchemaBatch(items: NovaSchemaItem<any>[], mode: 'batched' | 'ordered' = 'batched'): NovaRenderCommand {
+  drawSchemaBatch(
+    items: NovaSchemaItem<any>[],
+    mode: 'batched' | 'ordered' = 'batched',
+    semanticScope?: NovaSemanticScopeKind,
+    contentVersion?: number,
+  ): NovaRenderCommand {
     return this.command({
       type: 'drawSchemaBatch',
       schemaItems: items,
       schemaMode: mode,
+      schemaSemanticScope: semanticScope,
+      schemaContentVersion: contentVersion,
     })
   }
 

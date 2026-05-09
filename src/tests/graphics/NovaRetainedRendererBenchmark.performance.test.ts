@@ -8,12 +8,14 @@ type BenchmarkTarget = {
   maxFullUploadsPerFrame?: number
   maxDrawCalls?: number
   maxMemoryGrowthMB?: number
+  maxTextRasterMs?: number
+  maxAtlasMemoryMB?: number
 }
 
 type RetainedBenchmarkCase = {
   id: string
   area: 'rect' | 'rounded' | 'text' | 'mixed' | 'timeline' | 'input' | 'resources'
-  workload: 'static' | 'pan-only' | 'paint-5%' | 'shader-animation' | 'scroll' | 'eviction'
+  workload: 'static' | 'pan-only' | 'paint-5%' | 'shader-animation' | 'scroll' | 'eviction' | 'zoom-inside-bucket' | 'zoom-bucket-crossing'
   count: number
   pixiBaseline: 'required' | 'optional' | 'not-applicable'
   target: BenchmarkTarget
@@ -174,6 +176,124 @@ const RETAINED_BENCHMARKS: RetainedBenchmarkCase[] = [
     },
   },
   {
+    id: 'mixed-all-toggles-static-50k',
+    area: 'mixed',
+    workload: 'static',
+    count: 50_000,
+    pixiBaseline: 'required',
+    target: {
+      minFps: 60,
+      maxFrameMs: 16.67,
+      maxUploadMBPerFrame: 0.1,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 20,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+    },
+  },
+  {
+    id: 'mixed-all-toggles-pan-50k',
+    area: 'mixed',
+    workload: 'pan-only',
+    count: 50_000,
+    pixiBaseline: 'required',
+    target: {
+      minFps: 60,
+      maxFrameMs: 16.67,
+      maxUploadMBPerFrame: 0.05,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 20,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+    },
+  },
+  {
+    id: 'mixed-all-toggles-paint-5p-50k',
+    area: 'mixed',
+    workload: 'paint-5%',
+    count: 50_000,
+    pixiBaseline: 'required',
+    target: {
+      minFps: 45,
+      maxFrameMs: 22.25,
+      maxUploadMBPerFrame: 3,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 20,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+    },
+  },
+  {
+    id: 'mixed-all-toggles-zoom-inside-bucket-50k',
+    area: 'mixed',
+    workload: 'zoom-inside-bucket',
+    count: 50_000,
+    pixiBaseline: 'required',
+    target: {
+      minFps: 60,
+      maxFrameMs: 16.67,
+      maxUploadMBPerFrame: 0.05,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 20,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+    },
+  },
+  {
+    id: 'mixed-all-toggles-zoom-bucket-crossing-50k',
+    area: 'mixed',
+    workload: 'zoom-bucket-crossing',
+    count: 50_000,
+    pixiBaseline: 'required',
+    target: {
+      minFps: 45,
+      maxFrameMs: 22.25,
+      maxUploadMBPerFrame: 4,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 20,
+      maxTextRasterMs: 4,
+      maxAtlasMemoryMB: 64,
+    },
+  },
+  {
+    id: 'text-static-50k',
+    area: 'text',
+    workload: 'static',
+    count: 50_000,
+    pixiBaseline: 'required',
+    target: {
+      minFps: 60,
+      maxFrameMs: 16.67,
+      maxUploadMBPerFrame: 0.05,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 8,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+    },
+  },
+  {
+    id: 'icon-static-50k',
+    area: 'resources',
+    workload: 'static',
+    count: 50_000,
+    pixiBaseline: 'required',
+    target: {
+      minFps: 60,
+      maxFrameMs: 16.67,
+      maxUploadMBPerFrame: 0.05,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 8,
+      maxAtlasMemoryMB: 16,
+    },
+  },
+  {
     id: 'timeline-visible-scroll',
     area: 'timeline',
     workload: 'scroll',
@@ -218,6 +338,8 @@ const REQUIRED_WORKLOADS = new Set<RetainedBenchmarkCase['workload']>([
   'shader-animation',
   'scroll',
   'eviction',
+  'zoom-inside-bucket',
+  'zoom-bucket-crossing',
 ])
 
 const REQUIRED_AREAS = new Set<RetainedBenchmarkCase['area']>([
@@ -252,7 +374,7 @@ describe('Nova retained WebGL2 benchmark acceptance matrix', () => {
   })
 
   it('requires Pixi baselines for visible rendering scenarios', () => {
-    const renderingCases = RETAINED_BENCHMARKS.filter(testCase => testCase.area !== 'input' && testCase.area !== 'resources')
+    const renderingCases = RETAINED_BENCHMARKS.filter(testCase => testCase.area !== 'input' && testCase.id !== 'atlas-eviction')
 
     expect(renderingCases.every(testCase => testCase.pixiBaseline === 'required' || testCase.id === 'rect-shader-animation-10k')).toBe(true)
   })
@@ -268,4 +390,3 @@ describe('Nova retained WebGL2 benchmark acceptance matrix', () => {
     it.todo(`${testCase.id}: ${testCase.area} ${testCase.workload} ${testCase.count.toLocaleString('en-US')} items meets retained renderer target`)
   }
 })
-
