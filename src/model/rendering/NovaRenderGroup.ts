@@ -37,7 +37,9 @@ export function createNovaRenderGroup(options: CreateNovaRenderGroupOptions): No
     versions: createRenderVersions(),
     instructionBuffer: createNovaInstructionBuffer(`${options.id}:instructions`),
     renderHandlesByNodeId: new Map(),
+    streams: new Map(),
     childGroupIds: [],
+    visible: true,
     lastCompiledVersion: 0,
     lastRenderedVersion: 0,
   }

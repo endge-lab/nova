@@ -8,6 +8,7 @@ import { NovaRenderBuilder } from '@/model/rendering/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/rendering/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/rendering/compiler/NovaRenderFrameBuilder'
 import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/rendering/policy/NovaRenderPolicy'
+import { collectVisibleNovaRenderGroups } from '@/model/rendering/NovaRenderCulling'
 
 export interface NovaRenderCompilerOptions {
   schemaRegistry: NovaSchemaRegistry
@@ -32,16 +33,20 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
     const startedAt = performance.now()
 
     if (this._lastFrame && !surface.renderSubtreeDirty) {
+      const culling = surface.renderGraph
+        ? collectVisibleNovaRenderGroups(surface.renderGraph.groupsById.values(), this._lastFrame.viewport)
+        : null
       const updatedTransforms = this.updateRetainedTransforms(surface, this._lastFrame)
       this._lastFrame.metrics = {
         ...this._lastFrame.metrics,
         compilerMs: performance.now() - startedAt,
         compiledGroups: 0,
-        reusedGroups: this._lastFrame.groups.length,
+        reusedGroups: culling?.visibleGroups.length ?? this._lastFrame.groups.length,
         nodeRenderCalls: 0,
-        updatedHandles: updatedTransforms,
-        dirtyStreamRanges: 0,
+        updatedHandles: updatedTransforms + (surface.renderGraph?.getDirtyHandleCount() ?? 0),
+        dirtyStreamRanges: surface.renderGraph?.getDirtyHandleCount() ?? 0,
       }
+      surface.renderGraph?.clearDirtyQueues()
       return { frame: this._lastFrame }
     }
 
@@ -68,6 +73,15 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       cachedTextureMemoryMB: 0,
     })
 
+    for (const command of frame.commands) {
+      if (command.type === 'drawSchemaBatch') {
+        surface.renderGraph?.rebuildBatchPlan(frameBuilder.rootGroup.id, command.schemaSemanticScope)
+      }
+    }
+    if (surface.renderGraph) {
+      const culling = collectVisibleNovaRenderGroups(surface.renderGraph.groupsById.values(), frame.viewport)
+      frame.metrics.reusedGroups = culling.visibleGroups.length
+    }
     frame.metrics.batches = this.estimateBatches(frame.commands.map(command => command.itemId).filter(Boolean).length)
     surface.markRenderSubtreeClean(true)
     surface.renderGraph?.clearDirtyQueues()

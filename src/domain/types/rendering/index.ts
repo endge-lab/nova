@@ -169,6 +169,56 @@ export type NovaRenderStreamKind =
   | 'icon'
   | 'cached-group'
 
+export type NovaRenderSemanticLayer =
+  | 'background'
+  | 'border'
+  | 'texture'
+  | 'text'
+  | 'selection'
+  | 'overlay'
+  | 'strict'
+
+export interface NovaRenderStreamSlot {
+  itemId: NovaRenderItemId
+  offset: number
+  count: number
+  order: number
+  batchKey: string
+  bounds?: NovaBounds
+}
+
+export interface NovaRenderStream {
+  id: NovaRenderStreamId
+  groupId: NovaRenderGroupId
+  kind: NovaRenderStreamKind
+  strideFloats: number
+  slotCapacity: number
+  slotCount: number
+  version: number
+  slots: NovaRenderStreamSlot[]
+}
+
+export interface NovaRenderBatch {
+  id: string
+  groupId: NovaRenderGroupId
+  streamId: NovaRenderStreamId
+  streamKind: NovaRenderStreamKind
+  semanticLayer: NovaRenderSemanticLayer
+  batchKey: string
+  startSlot: number
+  slotCount: number
+  orderStart: number
+  orderEnd: number
+}
+
+export interface NovaBatchPlan {
+  id: string
+  groupId: NovaRenderGroupId
+  semanticScope?: NovaSemanticScopeKind
+  version: number
+  batches: NovaRenderBatch[]
+}
+
 export interface NovaRenderHandle {
   id: NovaRenderHandleId
   nodeId: string
@@ -179,6 +229,8 @@ export interface NovaRenderHandle {
   streamKind: NovaRenderStreamKind
   offset: number
   count: number
+  slotOffset?: number
+  slotCount?: number
   batchKey: string
   versions: NovaRenderVersions
   resourceKey?: string
@@ -236,6 +288,12 @@ export interface NovaRenderGroup {
   versions: NovaRenderVersions
   instructionBuffer: NovaInstructionBuffer
   renderHandlesByNodeId?: Map<string, NovaRenderHandle[]>
+  streams?: Map<NovaRenderStreamId, NovaRenderStream>
+  batchPlan?: NovaBatchPlan
+  chunkBounds?: NovaBounds
+  semanticScope?: NovaSemanticScopeKind
+  cacheTargetId?: NovaRenderTargetId
+  visible?: boolean
   childGroupIds: NovaRenderGroupId[]
   bounds?: NovaBounds
   lastCompiledVersion: number

@@ -1,25 +1,27 @@
 import type { NovaRendererTextConfig } from '@/domain/types/rendering/index'
-import type { NovaText } from '@/domain/types/renderer-types'
-import { NovaTextLayoutEngine } from '@/model/rendering/resources/NovaTextLayoutEngine'
 import {
   NovaTextureAtlasManager,
   type NovaTextureAtlasEntry,
   type NovaTextureAtlasPage,
 } from '@/model/rendering/resources/NovaTextureAtlasManager'
 
-export interface NovaTextAtlasResolveResult {
-  entry: NovaTextureAtlasEntry<NovaText>
-  cacheHit: boolean
-  bucket: number
-  rasterized: boolean
+export interface NovaGlyphDescriptor {
+  glyph: string
+  fontKey: string
+  color: string
 }
 
-export class NovaTextAtlasManager {
-  private readonly _atlas: NovaTextureAtlasManager<NovaText>
-  private readonly _layout = new NovaTextLayoutEngine()
+export interface NovaGlyphAtlasResolveResult {
+  entry: NovaTextureAtlasEntry<NovaGlyphDescriptor>
+  cacheHit: boolean
+  bucket: number
+}
+
+export class NovaGlyphAtlasManager {
+  private readonly _atlas: NovaTextureAtlasManager<NovaGlyphDescriptor>
 
   constructor(private readonly _config: NovaRendererTextConfig) {
-    this._atlas = new NovaTextureAtlasManager<NovaText>({
+    this._atlas = new NovaTextureAtlasManager<NovaGlyphDescriptor>({
       maxMemoryMB: _config.maxAtlasMemoryMB,
     })
   }
@@ -32,34 +34,30 @@ export class NovaTextAtlasManager {
     return this._atlas.pages
   }
 
-  resolve(text: NovaText, zoom = 1): NovaTextAtlasResolveResult {
+  resolve(descriptor: NovaGlyphDescriptor, zoom = 1): NovaGlyphAtlasResolveResult {
     const bucket = this.resolveZoomBucket(zoom)
-    const layout = this._layout.measure(text, bucket)
-    const key = `${layout.fontKey}:${bucket}:${text.styles?.color ?? '#000'}:${text.text}`
+    const key = `${descriptor.fontKey}:${bucket}:${descriptor.color}:${descriptor.glyph}`
     const current = this._atlas.get(key)
     if (current) {
       return {
         entry: current,
         cacheHit: true,
         bucket,
-        rasterized: false,
       }
     }
 
-    const entry = this._atlas.set({
-      id: `text:${key}`,
-      key,
-      width: Math.max(1, layout.width),
-      height: Math.max(1, layout.height),
-      scale: bucket,
-      payload: text,
-    })
-
+    const estimatedSize = Math.max(1, Math.ceil(16 * bucket))
     return {
-      entry,
+      entry: this._atlas.set({
+        id: `glyph:${key}`,
+        key,
+        width: estimatedSize,
+        height: estimatedSize,
+        scale: bucket,
+        payload: descriptor,
+      }),
       cacheHit: false,
       bucket,
-      rasterized: true,
     }
   }
 
@@ -77,9 +75,5 @@ export class NovaTextAtlasManager {
     }
 
     return best
-  }
-
-  evictToBudget(): void {
-    this._atlas.evictToBudget()
   }
 }

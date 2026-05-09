@@ -11,9 +11,18 @@ export interface CreateNovaRenderTargetOptions {
 
 export class NovaRenderTargetManager {
   private readonly _targets = new Map<string, NovaRenderTarget>()
+  private _memoryBytes = 0
 
   get targets(): NovaRenderTarget[] {
     return [...this._targets.values()]
+  }
+
+  get memoryBytes(): number {
+    return this._memoryBytes
+  }
+
+  get memoryMB(): number {
+    return this._memoryBytes / 1024 / 1024
   }
 
   get(id: string): NovaRenderTarget | undefined {
@@ -23,10 +32,12 @@ export class NovaRenderTargetManager {
   ensure(options: CreateNovaRenderTargetOptions): NovaRenderTarget {
     const current = this._targets.get(options.id)
     if (current) {
+      this._memoryBytes -= this.estimateTargetBytes(current)
       current.width = options.width
       current.height = options.height
       current.dpr = options.dpr
       current.ownerGroupId = options.ownerGroupId
+      this._memoryBytes += this.estimateTargetBytes(current)
       return current
     }
 
@@ -39,14 +50,25 @@ export class NovaRenderTargetManager {
       ownerGroupId: options.ownerGroupId,
     }
     this._targets.set(target.id, target)
+    this._memoryBytes += this.estimateTargetBytes(target)
     return target
   }
 
   delete(id: string): boolean {
+    const current = this._targets.get(id)
+    if (!current) return false
+    this._memoryBytes -= this.estimateTargetBytes(current)
     return this._targets.delete(id)
   }
 
   clear(): void {
     this._targets.clear()
+    this._memoryBytes = 0
+  }
+
+  protected estimateTargetBytes(target: NovaRenderTarget): number {
+    return Math.max(0, Math.ceil(target.width * target.dpr))
+      * Math.max(0, Math.ceil(target.height * target.dpr))
+      * 4
   }
 }

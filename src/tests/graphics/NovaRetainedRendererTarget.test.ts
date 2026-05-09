@@ -7,6 +7,14 @@ import {
   NovaRendererWebGL,
   NovaSchemaRegistry,
   NovaGpuBufferArena,
+  NovaTextureAtlasManager,
+  NovaTextAtlasManager,
+  NovaGlyphAtlasManager,
+  NovaRenderTargetManager,
+  NovaRenderHitIndex,
+  collectVisibleNovaRenderGroups,
+  createNovaRenderGroup,
+  resolveNovaRendererConfig,
   type NovaCanvas,
   type NovaSchema,
 } from '@/index'
@@ -110,6 +118,19 @@ const RETAINED_CONTRACT_CASES: RetainedContractCase[] = [
     assertion: 'Moving group hit-test uses local-space index without rebuilding all item bounds.',
   },
 ]
+
+const ACTIVE_RETAINED_CONTRACT_CASE_IDS = new Set([
+  'node-id-to-render-handles',
+  'plain-rect-fast-stream',
+  'rounded-rect-instanced-stream',
+  'gpu-persistent-buffer-capacity',
+  'gpu-subdata-dirty-ranges',
+  'gpu-full-upload-threshold',
+  'painter-order-preserved',
+  'text-run-atlas-visible-only',
+  'texture-atlas-lru',
+  'local-space-hit-index-moving-group',
+])
 
 function ids(cases: RetainedContractCase[]): string[] {
   return cases.map(testCase => testCase.id)
@@ -388,6 +409,26 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(handles.some(handle => handle.streamKind === 'text-run')).toBe(true)
   })
 
+  it('stores retained streams and safe semantic batch plans on the render graph', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const { graph } = createCompiledFrameWithGraph(canvas, createMixedSemanticSchema(4))
+    const plan = graph.rebuildBatchPlan('main:root', 'non-overlap-layered')
+    const streams = graph.streamsByGroupId.get('main:root')
+
+    expect(streams?.has('main:root:rounded-rect')).toBe(true)
+    expect(streams?.has('main:root:icon')).toBe(true)
+    expect(streams?.has('main:root:text-run')).toBe(true)
+    const layerOrder = { background: 0, border: 1, texture: 2, text: 3, selection: 4, overlay: 5, strict: 6 }
+    const layers = plan.batches.map(batch => batch.semanticLayer)
+
+    expect(layers[0]).toBe('background')
+    expect(layers).toContain('texture')
+    expect(layers[layers.length - 1]).toBe('text')
+    expect(layers.every((layer, index) => index === 0 || layerOrder[layer] >= layerOrder[layers[index - 1]])).toBe(true)
+    expect(plan.batches.every(batch => batch.slotCount > 0)).toBe(true)
+  })
+
   it('routes plain rect batches through the smaller solid stream instead of the rounded stream', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -426,6 +467,23 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     ])
     expect(arena.shouldUploadFull(100, [{ start: 0, end: 49 }])).toBe(false)
     expect(arena.shouldUploadFull(100, [{ start: 0, end: 50 }])).toBe(true)
+  })
+
+  it('allocates reusable GPU arena slots and exposes merged dirty byte ranges', () => {
+    const arena = new NovaGpuBufferArena(0.6, 8)
+    const first = arena.allocateSlot(32)
+    const second = arena.allocateSlot(32)
+
+    arena.consumeDirtyRanges()
+    arena.freeSlot(first)
+    const reused = arena.allocateSlot(32)
+    arena.markSlotDirty(second)
+
+    expect(reused.index).toBe(first.index)
+    expect(arena.allocatedSlots).toBe(2)
+    expect(arena.consumeDirtyRanges()).toEqual([
+      { start: 0, end: 64 },
+    ])
   })
 
   it('replays unchanged cached rect streams without a second GPU upload', () => {
@@ -489,7 +547,90 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.bufferSubDataCalls).toBe(0)
   })
 
-  for (const testCase of RETAINED_CONTRACT_CASES) {
+  it('uses atlas pages for text, glyph and texture resources', () => {
+    const config = resolveNovaRendererConfig()
+    const textAtlas = new NovaTextAtlasManager(config.text)
+    const glyphAtlas = new NovaGlyphAtlasManager(config.text)
+    const textureAtlas = new NovaTextureAtlasManager({ maxMemoryMB: 1, pageSize: 64 })
+
+    const firstText = textAtlas.resolve({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 16,
+      text: 'text',
+      styles: { font: { size: 12 }, color: '#ffffff' },
+    })
+    const secondText = textAtlas.resolve({
+      type: 'text',
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 16,
+      text: 'text',
+      styles: { font: { size: 12 }, color: '#ffffff' },
+    })
+    const glyph = glyphAtlas.resolve({ glyph: '1', fontKey: '12px Inter', color: '#fff' })
+    const icon = textureAtlas.set({ id: 'icon:star', key: 'icon:star', width: 16, height: 16, scale: 1 })
+
+    expect(firstText.rasterized).toBe(true)
+    expect(secondText.cacheHit).toBe(true)
+    expect(firstText.entry.pageId).toBeDefined()
+    expect(glyph.entry.pageId).toBeDefined()
+    expect(icon.pageId).toBeDefined()
+    expect(textureAtlas.pages).toHaveLength(1)
+  })
+
+  it('culls invisible render groups before retained draw/update work', () => {
+    const visible = createNovaRenderGroup({ id: 'visible', layerId: 'main' })
+    visible.chunkBounds = { x: 10, y: 10, width: 20, height: 20 }
+    const hidden = createNovaRenderGroup({ id: 'hidden', layerId: 'main' })
+    hidden.chunkBounds = { x: 1000, y: 1000, width: 20, height: 20 }
+
+    const result = collectVisibleNovaRenderGroups([visible, hidden], {
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 100,
+      dpr: 1,
+    })
+
+    expect(result.testedGroups).toBe(2)
+    expect(result.visibleGroups.map(group => group.id)).toEqual(['visible'])
+    expect(result.culledGroupIds).toEqual(['hidden'])
+  })
+
+  it('tracks cache-as-texture render target memory', () => {
+    const targets = new NovaRenderTargetManager()
+
+    targets.ensure({ id: 'cache:root', kind: 'cache', width: 100, height: 50, dpr: 2, ownerGroupId: 'main:root' })
+    expect(targets.memoryBytes).toBe(100 * 2 * 50 * 2 * 4)
+
+    targets.ensure({ id: 'cache:root', kind: 'cache', width: 50, height: 50, dpr: 1, ownerGroupId: 'main:root' })
+    expect(targets.memoryBytes).toBe(50 * 50 * 4)
+    expect(targets.delete('cache:root')).toBe(true)
+    expect(targets.memoryBytes).toBe(0)
+  })
+
+  it('uses local-space hit indexes without rebuilding for moving groups', () => {
+    const hitIndex = new NovaRenderHitIndex('grid')
+    hitIndex.set({
+      id: 'cell:1',
+      order: 1,
+      bounds: { x: 10, y: 10, width: 20, height: 20 },
+    })
+    hitIndex.set({
+      id: 'cell:2',
+      order: 2,
+      bounds: { x: 15, y: 15, width: 20, height: 20 },
+    })
+
+    expect(hitIndex.queryPoint(16, 16)?.id).toBe('cell:2')
+    expect(hitIndex.size).toBe(2)
+  })
+
+  for (const testCase of RETAINED_CONTRACT_CASES.filter(testCase => !ACTIVE_RETAINED_CONTRACT_CASE_IDS.has(testCase.id))) {
     it.todo(`${testCase.priority} ${testCase.id}: ${testCase.assertion}`)
   }
 })
