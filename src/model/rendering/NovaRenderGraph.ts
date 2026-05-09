@@ -46,6 +46,14 @@ export class NovaRenderGraph {
     groupHandles.push(handle)
   }
 
+  clearHandles(): void {
+    this.handlesByNodeId.clear()
+    this.handlesByItemId.clear()
+    for (const group of this.groupsById.values()) {
+      group.renderHandlesByNodeId?.clear()
+    }
+  }
+
   replaceHandles(nodeId: string, handles: NovaRenderHandle[]): void {
     for (const handle of this.handlesByNodeId.get(nodeId) ?? []) {
       this.handlesByItemId.delete(handle.itemId)

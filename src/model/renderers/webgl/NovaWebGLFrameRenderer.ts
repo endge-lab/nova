@@ -13,6 +13,7 @@ import type {
 } from '@/domain/types/renderer-types'
 import { NovaGraphics } from '@/model/renderers/shared/NovaGraphics'
 import type { NovaWebGLDevice } from '@/model/renderers/webgl/NovaWebGLDevice'
+import { NovaGpuBufferArena } from '@/model/renderers/webgl/NovaGpuBufferArena'
 import { NovaWebGLProgram } from '@/model/renderers/webgl/NovaWebGLProgram'
 import type { NovaParsedColor } from '@/model/rendering/schema/NovaColorParser'
 import {
@@ -95,11 +96,19 @@ interface NonOverlapLayeredBatchCache {
 interface WebGLUploadState {
   capacityBytes: number
   lastData?: Float32Array
+  arena: NovaGpuBufferArena
 }
 
 interface FloatDirtyRange {
   start: number
   end: number
+}
+
+function createWebGLUploadState(): WebGLUploadState {
+  return {
+    capacityBytes: 0,
+    arena: new NovaGpuBufferArena(FULL_UPLOAD_DIRTY_RATIO),
+  }
 }
 
 interface RectBatchUpdate {
@@ -137,18 +146,21 @@ export class NovaWebGLFrameRenderer {
   private readonly _textRasterCanvas = document.createElement('canvas')
   private readonly _textures = new Map<string, TextureEntry>()
   private readonly _sourceTextureKeys = new WeakMap<object, string>()
+  private readonly _plainRectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
   private readonly _rectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
   private readonly _textureBatchCache = new WeakMap<NovaSchemaItem<any>[], TextureBatchCache>()
   private readonly _semanticBatchCache = new WeakMap<NovaSchemaItem<any>[], NonOverlapLayeredBatchCache>()
   private readonly _ownedTextureBatchCaches = new Set<TextureBatchCache>()
-  private readonly _roundedUpload: WebGLUploadState = { capacityBytes: 0 }
-  private readonly _solidUpload: WebGLUploadState = { capacityBytes: 0 }
-  private readonly _textureUpload: WebGLUploadState = { capacityBytes: 0 }
+  private readonly _roundedUpload: WebGLUploadState = createWebGLUploadState()
+  private readonly _solidUpload: WebGLUploadState = createWebGLUploadState()
+  private readonly _textureUpload: WebGLUploadState = createWebGLUploadState()
 
   private _rectData: number[] = []
   private _rectCachedData: Float32Array | null = null
   private _rectCachedDirtyRanges: FloatDirtyRange[] | null = null
   private _solidData: number[] = []
+  private _solidCachedData: Float32Array | null = null
+  private _solidCachedDirtyRanges: FloatDirtyRange[] | null = null
   private _textureData: number[] = []
   private _textureBatch: TextureEntry | null = null
   private _textureCachedData: Float32Array | null = null
@@ -249,7 +261,13 @@ export class NovaWebGLFrameRenderer {
           break
         }
         case 'drawSchemaBatch':
-          if (!this.drawSchemaBatch(command.schemaItems ?? [], currentTransform, stats, command.schemaSemanticScope, command.schemaContentVersion)) {
+          if (!this.drawSchemaBatch(
+            command.schemaItems ?? [],
+            currentTransform,
+            stats,
+            command.schemaSemanticScope,
+            this.resolveSchemaContentVersion(command.schemaItems, command.schemaContentVersion),
+          )) {
             for (const schemaItem of command.schemaItems ?? []) {
               drawSchemaItem(schemaItem, currentTransform)
             }
@@ -329,6 +347,10 @@ export class NovaWebGLFrameRenderer {
     this.drawPrimitive(item.schemaItem, item.transform ?? mat3.create(), stats)
   }
 
+  private resolveSchemaContentVersion(items: NovaSchemaItem<any>[] | undefined, fallback: number | undefined): number | undefined {
+    return (items as { contentVersion?: number } | undefined)?.contentVersion ?? fallback
+  }
+
   private drawSchemaBatch(
     items: NovaSchemaItem<any>[],
     transform: mat3,
@@ -342,6 +364,10 @@ export class NovaWebGLFrameRenderer {
 
     if (items.length === 0 || !items.every(item => item.type === 'rect' && item.active !== false && (item.clip === undefined || item.clip === true))) {
       return false
+    }
+
+    if (items.every(item => this.isPlainRect(item as NovaRect))) {
+      return this.drawPlainRectSchemaBatch(items, transform, stats, contentVersion)
     }
 
     let batch = this._rectBatchCache.get(items)
@@ -375,6 +401,44 @@ export class NovaWebGLFrameRenderer {
     if (this._rectData.length > 0 || this._rectCachedData) this.flushRounded(stats)
     this._rectCachedData = batch.data
     this._rectCachedDirtyRanges = dirtyRanges
+    stats.instances += batch.instances
+    if (dirtyRanges?.length) {
+      stats.updatedHandles += changedItems
+      stats.dirtyStreamRanges += dirtyRanges.length
+    }
+    return true
+  }
+
+  private drawPlainRectSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
+    let batch = this._plainRectBatchCache.get(items)
+    let dirtyRanges: FloatDirtyRange[] | null = null
+    let changedItems = 0
+
+    if (!batch) {
+      batch = this.buildPlainRectBatch(items)
+      batch.contentVersion = contentVersion
+      this._plainRectBatchCache.set(items, batch)
+    } else if (contentVersion === undefined || batch.contentVersion !== contentVersion) {
+      const update = this.updatePlainRectBatch(items, batch)
+      if (!update) {
+        batch = this.buildPlainRectBatch(items)
+        batch.contentVersion = contentVersion
+        this._plainRectBatchCache.set(items, batch)
+      } else {
+        dirtyRanges = update.dirtyRanges
+        changedItems = update.changedItems
+        batch.contentVersion = contentVersion
+      }
+    }
+
+    if (batch.data.length === 0) return true
+
+    this.flushTexture(stats)
+    this.flushRounded(stats)
+    this.prepareSolidTransform(transform, stats)
+    if (this._solidData.length > 0 || this._solidCachedData) this.flushSolid(stats)
+    this._solidCachedData = batch.data
+    this._solidCachedDirtyRanges = dirtyRanges
     stats.instances += batch.instances
     if (dirtyRanges?.length) {
       stats.updatedHandles += changedItems
@@ -472,6 +536,31 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  private buildPlainRectBatch(items: NovaSchemaItem<any>[]): RectBatchCache {
+    const data: number[] = []
+    const itemOffsets: number[] = new Array(items.length).fill(-1)
+    const signatures: string[] = new Array(items.length).fill('')
+    let instances = 0
+
+    for (let index = 0; index < items.length; index += 1) {
+      const rect = items[index] as NovaRect
+      signatures[index] = this.createRectSignature(rect)
+      const style = compileNovaRectStyle(rect)
+      if (rect.width <= 0 || rect.height <= 0 || style.fill.a <= 0) continue
+
+      itemOffsets[index] = data.length
+      this.pushSolidRectVertices(data, rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity)
+      instances += 1
+    }
+
+    return {
+      data: new Float32Array(data),
+      instances,
+      itemOffsets,
+      signatures,
+    }
+  }
+
   private updateRectBatch(items: NovaSchemaItem<any>[], batch: RectBatchCache): RectBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
 
@@ -507,6 +596,36 @@ export class NovaWebGLFrameRenderer {
       batch.signatures[index] = signature
       changedItems += 1
       dirtyRanges.push({ start: offset, end: offset + RECT_STRIDE * 6 })
+    }
+
+    return {
+      dirtyRanges: mergeFloatDirtyRanges(dirtyRanges),
+      changedItems,
+    }
+  }
+
+  private updatePlainRectBatch(items: NovaSchemaItem<any>[], batch: RectBatchCache): RectBatchUpdate | null {
+    if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) {
+      return null
+    }
+
+    const dirtyRanges: FloatDirtyRange[] = []
+    let changedItems = 0
+
+    for (let index = 0; index < items.length; index += 1) {
+      const rect = items[index] as NovaRect
+      const signature = this.createRectSignature(rect)
+      if (signature === batch.signatures[index]) continue
+
+      const offset = batch.itemOffsets[index]
+      if (offset < 0) return null
+
+      const style = compileNovaRectStyle(rect)
+      if (rect.width <= 0 || rect.height <= 0 || style.fill.a <= 0) return null
+      this.writeSolidRectVertices(batch.data, offset, rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity)
+      batch.signatures[index] = signature
+      changedItems += 1
+      dirtyRanges.push({ start: offset, end: offset + SOLID_STRIDE * 6 })
     }
 
     return {
@@ -595,7 +714,7 @@ export class NovaWebGLFrameRenderer {
       itemOffsets,
       signatures,
       texture,
-      upload: { capacityBytes: 0 },
+      upload: createWebGLUploadState(),
       rasterScale,
     }
   }
@@ -693,6 +812,14 @@ export class NovaWebGLFrameRenderer {
     ].join('|')
   }
 
+  private isPlainRect(rect: NovaRect): boolean {
+    const background = rect.styles?.background
+    const border = rect.styles?.border
+    return (!background || typeof background === 'string')
+      && (border?.width ?? 0) <= 0
+      && (border?.radius ?? 0) <= 0
+  }
+
   private drawPrimitive(item: NovaSchemaItem<any>, transform: mat3, stats: RenderStats): void {
     switch (item.type) {
       case 'rect':
@@ -730,6 +857,10 @@ export class NovaWebGLFrameRenderer {
     }
 
     if (!background || typeof background === 'string' || style.borderWidth > 0) {
+      if (background !== undefined && typeof background === 'string' && style.borderRadius <= 0 && style.borderWidth <= 0) {
+        this.queuePlainRect(rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity, transform, stats)
+        return
+      }
       this.queueRoundedRect(rect.x, rect.y, rect.width, rect.height, style.borderRadius, style.fill, style.opacity, style.borderColor, style.borderWidth, transform, stats)
     }
   }
@@ -869,6 +1000,25 @@ export class NovaWebGLFrameRenderer {
     stats.instances += 1
   }
 
+  private queuePlainRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    fill: NovaParsedColor,
+    opacity: number,
+    transform: mat3,
+    stats: RenderStats,
+  ): void {
+    if (width <= 0 || height <= 0 || fill.a <= 0) return
+    this.flushTexture(stats)
+    this.flushRounded(stats)
+    this.prepareSolidTransform(transform, stats)
+
+    this.pushSolidRectVertices(this._solidData, x, y, width, height, fill, opacity)
+    stats.instances += 1
+  }
+
   private pushRoundedRectVertices(
     target: number[],
     x: number,
@@ -954,6 +1104,36 @@ export class NovaWebGLFrameRenderer {
       target[cursor++] = border.b
       target[cursor++] = border.a * opacity
       target[cursor++] = borderWidth
+    }
+  }
+
+  private pushSolidRectVertices(target: number[], x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number): void {
+    this.pushSolidVertexTo(target, x, y, fill, opacity)
+    this.pushSolidVertexTo(target, x + width, y, fill, opacity)
+    this.pushSolidVertexTo(target, x, y + height, fill, opacity)
+    this.pushSolidVertexTo(target, x, y + height, fill, opacity)
+    this.pushSolidVertexTo(target, x + width, y, fill, opacity)
+    this.pushSolidVertexTo(target, x + width, y + height, fill, opacity)
+  }
+
+  private writeSolidRectVertices(target: Float32Array, offset: number, x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number): void {
+    const vertices = [
+      [x, y],
+      [x + width, y],
+      [x, y + height],
+      [x, y + height],
+      [x + width, y],
+      [x + width, y + height],
+    ]
+
+    let cursor = offset
+    for (const [px, py] of vertices) {
+      target[cursor++] = px
+      target[cursor++] = py
+      target[cursor++] = fill.r
+      target[cursor++] = fill.g
+      target[cursor++] = fill.b
+      target[cursor++] = fill.a * opacity
     }
   }
 
@@ -1111,6 +1291,10 @@ export class NovaWebGLFrameRenderer {
     this._solidData.push(x, y, color.r, color.g, color.b, color.a * opacity)
   }
 
+  private pushSolidVertexTo(target: number[], x: number, y: number, color: NovaParsedColor, opacity: number): void {
+    target.push(x, y, color.r, color.g, color.b, color.a * opacity)
+  }
+
   private flush(stats: RenderStats): void {
     this.flushRounded(stats)
     this.flushSolid(stats)
@@ -1159,13 +1343,14 @@ export class NovaWebGLFrameRenderer {
   }
 
   private flushSolid(stats: RenderStats): void {
-    if (this._solidData.length === 0) return
+    if (this._solidData.length === 0 && !this._solidCachedData) return
     const gl = this._gl
-    const data = new Float32Array(this._solidData)
+    const data = this._solidCachedData ?? new Float32Array(this._solidData)
+    const dirtyRanges = this._solidCachedData ? this._solidCachedDirtyRanges : null
     const uploadStartedAt = performance.now()
     gl.bindVertexArray(this._solidVao)
     gl.bindBuffer(gl.ARRAY_BUFFER, this._solidBuffer)
-    this.uploadArrayBuffer(data, this._solidUpload, stats)
+    this.uploadArrayBuffer(data, this._solidUpload, stats, dirtyRanges)
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._solidProgram.use()
@@ -1176,6 +1361,8 @@ export class NovaWebGLFrameRenderer {
     stats.drawCalls += 1
     stats.batches += 1
     this._solidData = []
+    this._solidCachedData = null
+    this._solidCachedDirtyRanges = null
   }
 
   private flushTexture(stats: RenderStats): void {
@@ -1216,9 +1403,23 @@ export class NovaWebGLFrameRenderer {
 
     if (state.lastData === data && state.capacityBytes >= data.byteLength) {
       if (dirtyRanges?.length) {
-        for (const range of dirtyRanges) {
-          const start = Math.max(0, range.start)
-          const end = Math.min(data.length, range.end)
+        const byteRanges = state.arena.mergeDirtyRanges(dirtyRanges.map(range => ({
+          start: Math.max(0, range.start) * FLOAT_BYTES,
+          end: Math.min(data.length, range.end) * FLOAT_BYTES,
+        })))
+
+        if (state.arena.shouldUploadFull(data.byteLength, byteRanges)) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, data)
+          stats.bufferSubDataCalls += 1
+          stats.fullUploads += 1
+          stats.dirtyRangeCount += 1
+          stats.uploadBytes += data.byteLength
+          return
+        }
+
+        for (const range of byteRanges) {
+          const start = Math.floor(range.start / FLOAT_BYTES)
+          const end = Math.ceil(range.end / FLOAT_BYTES)
           if (end <= start) continue
           gl.bufferSubData(gl.ARRAY_BUFFER, start * FLOAT_BYTES, data.subarray(start, end))
           stats.bufferSubDataCalls += 1
@@ -1238,10 +1439,13 @@ export class NovaWebGLFrameRenderer {
       return
     }
 
-    gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW)
-    state.capacityBytes = data.byteLength
+    state.arena.ensureCapacity(data.byteLength)
+    gl.bufferData(gl.ARRAY_BUFFER, state.arena.capacityBytes, gl.DYNAMIC_DRAW)
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data)
+    state.capacityBytes = state.arena.capacityBytes
     state.lastData = data
     stats.bufferDataCalls += 1
+    stats.bufferSubDataCalls += 1
     stats.fullUploads += 1
     stats.dirtyRangeCount += 1
     stats.uploadBytes += data.byteLength

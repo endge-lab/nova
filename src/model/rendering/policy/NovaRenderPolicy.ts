@@ -20,6 +20,9 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
     maxBatchSize: 8192,
     semanticScopes: 'safe',
     maxDrawCallsWarning: 1000,
+    plainRectStream: true,
+    roundedRectStream: true,
+    fullUploadDirtyRatio: 0.6,
   }),
   text: Object.freeze({
     quality: 'balanced',

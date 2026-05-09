@@ -3,8 +3,10 @@ import {
   NovaRenderBuilder,
   NovaRenderCommandWriter,
   NovaRenderFrameBuilder,
+  NovaRenderGraph,
   NovaRendererWebGL,
   NovaSchemaRegistry,
+  NovaGpuBufferArena,
   type NovaCanvas,
   type NovaSchema,
 } from '@/index'
@@ -318,6 +320,25 @@ function createCompiledFrame(canvas: NovaCanvas, schema: NovaSchema) {
   return frameBuilder.build()
 }
 
+function createCompiledFrameWithGraph(canvas: NovaCanvas, schema: NovaSchema) {
+  const frameBuilder = new NovaRenderFrameBuilder('retained-test', {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    dpr: canvas.dpr,
+  })
+  const graph = new NovaRenderGraph('retained-test', frameBuilder.rootGroup)
+  const writer = new NovaRenderCommandWriter(frameBuilder, frameBuilder.rootGroup, graph)
+  const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+  writer.setCurrentNode('grid-node')
+  builder.schema(schema)
+  return {
+    frame: frameBuilder.build(),
+    graph,
+  }
+}
+
 describe('Nova retained WebGL2 renderer target contract matrix', () => {
   it('keeps retained-renderer contract case ids unique', () => {
     expect(new Set(ids(RETAINED_CONTRACT_CASES)).size).toBe(RETAINED_CONTRACT_CASES.length)
@@ -353,6 +374,58 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     expect(command?.schemaSemanticScope).toBe('non-overlap-layered')
     expect(command?.schemaContentVersion).toBe(1)
+  })
+
+  it('stores nodeId to render handles for compiled schema batches', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const { graph } = createCompiledFrameWithGraph(canvas, createMixedSemanticSchema(4))
+    const handles = graph.handlesByNodeId.get('grid-node') ?? []
+
+    expect(handles).toHaveLength(12)
+    expect(handles.some(handle => handle.streamKind === 'rounded-rect')).toBe(true)
+    expect(handles.some(handle => handle.streamKind === 'icon')).toBe(true)
+    expect(handles.some(handle => handle.streamKind === 'text-run')).toBe(true)
+  })
+
+  it('routes plain rect batches through the smaller solid stream instead of the rounded stream', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const plain = renderer.renderFrame(createCompiledFrame(canvas, createRectSchema(100)))
+    const roundedSchema = createRectSchema(100)
+
+    for (const item of roundedSchema) {
+      if (item.type === 'rect') {
+        item.styles = {
+          ...item.styles,
+          border: { radius: 2, width: 1, color: '#0f172a' },
+        }
+      }
+    }
+
+    const rounded = renderer.renderFrame(createCompiledFrame(canvas, roundedSchema))
+
+    expect(plain.uploadBytes).toBeGreaterThan(0)
+    expect(rounded.uploadBytes).toBeGreaterThan(plain.uploadBytes!)
+  })
+
+  it('merges GPU arena dirty byte ranges and detects full-upload thresholds', () => {
+    const arena = new NovaGpuBufferArena(0.5, 16)
+
+    expect(arena.ensureCapacity(1024)).toBe(true)
+    expect(arena.ensureCapacity(512)).toBe(false)
+    expect(arena.capacityBytes).toBe(1024)
+    expect(arena.mergeDirtyRanges([
+      { start: 0, end: 64 },
+      { start: 72, end: 96 },
+      { start: 512, end: 544 },
+    ])).toEqual([
+      { start: 0, end: 96 },
+      { start: 512, end: 544 },
+    ])
+    expect(arena.shouldUploadFull(100, [{ start: 0, end: 49 }])).toBe(false)
+    expect(arena.shouldUploadFull(100, [{ start: 0, end: 50 }])).toBe(true)
   })
 
   it('replays unchanged cached rect streams without a second GPU upload', () => {

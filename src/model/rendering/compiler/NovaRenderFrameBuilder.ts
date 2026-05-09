@@ -71,6 +71,10 @@ export class NovaRenderFrameBuilder {
     return this._order
   }
 
+  peekOrder(): number {
+    return this._order
+  }
+
   addCommand(command: Omit<NovaRenderCommand, 'order'> & { order?: number }): NovaRenderCommand {
     const next: NovaRenderCommand = {
       ...command,

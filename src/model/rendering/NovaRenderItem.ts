@@ -4,6 +4,7 @@ import type {
   NovaRenderItem,
   NovaRenderItemKind,
   NovaRenderLayerId,
+  NovaRenderStreamKind,
 } from '@/domain/types/rendering/index'
 import type { NovaBounds, NovaSchemaItem } from '@/domain/types/renderer-types'
 import type { mat3 } from 'gl-matrix'
@@ -65,4 +66,24 @@ export function createNovaRenderItemBatchKey(item: NovaSchemaItem<any>): string 
   if (item.type === 'icon') return `icon:${typeof item.icon === 'string' ? item.icon : 'source'}`
 
   return item.type
+}
+
+export function resolveNovaRenderStreamKind(item: NovaSchemaItem<any>): NovaRenderStreamKind {
+  if (item.type === 'rect') {
+    const border = item.styles?.border
+    const radius = border?.radius ?? 0
+    const borderWidth = border?.width ?? 0
+    const background = item.styles?.background
+
+    if (background && typeof background !== 'string') return 'texture-quad'
+    return radius > 0 || borderWidth > 0 ? 'rounded-rect' : 'plain-rect'
+  }
+
+  if (item.type === 'border') return 'border'
+  if (item.type === 'line') return 'line'
+  if (item.type === 'circle') return 'circle'
+  if (item.type === 'polygon') return 'polygon'
+  if (item.type === 'text') return 'text-run'
+  if (item.type === 'icon') return 'icon'
+  return 'cached-group'
 }

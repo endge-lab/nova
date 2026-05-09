@@ -1,5 +1,7 @@
+import { mat3 } from 'gl-matrix'
 import type { EventList } from '@endge/utils'
 import type { NovaRenderFrame, NovaRendererConfig } from '@/domain/types/rendering/index'
+import { NovaNode } from '@/model/core/NovaNode'
 import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 import type { NovaSurface } from '@/model/core/NovaSurface'
 import { NovaRenderBuilder } from '@/model/rendering/compiler/NovaRenderBuilder'
@@ -30,12 +32,15 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
     const startedAt = performance.now()
 
     if (this._lastFrame && !surface.renderSubtreeDirty) {
+      const updatedTransforms = this.updateRetainedTransforms(surface, this._lastFrame)
       this._lastFrame.metrics = {
         ...this._lastFrame.metrics,
         compilerMs: performance.now() - startedAt,
         compiledGroups: 0,
         reusedGroups: this._lastFrame.groups.length,
         nodeRenderCalls: 0,
+        updatedHandles: updatedTransforms,
+        dirtyStreamRanges: 0,
       }
       return { frame: this._lastFrame }
     }
@@ -47,7 +52,8 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       height: surface.height,
       dpr: surface.nova.dpr,
     })
-    const writer = new NovaRenderCommandWriter(frameBuilder)
+    surface.renderGraph?.clearHandles()
+    const writer = new NovaRenderCommandWriter(frameBuilder, frameBuilder.rootGroup, surface.renderGraph)
     const builder = new NovaRenderBuilder(surface.canvas, this._schemaRegistry, writer)
 
     surface.renderWithRenderer(builder)
@@ -57,12 +63,14 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       compiledGroups: 1,
       reusedGroups: 0,
       nodeRenderCalls: surface.renderSubtreeStats.rebuiltNodes,
+      updatedHandles: surface.renderGraph?.handlesByItemId.size ?? 0,
       atlasMemoryMB: 0,
       cachedTextureMemoryMB: 0,
     })
 
     frame.metrics.batches = this.estimateBatches(frame.commands.map(command => command.itemId).filter(Boolean).length)
     surface.markRenderSubtreeClean(true)
+    surface.renderGraph?.clearDirtyQueues()
     this._lastFrame = frame
 
     return { frame }
@@ -70,5 +78,39 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
 
   private estimateBatches(drawItems: number): number {
     return Math.ceil(drawItems / this._rendererConfig.batching.maxBatchSize)
+  }
+
+  private updateRetainedTransforms(surface: NovaSurface<E>, frame: NovaRenderFrame): number {
+    const graph = surface.renderGraph
+    if (!graph || graph.transformDirtyNodeIds.size === 0) return 0
+
+    const matrices = new Map<string, mat3>()
+    this.collectDirtyNodeMatrices(surface, graph.transformDirtyNodeIds, matrices)
+
+    let updated = 0
+    for (const command of frame.commands) {
+      if (command.type !== 'setTransform' || !command.nodeId) continue
+
+      const matrix = matrices.get(command.nodeId)
+      if (!matrix) continue
+
+      command.transform = matrix
+      updated += 1
+    }
+
+    graph.clearDirtyQueues()
+    return updated
+  }
+
+  private collectDirtyNodeMatrices(node: NovaNode<any>, dirtyNodeIds: Set<string>, matrices: Map<string, mat3>): void {
+    if (dirtyNodeIds.has(node.renderNodeId)) {
+      matrices.set(node.renderNodeId, mat3.clone(node.matrix))
+    }
+
+    for (const child of node.children) {
+      if (child instanceof NovaNode) {
+        this.collectDirtyNodeMatrices(child, dirtyNodeIds, matrices)
+      }
+    }
   }
 }

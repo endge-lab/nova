@@ -15,6 +15,7 @@ import type {
 import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 import type { NovaRenderCommandWriter } from '@/model/rendering/compiler/NovaRenderCommandWriter'
+import type { NovaNode } from '@/model/core/NovaNode'
 
 const FAST_SCHEMA_BATCH_THRESHOLD = 64
 
@@ -35,6 +36,7 @@ export class NovaRenderBuilder implements NovaRenderer {
   }
 
   private readonly _measureCanvas = document.createElement('canvas')
+  private readonly _nodeStack: string[] = []
 
   constructor(
     readonly novaCanvas: NovaCanvas,
@@ -148,6 +150,15 @@ export class NovaRenderBuilder implements NovaRenderer {
 
   destroy(): void {
     /* builder does not own GPU resources */
+  }
+
+  beginNode(node: NovaNode<any>): void {
+    this._nodeStack.push(this._writer.currentNodeId)
+    this._writer.setCurrentNode(node.renderNodeId)
+  }
+
+  endNode(): void {
+    this._writer.setCurrentNode(this._nodeStack.pop() ?? 'surface')
   }
 
   private schemaItem(item: NovaSchemaItem<any>): void {

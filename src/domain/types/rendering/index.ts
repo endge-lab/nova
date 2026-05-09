@@ -33,6 +33,9 @@ export interface NovaRendererBatchingConfig {
   maxBatchSize: number
   semanticScopes: 'off' | 'safe' | 'manual'
   maxDrawCallsWarning: number
+  plainRectStream: boolean
+  roundedRectStream: boolean
+  fullUploadDirtyRatio: number
 }
 
 export interface NovaRendererTextConfig {

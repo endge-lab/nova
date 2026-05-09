@@ -30,6 +30,11 @@ import {
   resolveNovaRenderPolicy,
 } from '@/model/rendering/policy/NovaRenderPolicy'
 
+interface NovaRenderNodeAwareRenderer {
+  beginNode(node: NovaNode<any>): void
+  endNode(node: NovaNode<any>): void
+}
+
 function hasSpatialOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number }): boolean {
   return (
     opts.x !== undefined
@@ -288,13 +293,17 @@ export class NovaNode<
 
     const matrix = this.get('matrix')!
 
-    this.renderer.save()
-    this.renderer.setTransform(matrix)
-
-    this.render()
-    this.renderChildren()
-
-    this.renderer.restore()
+    const nodeAwareRenderer = this.resolveNodeAwareRenderer()
+    nodeAwareRenderer?.beginNode(this)
+    try {
+      this.renderer.save()
+      this.renderer.setTransform(matrix)
+      this.render()
+      this.renderChildren()
+      this.renderer.restore()
+    } finally {
+      nodeAwareRenderer?.endNode(this)
+    }
     this.surface.markRenderNodeRebuilt()
 
     if (snapshotStart !== null) {
@@ -349,7 +358,9 @@ export class NovaNode<
     if (update) this.raph.dirty('update', this)
     if (matrix) {
       this.markRenderDirtyFlags({ transform: true, layout: true, visibility: true })
-      this.markRenderSubtreeDirty(true)
+      this.surface.renderGraph?.markTransformDirty(this.renderNodeId)
+      this.surface.renderGraph?.markVisibilityDirty(this.renderNodeId)
+      if (!this.surface.renderGraph) this.markRenderSubtreeDirty(true)
       this.nova.events.markSpatialDirty(this, true)
       this.raph.dirty('matrix', this)
       this.raph.dirty('render', this.surface)
@@ -357,6 +368,8 @@ export class NovaNode<
     }
     if (render) {
       this.markRenderDirtyFlags({ paint: true, resource: true, cache: true })
+      this.surface.renderGraph?.markPaintDirty(this.renderNodeId)
+      this.surface.renderGraph?.markResourceDirty(this.renderNodeId)
       this.markRenderSubtreeDirty(true)
       this.nova.events.markSpatialDirty(this)
       this.raph.dirty('render', this.surface) // отрисовка всегда от корня слоя
@@ -592,6 +605,10 @@ export class NovaNode<
     return { ...this._renderVersions }
   }
 
+  get renderNodeId(): string {
+    return String((this as { id?: string | number }).id ?? this.__type)
+  }
+
   get transformVersion(): number {
     return this._renderVersions.transform
   }
@@ -772,6 +789,13 @@ export class NovaNode<
     for (const child of this._orderedChildren) {
       child.doRender()
     }
+  }
+
+  private resolveNodeAwareRenderer(): NovaRenderNodeAwareRenderer | null {
+    const renderer = this.renderer as Partial<NovaRenderNodeAwareRenderer>
+    return typeof renderer.beginNode === 'function' && typeof renderer.endNode === 'function'
+      ? renderer as NovaRenderNodeAwareRenderer
+      : null
   }
 
   override addChild(node: RaphNode<any>, options?: Parameters<RaphNode<any>['addChild']>[1]): boolean {
