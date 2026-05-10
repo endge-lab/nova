@@ -41,7 +41,7 @@ export class NovaSchemaRegistry {
   renderSchemaComponent(
     renderer: NovaRenderer,
     item: NovaComponentSchema<any>,
-    mode: NovaSchemaRenderMode,
+    _mode: NovaSchemaRenderMode,
     depth = 0,
   ): boolean {
     const descriptor = this.resolve(item.type)
@@ -53,13 +53,7 @@ export class NovaSchemaRegistry {
     const nested = descriptor.renderSchema({ renderer, registry: this, depth }, item)
     if (!nested?.length) return true
 
-    if (mode === 'ordered') {
-      renderer.schemaOrdered(nested)
-    } else if (mode === 'batched') {
-      renderer.schemaBatched(nested)
-    } else {
-      renderer.schema(nested)
-    }
+    renderer.schema(nested)
 
     return true
   }

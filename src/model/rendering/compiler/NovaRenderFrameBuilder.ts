@@ -52,6 +52,7 @@ export class NovaRenderFrameBuilder {
   constructor(
     private readonly _surfaceId: string,
     private readonly _viewport: NovaRenderViewport,
+    private readonly _rendererType: RendererType = RendererType.WebGL,
   ) {
     this._mainLayer = createNovaRenderLayer('main')
     this._layers.push(this._mainLayer)
@@ -113,7 +114,7 @@ export class NovaRenderFrameBuilder {
     return {
       id: ++frameId,
       surfaceId: this._surfaceId,
-      rendererType: RendererType.WebGL,
+      rendererType: this._rendererType,
       viewport: this._viewport,
       layers: this._layers,
       targets: this._targets,

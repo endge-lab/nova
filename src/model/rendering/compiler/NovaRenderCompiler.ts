@@ -1,6 +1,7 @@
 import { mat3 } from 'gl-matrix'
 import type { EventList } from '@endge/utils'
 import type { NovaRenderFrame, NovaRendererConfig } from '@/domain/types/rendering/index'
+import { RendererType } from '@/domain/types/renderer-types'
 import { NovaNode } from '@/model/core/NovaNode'
 import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 import type { NovaSurface } from '@/model/core/NovaSurface'
@@ -13,6 +14,7 @@ import { collectVisibleNovaRenderGroups } from '@/model/rendering/NovaRenderCull
 export interface NovaRenderCompilerOptions {
   schemaRegistry: NovaSchemaRegistry
   rendererConfig?: NovaRendererConfig
+  rendererType?: RendererType
 }
 
 export interface NovaRenderCompileResult {
@@ -22,11 +24,13 @@ export interface NovaRenderCompileResult {
 export class NovaRenderCompiler<E extends EventList = EventList> {
   private readonly _schemaRegistry: NovaSchemaRegistry
   private readonly _rendererConfig: NovaRendererConfig
+  private readonly _rendererType: RendererType
   private _lastFrame?: NovaRenderFrame
 
   constructor(options: NovaRenderCompilerOptions) {
     this._schemaRegistry = options.schemaRegistry
     this._rendererConfig = options.rendererConfig ?? DEFAULT_NOVA_RENDERER_CONFIG
+    this._rendererType = options.rendererType ?? RendererType.WebGL
   }
 
   compileSurface(surface: NovaSurface<E>): NovaRenderCompileResult {
@@ -56,7 +60,7 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       width: surface.width,
       height: surface.height,
       dpr: surface.nova.dpr,
-    })
+    }, this._rendererType)
     surface.renderGraph?.clearHandles()
     const writer = new NovaRenderCommandWriter(frameBuilder, frameBuilder.rootGroup, surface.renderGraph)
     const builder = new NovaRenderBuilder(surface.canvas, this._schemaRegistry, writer)

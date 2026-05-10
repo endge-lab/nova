@@ -15,7 +15,6 @@ import type { OneOrMany } from '@endge/utils'
 import type { EventList } from '@endge/utils'
 import { boundsEquals, boundsIntersects, copyBounds, createEmptyBounds, transformBounds } from '@/domain/utils/bounds'
 import { resolveSchemaBounds } from '@/domain/utils/schemaBounds'
-import type { NovaRenderQueueSnapshot } from '@/model/renderers/shared/NovaRenderQueueRenderer'
 import type {
   NovaRenderDirtyFlags,
   NovaRenderPolicy,
@@ -68,7 +67,6 @@ export class NovaNode<
   private readonly _localRenderBounds = createEmptyBounds()
   private _renderOrderCounter = 0
   private _renderSubtreeDirty = true
-  private _renderQueueSnapshot: NovaRenderQueueSnapshot | null = null
   private _lifecycleState: NovaLifecycleState = 'created'
   private _hasLocalRenderBounds = false
   private _renderPolicy: NovaRenderPolicy = resolveNovaRenderPolicy()
@@ -101,7 +99,7 @@ export class NovaNode<
     },
   })
   get active(): boolean {
-    return this.get('active')
+    return this.get('active') ?? true
   }
   set active(v: boolean) {
     if (this.localActive === v) return
@@ -122,7 +120,7 @@ export class NovaNode<
     },
   })
   get visible(): boolean {
-    return this.get('visible')
+    return this.get('visible') ?? true
   }
   set visible(v: boolean) {
     if (this.localVisible === v) return
@@ -280,15 +278,6 @@ export class NovaNode<
       }
     }
 
-    if (this.surface.canUseRenderSubtreeQueue() && !this._renderSubtreeDirty && this._renderQueueSnapshot) {
-      this.surface.replayRenderQueueSnapshot(this._renderQueueSnapshot)
-      return
-    }
-
-    const snapshotStart = this.surface.canUseRenderSubtreeQueue()
-      ? this.surface.beginRenderQueueSnapshot()
-      : null
-
     this.debugger.startTimer('render')
 
     const matrix = this.get('matrix')!
@@ -305,11 +294,7 @@ export class NovaNode<
       nodeAwareRenderer?.endNode(this)
     }
     this.surface.markRenderNodeRebuilt()
-
-    if (snapshotStart !== null) {
-      this._renderQueueSnapshot = this.surface.endRenderQueueSnapshot(snapshotStart)
-      this._renderSubtreeDirty = false
-    }
+    this._renderSubtreeDirty = false
 
     this.debugger.info(`${this.__type} завершил render`, 'render')
   }
@@ -650,12 +635,10 @@ export class NovaNode<
 
   markRenderSubtreeDirty(includeChildren = false): void {
     this._renderSubtreeDirty = true
-    this._renderQueueSnapshot = null
 
     let parent = this.parent
     while (parent instanceof NovaNode) {
       parent._renderSubtreeDirty = true
-      parent._renderQueueSnapshot = null
       parent = parent.parent
     }
 
@@ -728,7 +711,6 @@ export class NovaNode<
     this.offAll()
     this._orderedChildren.length = 0
     this._inverseMatrixSource = undefined
-    this._renderQueueSnapshot = null
     this._renderSubtreeDirty = true
     this._lifecycleState = 'destroyed'
     this.nova.events.markSpatialDirty(this, true)
@@ -741,7 +723,7 @@ export class NovaNode<
 
   protected renderSchemaOrdered(schema: NovaSchema<any>): void {
     this.setRenderBoundsFromSchema(schema)
-    this.renderer.schemaOrdered(schema)
+    this.renderer.schema(schema)
   }
 
   private markSpatialDirtyForOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number }): void {

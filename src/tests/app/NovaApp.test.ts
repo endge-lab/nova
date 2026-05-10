@@ -140,7 +140,7 @@ function installCanvasMocks(): void {
       return create2DContextStub()
     }
 
-    if (type === RendererType.WebGL || type === RendererType.WebGLOld || type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
+    if (type === RendererType.WebGL || type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
       return createWebGLContextStub()
     }
 

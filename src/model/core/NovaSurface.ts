@@ -1,7 +1,7 @@
 import type { NovaApp } from '@/model/app/NovaApp'
 import { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
-import { NovaRenderQueueRenderer, type NovaRenderQueueSnapshot } from '@/model/renderers/shared/NovaRenderQueueRenderer'
 import { assertNovaRendererTypeImplemented, createNovaRenderer } from '@/model/renderers/shared/NovaRendererFactory'
+import { NovaRenderer2D } from '@/model/renderers/web2d/NovaRenderer2D'
 import { NovaRendererWebGL } from '@/model/renderers/webgl/NovaRendererWebGL'
 import { createNovaRenderLayer } from '@/model/rendering/NovaRenderLayer'
 import { NovaRenderGraph } from '@/model/rendering/NovaRenderGraph'
@@ -28,14 +28,13 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   private _canvas: NovaCanvas
   private _ownsCanvas = true
   private _renderer: NovaRenderer
-  private _queueRenderer: NovaRenderQueueRenderer
   private _activeRenderer: NovaRenderer
-  private _renderCompiler?: NovaRenderCompiler<E>
-  private _renderGraph?: NovaRenderGraph
+  private _renderCompiler: NovaRenderCompiler<E>
+  private _renderGraph: NovaRenderGraph
 
   protected _dirty: boolean = false
-  private _renderPipeline: NovaRenderPipeline = 'immediate'
-  private _renderDirtyMode: NovaRenderDirtyMode = 'full'
+  private _renderPipeline: NovaRenderPipeline = 'retained'
+  private _renderDirtyMode: NovaRenderDirtyMode = 'graph'
   private _renderCullingMode: NovaRenderCullingMode = 'off'
   private _renderQueueStats: NovaRenderQueueStats = {
     commands: 0,
@@ -63,16 +62,14 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     assertNovaRendererTypeImplemented(type)
     this._canvas = this._createCanvas(app.width, app.height)
     this._renderer = createNovaRenderer(type, this._canvas, app.schema, app.rendererConfig)
-    this._queueRenderer = new NovaRenderQueueRenderer(this._renderer)
     this._activeRenderer = this._renderer
-    if (type === RendererType.WebGL) {
-      this._renderCompiler = new NovaRenderCompiler({
-        schemaRegistry: app.schema,
-        rendererConfig: app.rendererConfig,
-      })
-      const rootLayer = createNovaRenderLayer('main')
-      this._renderGraph = new NovaRenderGraph(name, rootLayer.rootGroup)
-    }
+    this._renderCompiler = new NovaRenderCompiler({
+      schemaRegistry: app.schema,
+      rendererConfig: app.rendererConfig,
+      rendererType: type,
+    })
+    const rootLayer = createNovaRenderLayer('main')
+    this._renderGraph = new NovaRenderGraph(name, rootLayer.rootGroup)
 
     this._subscribeToCanvasContextEvents()
 
@@ -111,8 +108,8 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
       culledNodes: 0,
     }
 
-    if (this._rendererType === RendererType.WebGL && this._renderer instanceof NovaRendererWebGL && this._renderCompiler) {
-      const { frame } = this._renderCompiler.compileSurface(this)
+    const { frame } = this._renderCompiler.compileSurface(this)
+    if (this._renderer instanceof NovaRendererWebGL) {
       this._renderer.renderFrame(frame)
       this._renderQueueStats = {
         commands: frame.metrics.commands,
@@ -122,39 +119,14 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
       return
     }
 
-    this._renderer.clear()
-
-    if (this._renderPipeline === 'queue') {
-      this._queueRenderer.clearQueue()
-      this._activeRenderer = this._queueRenderer
-      try {
-        super.doRender()
-        this._renderQueueStats = this._queueRenderer.flush()
-      } finally {
-        this._activeRenderer = this._renderer
+    if (this._renderer instanceof NovaRenderer2D) {
+      const metrics = this._renderer.renderFrame(frame)
+      this._renderQueueStats = {
+        commands: metrics.commands,
+        items: metrics.items,
+        batches: metrics.batches,
       }
-      return
     }
-
-    this._activeRenderer = this._renderer
-    super.doRender()
-  }
-
-  canUseRenderSubtreeQueue(): boolean {
-    return this._rendererType !== RendererType.WebGL && this._renderPipeline === 'queue' && this._renderDirtyMode === 'subtree'
-  }
-
-  beginRenderQueueSnapshot(): number {
-    return this._queueRenderer.beginSnapshot()
-  }
-
-  endRenderQueueSnapshot(start: number): NovaRenderQueueSnapshot {
-    return this._queueRenderer.endSnapshot(start)
-  }
-
-  replayRenderQueueSnapshot(snapshot: NovaRenderQueueSnapshot): void {
-    this._queueRenderer.appendSnapshot(snapshot)
-    this._renderSubtreeStats.cachedNodes += 1
   }
 
   renderWithRenderer(renderer: NovaRenderer): void {
@@ -202,7 +174,6 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   destroy(): void {
-    this._queueRenderer?.destroy()
     this._renderer?.destroy()
     if (this._ownsCanvas) this._canvas?.destroy()
   }
@@ -243,16 +214,14 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     // Обновляем ссылки
     this._canvas = newCanvas
     this._renderer = newRenderer
-    this._queueRenderer.setTarget(newRenderer)
     this._activeRenderer = newRenderer
-    if (this._rendererType === RendererType.WebGL) {
-      this._renderCompiler = new NovaRenderCompiler({
-        schemaRegistry: this._novaApp.schema,
-        rendererConfig: this._novaApp.rendererConfig,
-      })
-      const rootLayer = createNovaRenderLayer('main')
-      this._renderGraph = new NovaRenderGraph(this.name, rootLayer.rootGroup)
-    }
+    this._renderCompiler = new NovaRenderCompiler({
+      schemaRegistry: this._novaApp.schema,
+      rendererConfig: this._novaApp.rendererConfig,
+      rendererType: this._rendererType,
+    })
+    const rootLayer = createNovaRenderLayer('main')
+    this._renderGraph = new NovaRenderGraph(this.name, rootLayer.rootGroup)
 
     // Восстанавливаем размеры
     this.options({
@@ -299,7 +268,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     return this._activeRenderer
   }
 
-  get renderGraph(): NovaRenderGraph | undefined {
+  get renderGraph(): NovaRenderGraph {
     return this._renderGraph
   }
 

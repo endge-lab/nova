@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NovaRenderer2D } from '@/model/renderers/web2d/NovaRenderer2D'
 import { NovaRendererWebGL } from '@/model/renderers/webgl/NovaRendererWebGL'
-import { NovaRendererWebGLOld } from '@/model/renderers/webgl_old/NovaRendererWebGLOld'
-import { NovaRenderQueueRenderer } from '@/model/renderers/shared/NovaRenderQueueRenderer'
 import { NovaRenderBuilder } from '@/model/rendering/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/rendering/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/rendering/compiler/NovaRenderFrameBuilder'
@@ -27,7 +25,6 @@ type RendererMeasure = {
 const STRESS_RECT_COUNT = 1200
 const STRESS_FRAMES = 120
 const MIN_MOCK_FPS = 60
-const MIN_FALLBACK_MOCK_FPS = 20
 const MIN_CURRENT_COMPILED_FRAME_MOCK_FPS = 10
 
 function noop(): void {}
@@ -206,38 +203,16 @@ function createRectStressSchema(total = STRESS_RECT_COUNT): NovaSchema {
   }))
 }
 
-function createMixedPrimitiveSchema(total = 120): NovaSchema {
-  const schema: NovaSchema = []
-
-  for (let index = 0; index < total; index++) {
-    const x = (index % 30) * 42
-    const y = Math.floor(index / 30) * 34
-    const kind = index % 4
-
-    if (kind === 0) {
-      schema.push({ type: 'line', x1: x, y1: y, x2: x + 30, y2: y + 18, styles: { color: '#0f172a', width: 2 } })
-    } else if (kind === 1) {
-      schema.push({ type: 'circle', x: x + 14, y: y + 14, radius: 10, styles: { background: '#22c55e', border: { color: '#14532d', width: 1 } } })
-    } else if (kind === 2) {
-      schema.push({ type: 'polygon', points: [{ x, y: y + 20 }, { x: x + 16, y }, { x: x + 32, y: y + 20 }], styles: { background: '#f97316' } })
-    } else {
-      schema.push({ type: 'text', text: 'Nova', x, y, width: 38, height: 18, styles: { font: { family: 'monospace', size: 11 }, color: '#111827' } })
-    }
-  }
-
-  return schema
-}
-
 function measureRenderer(renderer: NovaRenderer, schema: NovaSchema, frames = STRESS_FRAMES): RendererMeasure {
   for (let i = 0; i < 10; i++) {
     renderer.clear()
-    renderer.schemaBatched(schema)
+    renderer.schema(schema)
   }
 
   const startedAt = performance.now()
   for (let frame = 0; frame < frames; frame++) {
     renderer.clear()
-    renderer.schemaBatched(schema)
+    renderer.schema(schema)
   }
   const elapsedMs = performance.now() - startedAt
   const frameMs = elapsedMs / frames
@@ -260,7 +235,7 @@ function compileSchemaFrame(canvas: NovaCanvas, schema: NovaSchema): ReturnType<
   const writer = new NovaRenderCommandWriter(frameBuilder)
   const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
 
-  builder.schemaBatched(schema)
+  builder.schema(schema)
 
   return frameBuilder.build()
 }
@@ -286,29 +261,6 @@ describe('Nova renderer performance smoke tests', () => {
     const result = measureRenderer(renderer, createRectStressSchema())
 
     expectFastRenderer('canvas2d rect stress', result)
-  })
-
-  it('keeps WebGL dense rect rendering within a 60fps mock budget with ordered vertex-color batching', () => {
-    const gl = createWebGLContextStub()
-    const renderer = new NovaRendererWebGLOld(createCanvasStub(1600, 900, gl))
-    const schema = createRectStressSchema()
-
-    gl.__stats.drawArrays = 0
-    const result = measureRenderer(renderer, schema)
-
-    expectFastRenderer('webgl rect stress', result)
-    expect(gl.__stats.drawArrays / STRESS_FRAMES).toBeLessThanOrEqual(1.2)
-  })
-
-  it('keeps WebGL texture fallback primitives within a mock benchmark budget', () => {
-    const gl = createWebGLContextStub()
-    const renderer = new NovaRendererWebGLOld(createCanvasStub(1600, 900, gl))
-    const schema = createMixedPrimitiveSchema()
-    const result = measureRenderer(renderer, schema, 60)
-
-    console.info(`[NovaRendererPerf] webgl mixed fallback stress: ${result.fps.toFixed(0)} fps, ${result.frameMs.toFixed(2)} ms/frame`)
-    expect(result.fps).toBeGreaterThan(MIN_FALLBACK_MOCK_FPS)
-    expect(gl.__stats.drawArrays / 60).toBeGreaterThan(1)
   })
 
   it('keeps new WebGL compiled frame replay within a mock benchmark budget', () => {
@@ -360,25 +312,4 @@ describe('Nova renderer performance smoke tests', () => {
     expect(atlas.memoryMB).toBeLessThan(128)
   })
 
-  it('keeps queue collection and flush overhead within a mock budget', () => {
-    const renderer = new NovaRenderer2D(createCanvasStub(1600, 900, create2DContextStub()))
-    const queue = new NovaRenderQueueRenderer(renderer)
-    const schema = createRectStressSchema(10_000)
-
-    for (let i = 0; i < 5; i++) {
-      queue.schemaOrdered(schema)
-      queue.flush()
-    }
-
-    const startedAt = performance.now()
-    for (let frame = 0; frame < 60; frame++) {
-      queue.schemaOrdered(schema)
-      queue.flush()
-    }
-    const elapsedMs = performance.now() - startedAt
-    const frameMs = elapsedMs / 60
-
-    console.info(`[NovaRendererPerf] queue 10k rect stress: ${frameMs.toFixed(2)} ms/frame`)
-    expect(frameMs).toBeLessThan(50)
-  })
 })

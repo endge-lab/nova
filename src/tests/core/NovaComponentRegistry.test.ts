@@ -159,7 +159,7 @@ describe('Nova component registry', () => {
 
   it('expands schema components through descriptor renderSchema', () => {
     const registry = new NovaSchemaRegistry()
-    const schemaOrdered = vi.fn()
+    const schema = vi.fn()
     registry.register({
       type: 'test.schema-label',
       name: 'SchemaLabel',
@@ -177,13 +177,13 @@ describe('Nova component registry', () => {
     })
 
     const handled = registry.renderSchemaComponent(
-      { schemaOrdered } as any,
+      { schema } as any,
       { type: 'test.schema-label' },
       'ordered',
     )
 
     expect(handled).toBe(true)
-    expect(schemaOrdered).toHaveBeenCalledWith([
+    expect(schema).toHaveBeenCalledWith([
       {
         type: 'rect',
         x: 1,

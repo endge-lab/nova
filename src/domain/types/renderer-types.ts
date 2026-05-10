@@ -3,9 +3,7 @@ import type { DataRect } from '@endge/utils'
 
 export enum RendererType {
   Web2D = '2d',
-  WebGLOld = 'webgl-old',
   WebGL = 'webgl',
-  WebGPU = 'webgpu',
 }
 
 export type NovaStylePadding =
@@ -214,8 +212,8 @@ export interface NovaRendererCapabilities {
   measureText: boolean
 }
 
-export type NovaRenderPipeline = 'immediate' | 'queue'
-export type NovaRenderDirtyMode = 'full' | 'subtree'
+export type NovaRenderPipeline = 'retained'
+export type NovaRenderDirtyMode = 'graph'
 export type NovaRenderCullingMode = 'off' | 'bounds'
 export type NovaHitTestMode = 'linear' | 'spatial'
 export type NovaLifecycleState = 'created' | 'mounted' | 'paused' | 'destroyed'
@@ -256,7 +254,6 @@ export interface NovaRendererCanvas {
   invalidate(): void
   resize(width: number, height: number, options?: { dpr?: number; maxDpr?: number }): void
   getContext2D(): CanvasRenderingContext2D
-  getContextWebGL(attributes?: WebGLContextAttributes): WebGLRenderingContext
   destroy(): void
   onContextLost(callback: () => void): void
   onContextRestored(callback: () => void): void
@@ -272,8 +269,6 @@ export interface NovaRenderer {
   readonly capabilities: NovaRendererCapabilities
 
   schema(schema: NovaSchema<any>): void
-  schemaBatched(schema: NovaSchema<any>): void
-  schemaOrdered(schema: NovaSchema<any>): void
 
   save(): void
   restore(): void

@@ -8,23 +8,17 @@ describe('NovaCanvas', () => {
     document.body.innerHTML = ''
   })
 
-  it('keeps experimental-webgl as an internal fallback string, not a public RendererType', () => {
-    const gl = {
-      getExtension: vi.fn(() => null),
-    } as unknown as WebGLRenderingContext
+  it('does not bind WebGL1 or experimental-webgl for the target WebGL renderer', () => {
     const requestedContextTypes: string[] = []
 
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
       requestedContextTypes.push(type)
-      if (type === 'experimental-webgl') {
-        return gl
-      }
       return null
     })
 
-    const canvas = NovaCanvas.create(100, 50, RendererType.WebGLOld)
+    const canvas = NovaCanvas.create(100, 50, RendererType.WebGL)
 
-    expect(requestedContextTypes).toEqual(['webgl', 'experimental-webgl'])
+    expect(requestedContextTypes).toEqual([])
     expect(Object.values(RendererType)).not.toContain('experimental-webgl')
 
     canvas.destroy()

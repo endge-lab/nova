@@ -69,14 +69,6 @@ export class NovaRendererWebGL implements NovaRenderer {
     this.throwImmediateApiError('schema')
   }
 
-  schemaBatched(_schema: NovaSchema<any>): void {
-    this.throwImmediateApiError('schemaBatched')
-  }
-
-  schemaOrdered(_schema: NovaSchema<any>): void {
-    this.throwImmediateApiError('schemaOrdered')
-  }
-
   save(): void {
     this.throwImmediateApiError('save')
   }

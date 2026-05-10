@@ -337,15 +337,6 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return this.addSurface(surface)
   }
 
-  createSurfaceWebGLOld<T extends NovaSurface<E>>(
-    name: string,
-    SurfaceClass: new (...args: any[]) => T = NovaSurface as any,
-    ...args: any[]
-  ): T {
-    const surface = new SurfaceClass(name, this, RendererType.WebGLOld, ...args)
-    return this.addSurface(surface)
-  }
-
   createSurfaceWebGL<T extends NovaSurface<E>>(
     name: string,
     SurfaceClass: new (...args: any[]) => T = NovaSurface as any,

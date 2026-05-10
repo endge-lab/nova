@@ -15,6 +15,7 @@ import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
 import { NovaGraphics } from '@/model/renderers/shared/NovaGraphics'
 import { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
+import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 
 // TODO:
 let _CANVAS2D_TEMP_MODE = false
@@ -59,6 +60,76 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.scale(this.novaCanvas.dpr, this.novaCanvas.dpr)
   }
 
+  renderFrame(frame: NovaRenderFrame): NovaRenderMetrics {
+    const startedAt = performance.now()
+    const itemsById = new Map(frame.items.map(item => [item.id, item]))
+    let drawCalls = 0
+
+    this.clear()
+
+    for (const command of frame.commands) {
+      switch (command.type) {
+        case 'clear':
+          this.clear()
+          break
+        case 'save':
+          this.save()
+          break
+        case 'restore':
+          this.restore()
+          break
+        case 'setTransform':
+          if (command.transform) this.setTransform(command.transform)
+          break
+        case 'clip':
+          if (command.clip) this.clip(command.clip.x, command.clip.y, command.clip.width, command.clip.height)
+          break
+        case 'clearClip':
+          this.clearClip()
+          break
+        case 'drawItem': {
+          const item = command.itemId ? itemsById.get(command.itemId) : undefined
+          if (item?.schemaItem) {
+            this.schema([item.schemaItem])
+            drawCalls += 1
+          }
+          break
+        }
+        case 'drawSchemaBatch':
+          if (command.schemaItems?.length) {
+            this.schema(command.schemaItems)
+            drawCalls += 1
+          }
+          break
+        case 'cursor':
+          if (command.cursor) this.cursor(command.cursor)
+          break
+        default:
+          break
+      }
+    }
+
+    const backendMs = performance.now() - startedAt
+
+    return {
+      ...frame.metrics,
+      backendMs,
+      drawMs: backendMs,
+      drawCalls,
+      batches: drawCalls,
+      uploadMs: 0,
+      uploadBytes: 0,
+      bufferDataCalls: 0,
+      bufferSubDataCalls: 0,
+      fullUploads: 0,
+      dirtyRangeCount: 0,
+      gpuBufferCapacityBytes: 0,
+      textRasterMs: 0,
+      atlasMemoryMB: 0,
+      cachedTextureMemoryMB: 0,
+    }
+  }
+
   schema(schema: NovaSchema<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
     for (const item of items) {
@@ -101,14 +172,6 @@ export class NovaRenderer2D implements NovaRenderer {
         this.clearClip()
       }
     }
-  }
-
-  schemaBatched(schema: NovaSchema<any>): void {
-    this.schema(schema)
-  }
-
-  schemaOrdered(schema: NovaSchema<any>): void {
-    this.schema(schema)
   }
 
   redBox(): void {

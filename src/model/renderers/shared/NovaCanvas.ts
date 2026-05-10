@@ -3,15 +3,12 @@ import { RendererType } from '@/domain/types/renderer-types'
 import { Telemetry } from '@/model/telemetry.ts'
 
 const CANVAS_2D_CONTEXT_TYPE = '2d'
-const WEBGL_CONTEXT_TYPE = 'webgl'
-const WEBGL_EXPERIMENTAL_CONTEXT_TYPE = 'experimental-webgl'
 
 export class NovaCanvas {
   private readonly _element: HTMLCanvasElement
   private readonly _ownership: NovaCanvasOwnership
 
   private _ctx2D?: CanvasRenderingContext2D
-  private _ctxWebGL?: WebGLRenderingContext
   private _cachedRect?: DOMRectReadOnly
   private _dpr = 1
   private _maxDpr = 2
@@ -62,6 +59,10 @@ export class NovaCanvas {
     return this._maxDpr
   }
 
+  get webglAttributes(): WebGLContextAttributes | undefined {
+    return this._webglAttributes
+  }
+
   getBoundingClientRect(): DOMRectReadOnly {
     if (!this._cachedRect) {
       this._cachedRect = this._element.getBoundingClientRect()
@@ -92,9 +93,6 @@ export class NovaCanvas {
       this._ctx2D.scale(this._dpr, this._dpr)
       this._ctx2D.imageSmoothingEnabled = false
     }
-    if (this._ctxWebGL) {
-      this._ctxWebGL.viewport(0, 0, this._element.width, this._element.height)
-    }
   }
 
   getContext2D(): CanvasRenderingContext2D {
@@ -106,33 +104,6 @@ export class NovaCanvas {
       this._ctx2D.imageSmoothingEnabled = false
     }
     return this._ctx2D
-  }
-
-  getContextWebGL(attributes?: WebGLContextAttributes): WebGLRenderingContext {
-    if (!this._ctxWebGL) {
-      const attrs: WebGLContextAttributes = attributes ?? this._webglAttributes ?? { alpha: true, antialias: true }
-      const ctx =
-        (this._element.getContext(WEBGL_CONTEXT_TYPE, attrs) as WebGLRenderingContext | null) ||
-        (this._element.getContext(WEBGL_EXPERIMENTAL_CONTEXT_TYPE, attrs) as WebGLRenderingContext | null)
-      if (!ctx) throw new Error('WebGL context not supported')
-      this._ctxWebGL = ctx
-
-      //
-      //
-      this._glId = this._glId ?? `gl_${Math.random().toString(36).slice(2)}`
-      Telemetry.event(
-        'ctx:create',
-        {
-          w: this.width,
-          h: this.height,
-          dpr: this._dpr,
-          attrs,
-        },
-        undefined,
-        this._glId,
-      )
-    }
-    return this._ctxWebGL
   }
 
   destroy(): void {
@@ -149,11 +120,6 @@ export class NovaCanvas {
 
     //
     try {
-      if (this._ctxWebGL) {
-        const loseCtx = this._ctxWebGL.getExtension('WEBGL_lose_context')
-        loseCtx?.loseContext()
-      }
-
       if (this._ownership === 'internal') {
         this._element.width = 0
         this._element.height = 0
@@ -173,7 +139,6 @@ export class NovaCanvas {
     this._onContextRestoredCallback = undefined
     this._isContextLost = false
     this._ctx2D = undefined
-    this._ctxWebGL = undefined
     this._cachedRect = undefined
   }
 
@@ -203,8 +168,6 @@ export class NovaCanvas {
 
     if (contextType === RendererType.Web2D) {
       instance.getContext2D()
-    } else if (contextType === RendererType.WebGLOld) {
-      instance.getContextWebGL(options.webgl)
     } else if (contextType === RendererType.WebGL) {
       // Target WebGL renderer owns WebGL2 context creation and must not bind WebGL1 first.
     } else {
@@ -223,11 +186,7 @@ export class NovaCanvas {
 
     const contextType = options.contextType ?? RendererType.Web2D
 
-    if (contextType === RendererType.Web2D) {
-      instance.getContext2D()
-    } else if (contextType === RendererType.WebGLOld) {
-      instance.getContextWebGL(options.webgl)
-    }
+    if (contextType === RendererType.Web2D) instance.getContext2D()
 
     return instance
   }
@@ -250,7 +209,6 @@ export class NovaCanvas {
   private _handleContextLost = (e: Event): void => {
     e.preventDefault()
     this._isContextLost = true
-    this._ctxWebGL = undefined
 
     if (this._glId) {
       Telemetry.event('ctx:lost', {}, undefined, this._glId)
@@ -262,7 +220,6 @@ export class NovaCanvas {
 
   private _handleContextRestored = (_e: Event): void => {
     this._isContextLost = false
-    this._ctxWebGL = undefined // нужно будет получить заново через getContextWebGL()
 
     if (this._glId) {
       Telemetry.event('ctx:restored', {}, undefined, this._glId)

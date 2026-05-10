@@ -5,7 +5,7 @@ export class NovaWebGLDevice {
 
   constructor(
     readonly canvas: NovaCanvas,
-    attributes: WebGLContextAttributes = {
+    attributes: WebGLContextAttributes = canvas.webglAttributes ?? {
       alpha: true,
       antialias: false,
       depth: false,
@@ -15,7 +15,7 @@ export class NovaWebGLDevice {
   ) {
     const gl = canvas.element.getContext('webgl2', attributes)
     if (!gl) {
-      throw new Error('Nova RendererType.WebGL requires WebGL2. webgl-old is not used as fallback.')
+      throw new Error('Nova RendererType.WebGL requires WebGL2.')
     }
 
     this.gl = gl

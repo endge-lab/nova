@@ -244,6 +244,7 @@ describe('Nova core behavior and performance smoke', () => {
     second.options({ width: 10, height: 10, zIndex: 0 })
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(first.weight).toBe(100)
@@ -263,6 +264,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.createNode(AuditNode, 'third-z10', log).options({ width: 10, height: 10, zIndex: 10 })
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['first-z10', 'second-z10', 'third-z10'])
@@ -330,6 +332,7 @@ describe('Nova core behavior and performance smoke', () => {
     group.addChild(child)
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['group', 'nested-child'])
@@ -426,6 +429,7 @@ describe('Nova core behavior and performance smoke', () => {
 
     group.visible = false
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(group.visible).toBe(false)
@@ -436,6 +440,7 @@ describe('Nova core behavior and performance smoke', () => {
     group.visible = true
     child.visible = false
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['group'])
@@ -444,6 +449,7 @@ describe('Nova core behavior and performance smoke', () => {
 
     child.visible = true
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['group', 'child'])
@@ -535,32 +541,6 @@ describe('Nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('reuses clean child queue snapshots in subtree dirty mode', () => {
-    const log = createAuditLog()
-    const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
-    surface.renderPipeline = 'queue'
-    surface.renderDirtyMode = 'subtree'
-
-    const group = surface.createNode(AuditNode, 'group', log)
-    const first = new AuditNode(app, surface, 'first', log)
-    const second = new AuditNode(app, surface, 'second', log)
-    group.addChild(first)
-    group.addChild(second)
-
-    surface.doRender()
-    const secondRenderCount = second.renderCount
-    clearAuditLog(log)
-
-    first.dirty({ render: true })
-    surface.doRender()
-
-    expect(log.renders).toEqual(['group', 'first'])
-    expect(second.renderCount).toBe(secondRenderCount)
-
-    app.destroy()
-  })
-
   it('uses transform hierarchy for hit testing and coordinate conversion', () => {
     const log = createAuditLog()
     const app = createApp()
@@ -590,6 +570,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.createNode(AuditNode, 'outside', log).options({ x: 600, y: 20, width: 40, height: 30 })
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['visible'])
@@ -622,6 +603,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.createNode(ViewportRootNode).options({ width: 320, height: 180 })
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['late-child'])
@@ -647,6 +629,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.createNode(EmptyBoundsContainerNode)
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual([])
@@ -915,6 +898,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.dirty({ render: true })
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     const elapsedMs = measure('recursive surface redraw / 1000-node nested chain', () => {
       surface.doRender()
     })
@@ -1075,6 +1059,7 @@ describe('Nova core behavior and performance smoke', () => {
     }
 
     clearAuditLog(log)
+    surface.markRenderSubtreeDirty(true)
     const elapsedMs = measure('bounds culling / 1000 offscreen nodes', () => {
       surface.doRender()
     })
@@ -1166,53 +1151,6 @@ describe('Nova core behavior and performance smoke', () => {
     expect(clearElapsedMs).toBeLessThan(80)
 
     app.destroy()
-  })
-
-  it('compares full and subtree redraw cost when one child changes', () => {
-    const fullLog = createAuditLog()
-    const fullApp = createApp()
-    const fullSurface = fullApp.createSurface2D('full-scene', AuditSurface, fullLog)
-    fullSurface.renderPipeline = 'queue'
-    fullSurface.renderDirtyMode = 'full'
-    const fullGroup = fullSurface.createNode(AuditNode, 'full-group', fullLog)
-    const fullChildren = Array.from({ length: 1000 }, (_, index) => new AuditNode(fullApp, fullSurface, `full-${index}`, fullLog))
-    for (const child of fullChildren) {
-      fullGroup.addChild(child)
-    }
-    fullSurface.doRender()
-    clearAuditLog(fullLog)
-
-    fullChildren[0].dirty({ render: true })
-    const fullElapsedMs = measure('full queue redraw / one dirty child in 1000', () => {
-      fullSurface.doRender()
-    })
-
-    const subtreeLog = createAuditLog()
-    const subtreeApp = createApp()
-    const subtreeSurface = subtreeApp.createSurface2D('subtree-scene', AuditSurface, subtreeLog)
-    subtreeSurface.renderPipeline = 'queue'
-    subtreeSurface.renderDirtyMode = 'subtree'
-    const subtreeGroup = subtreeSurface.createNode(AuditNode, 'subtree-group', subtreeLog)
-    const subtreeChildren = Array.from({ length: 1000 }, (_, index) => new AuditNode(subtreeApp, subtreeSurface, `subtree-${index}`, subtreeLog))
-    for (const child of subtreeChildren) {
-      subtreeGroup.addChild(child)
-    }
-    subtreeSurface.doRender()
-    const cleanSubtreeChildRenderCount = subtreeChildren[999].renderCount
-    clearAuditLog(subtreeLog)
-
-    subtreeChildren[0].dirty({ render: true })
-    const subtreeElapsedMs = measure('subtree queue redraw / one dirty child in 1000', () => {
-      subtreeSurface.doRender()
-    })
-
-    expect(fullLog.renders.length).toBeGreaterThan(900)
-    expect(subtreeLog.renders).toEqual(['subtree-group', 'subtree-0'])
-    expect(subtreeChildren[999].renderCount).toBe(cleanSubtreeChildRenderCount)
-    expect(subtreeElapsedMs).toBeLessThan(fullElapsedMs + 20)
-
-    fullApp.destroy()
-    subtreeApp.destroy()
   })
 
   it('removes interactive descendants from input state when a group is disposed', () => {
