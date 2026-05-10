@@ -1019,7 +1019,7 @@ export class NovaNode<
   }
 
   /**
-   * Возвращает render subtree dirty.
+   * Возвращает render frame dirty.
    */
   get renderFrameDirty(): boolean {
     return this._renderFrameDirty
@@ -1129,7 +1129,7 @@ export class NovaNode<
   }
 
   /**
-   * Помечает render subtree dirty.
+   * Помечает render frame dirty.
    */
   markRenderFrameDirty(includeChildren = false): void {
     this._renderFrameDirty = true
@@ -1150,7 +1150,7 @@ export class NovaNode<
   }
 
   /**
-   * Помечает render subtree clean.
+   * Помечает render frame clean.
    */
   markRenderFrameClean(includeChildren = false): void {
     this._renderFrameDirty = false
