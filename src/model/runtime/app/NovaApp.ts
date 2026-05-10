@@ -28,6 +28,7 @@ import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistr
 import { NovaComponentRegistry } from '@/model/runtime/components/NovaComponentRegistry'
 import { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
 import { NovaSoundEngine } from '@/model/sound/NovaSoundEngine'
+import { NovaThemeService } from '@/model/theme/NovaThemeService'
 import type { NovaRendererConfig, NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import { resolveNovaRendererConfig } from '@/model/render/policy/NovaRenderPolicy'
 import { NovaPhase } from '@/domain/constants/NovaPhase'
@@ -70,6 +71,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly components = new NovaComponentRegistry()
     readonly motion = new NovaMotionEngine(this)
     readonly sound: NovaSoundEngine
+    readonly theme: NovaThemeService<E>
     readonly cursors: NovaCursorManager<E>
     readonly bus: EventBus<E>
     readonly metrics: NovaMetrics
@@ -138,6 +140,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             runtimeId: options.raph?.runtimeId,
             scheduler: options.scheduler?.type ?? RaphSchedulerType.AnimationFrame,
         })
+        this.theme = new NovaThemeService(this, options.theme)
         this.metrics = new NovaMetrics(() => this.raph.UPS)
         this.resize(options.size)
         this.metrics.start()

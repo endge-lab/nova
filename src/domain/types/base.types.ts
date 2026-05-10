@@ -6,6 +6,7 @@ import type { NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSoundOptions } from '@/domain/types/sound.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
+import type { NovaThemeCreateOptions } from '@/domain/types/theme.types'
 
 /**
  * Описывает контракт NovaNodeProperties.
@@ -169,6 +170,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   renderer?: NovaRendererOptions
   scheduler?: NovaSchedulerOptions
   sound?: NovaSoundOptions
+  theme?: NovaThemeCreateOptions
   debug?: NovaDebugOptions
   raph?: NovaRaphOptions
   predefinedEvents?: Array<keyof E>

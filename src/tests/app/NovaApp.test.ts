@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  RaphKernel,
+} from '@endge/raph'
+import {
   Nova,
+  NovaNode,
+  NovaPhase,
   RaphSchedulerType,
   RendererType,
 } from '@/index'
 import type {
-  NovaNode,
   NovaApp,
   NovaSurface,
 } from '@/index'
@@ -179,6 +183,7 @@ function createApp(
     height?: number
     dpr?: number
     debug?: boolean
+    kernel?: RaphKernel
   } = {},
 ): NovaApp<TestEvents> {
   return Nova.createApp<TestEvents>({
@@ -207,6 +212,9 @@ function createApp(
     debug: {
       enabled: options.debug ?? false,
     },
+    raph: {
+      kernel: options.kernel,
+    },
   })
 }
 
@@ -221,6 +229,19 @@ function createInteractiveNode(app: NovaApp<TestEvents>): NovaNode<TestEvents> {
     interactive: true,
   })
   return node
+}
+
+class ThemeAwareNode extends NovaNode<TestEvents> {
+  updates = 0
+
+  constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
+    super(app, surface)
+    app.theme.observe(this, { phase: NovaPhase.Update })
+  }
+
+  update(): void {
+    this.updates += 1
+  }
 }
 
 describe('NovaApp', () => {
@@ -439,5 +460,149 @@ describe('NovaApp', () => {
     expect(() => surface.renderer).toThrow(/only during render/)
 
     app.destroy()
+  })
+
+  it('stores active theme in Raph kernel and resolves tokens through Nova theme service', () => {
+    const app = createApp()
+
+    app.theme.registerMany([
+      {
+        id: 'light',
+        tokens: {
+          '--nova-scene-bg': '#ffffff',
+          '--nova-scene-text': '#111111',
+        },
+      },
+      {
+        id: 'dark',
+        tokens: {
+          '--nova-scene-bg': '#080d18',
+          '--nova-scene-text': '#f7f8ff',
+        },
+      },
+    ])
+
+    expect(app.raph.kernel.get('nova.theme.active')).toBe('light')
+    expect(app.theme.resolve('--nova-scene-bg')).toBe('#ffffff')
+
+    app.theme.use('dark')
+
+    expect(app.raph.kernel.get('nova.theme.active')).toBe('dark')
+    expect(app.theme.resolve('--nova-scene-text')).toBe('#f7f8ff')
+    expect(app.theme.snapshot()).toMatchObject({
+      active: 'dark',
+      tokens: {
+        '--nova-scene-bg': '#080d18',
+      },
+    })
+
+    app.destroy()
+  })
+
+  it('initializes active theme from create options without an intermediate version bump', () => {
+    const app = Nova.createApp<TestEvents>({
+      target: createCanvas(),
+      size: { width: 300, height: 160, dpr: 1 },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+      theme: {
+        active: 'dark',
+        themes: [
+          {
+            id: 'light',
+            tokens: {
+              '--nova-scene-bg': '#ffffff',
+            },
+          },
+          {
+            id: 'dark',
+            tokens: {
+              '--nova-scene-bg': '#080d18',
+            },
+          },
+        ],
+      },
+    })
+
+    expect(app.theme.active()).toBe('dark')
+    expect(app.theme.version()).toBe(1)
+    expect(app.theme.resolve('--nova-scene-bg')).toBe('#080d18')
+
+    app.destroy()
+  })
+
+  it('guards unregistered themes and supports fallbacks for missing tokens', () => {
+    const app = createApp()
+
+    app.theme.register({
+      id: 'light',
+      tokens: {
+        '--nova-scene-bg': '#ffffff',
+      },
+    })
+
+    expect(app.theme.resolve('--nova-missing-token', '#ff00ff')).toBe('#ff00ff')
+    expect(app.theme.resolve('nova-missing-token', '#ff00ff')).toBe('#ff00ff')
+    expect(() => app.theme.use('missing')).toThrow('[NovaTheme]')
+
+    app.destroy()
+  })
+
+  it('bumps theme version when the active theme tokens are re-registered', () => {
+    const app = createApp()
+
+    app.theme.register({
+      id: 'light',
+      tokens: {
+        '--nova-scene-bg': '#ffffff',
+      },
+    })
+    const version = app.theme.version()
+
+    app.theme.register({
+      id: 'light',
+      tokens: {
+        '--nova-scene-bg': '#f6f7fb',
+      },
+    })
+
+    expect(app.theme.active()).toBe('light')
+    expect(app.theme.version()).toBe(version + 1)
+    expect(app.theme.resolve('--nova-scene-bg')).toBe('#f6f7fb')
+
+    app.destroy()
+  })
+
+  it('delivers shared theme changes to subscribed Nova runtime lanes through Raph', () => {
+    const kernel = new RaphKernel()
+    const first = createApp({ kernel })
+    const second = createApp({ kernel })
+
+    const themes = [
+      {
+        id: 'light',
+        tokens: {
+          '--nova-scene-bg': '#ffffff',
+        },
+      },
+      {
+        id: 'dark',
+        tokens: {
+          '--nova-scene-bg': '#080d18',
+        },
+      },
+    ]
+    first.theme.registerMany(themes)
+    second.theme.registerMany(themes)
+
+    const surface = second.createSurface('theme-aware')
+    const node = surface.createNode(ThemeAwareNode)
+
+    first.theme.use('dark')
+
+    expect(second.theme.active()).toBe('dark')
+    expect(node.updates).toBeGreaterThan(0)
+
+    first.destroy()
+    second.destroy()
   })
 })
