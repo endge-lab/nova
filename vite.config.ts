@@ -35,6 +35,9 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
     testTimeout: 30_000,
+    benchmark: {
+      include: ['src/tests/benchmarks/**/*.bench.ts'],
+    },
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],

@@ -23,6 +23,7 @@
     "pretest": "pnpm --filter @endge/utils build && pnpm --filter @endge/raph build",
     "test": "vitest run --config vite.config.ts",
     "test:perf": "vitest run --config vite.config.ts src/tests/**/*.performance.test.ts",
+    "bench": "NODE_OPTIONS=--max-old-space-size=8192 vitest bench --run --config vite.config.ts",
     "test:coverage": "vitest run --config vite.config.ts --coverage"
   },
   "dependencies": {

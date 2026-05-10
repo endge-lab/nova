@@ -1,6 +1,7 @@
 import { mat3 } from 'gl-matrix'
 import { RaphNode } from '@endge/raph'
 import { RaphPropagation } from '@endge/raph'
+import type { DataPathDef } from '@endge/raph'
 import type { NovaNodeProperties } from '@/domain/types/base.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
@@ -28,6 +29,12 @@ import {
   mergeRenderDirtyFlags,
   resolveNovaRenderPolicy,
 } from '@/model/render/policy/NovaRenderPolicy'
+import { NovaPhase } from '@/domain/constants/NovaPhase'
+import type {
+  NovaAddChildOptions,
+  NovaContextToken,
+  NovaObserveDataOptions,
+} from '@/domain/types/context.types'
 
 /**
  * Описывает контракт NovaRenderNodeAwareRenderer.
@@ -35,6 +42,24 @@ import {
 interface NovaRenderNodeAwareRenderer {
   beginNode(node: NovaNode<any>): void
   endNode(node: NovaNode<any>): void
+}
+
+/**
+ * Описывает cache entry для найденного scoped provider.
+ */
+interface NovaInjectCacheEntry<T> {
+  provider: NovaNode<any>
+  providerVersion: number
+  scopeVersion: number
+  value: T
+}
+
+/**
+ * Описывает результат поиска scoped provider.
+ */
+interface NovaContextLookup<T> {
+  found: boolean
+  value?: T
 }
 
 /**
@@ -83,6 +108,12 @@ export class NovaNode<
   private _renderPolicy: NovaRenderPolicy = resolveNovaRenderPolicy()
   private readonly _renderDirtyFlags: NovaRenderDirtyFlags = createCleanRenderDirtyFlags()
   private readonly _renderVersions: NovaRenderVersions = createRenderVersions()
+  private _provides?: Map<NovaContextToken<any>, any>
+  private _injectCache?: Map<NovaContextToken<any>, NovaInjectCacheEntry<any>>
+  private _providerVersion = 0
+  private _nodeContext?: unknown
+  private _hasNodeContext = false
+  private readonly _disposers: Array<() => void> = []
 
   //
   // CTOR
@@ -96,6 +127,95 @@ export class NovaNode<
     this._nova = app
     this._surface = surface
     this.__type = this.constructor.name
+  }
+
+  /**
+   * Регистрирует scoped dependency для потомков этой ноды.
+   */
+  provide<T>(token: NovaContextToken<T>, value: T): this {
+    if (!this._provides) {
+      this._provides = new Map()
+    }
+
+    this._provides.set(token, value)
+    this._providerVersion += 1
+    this.nova.bumpContextVersion()
+    this._injectCache?.delete(token)
+    return this
+  }
+
+  /**
+   * Возвращает scoped dependency из ближайшего ancestor provider.
+   */
+  inject<T>(token: NovaContextToken<T>): T {
+    const result = this.resolveInjectedValue(token)
+    if (result.found) {
+      return result.value as T
+    }
+
+    throw new Error(`[NovaNode] Context provider not found for "${String(token.description ?? token.toString())}"`)
+  }
+
+  /**
+   * Возвращает scoped dependency или fallback, если provider не найден.
+   */
+  injectOptional<T>(token: NovaContextToken<T>, fallback?: T): T | undefined {
+    const result = this.resolveInjectedValue(token)
+    return result.found ? result.value as T : fallback
+  }
+
+  /**
+   * Проверяет, зарегистрирован ли provider на этой ноде.
+   */
+  hasProvider<T>(token: NovaContextToken<T>): boolean {
+    return this._provides?.has(token) ?? false
+  }
+
+  /**
+   * Устанавливает явный runtime context этой ноды.
+   */
+  setContext<T>(context: T): this {
+    this._nodeContext = context
+    this._hasNodeContext = true
+    return this
+  }
+
+  /**
+   * Возвращает явный runtime context этой ноды.
+   */
+  getContext<T>(): T {
+    if (!this._hasNodeContext) {
+      throw new Error(`[NovaNode] Node context is not set for "${this.id}"`)
+    }
+
+    return this._nodeContext as T
+  }
+
+  /**
+   * Возвращает явный runtime context или fallback.
+   */
+  getContextOptional<T>(fallback?: T): T | undefined {
+    return this._hasNodeContext ? this._nodeContext as T : fallback
+  }
+
+  /**
+   * Добавляет disposer, который будет вызван при dispose ноды.
+   */
+  addDisposer(disposer: () => void): () => void {
+    this._disposers.push(disposer)
+    return disposer
+  }
+
+  /**
+   * Подписывает ноду на business data path и dirty-ит указанную Nova phase.
+   */
+  observeData(path: DataPathDef, options: NovaObserveDataOptions = {}): () => void {
+    const dispose = this.raph.observeData(this, path, {
+      ...options,
+      phase: options.phase ?? NovaPhase.Update,
+    })
+
+    return this.addDisposer(dispose)
   }
 
   //
@@ -975,6 +1095,82 @@ export class NovaNode<
   }
 
   /**
+   * Выполняет поиск scoped dependency по ancestor chain.
+   */
+  private resolveInjectedValue<T>(token: NovaContextToken<T>): NovaContextLookup<T> {
+    const cached = this._injectCache?.get(token) as NovaInjectCacheEntry<T> | undefined
+    if (
+      cached
+      && cached.scopeVersion === this.nova.contextVersion
+      && cached.provider._providerVersion === cached.providerVersion
+    ) {
+      return {
+        found: true,
+        value: cached.value,
+      }
+    }
+
+    let parent = this.parent
+    while (parent) {
+      if (parent instanceof NovaNode && parent._provides?.has(token)) {
+        const value = parent._provides.get(token) as T
+        this.cacheInjectedValue(token, {
+          provider: parent,
+          providerVersion: parent._providerVersion,
+          scopeVersion: this.nova.contextVersion,
+          value,
+        })
+        return {
+          found: true,
+          value,
+        }
+      }
+
+      parent = parent.parent
+    }
+
+    this._injectCache?.delete(token)
+    return { found: false }
+  }
+
+  /**
+   * Сохраняет найденный scoped dependency в локальном inject-cache.
+   */
+  private cacheInjectedValue<T>(token: NovaContextToken<T>, entry: NovaInjectCacheEntry<T>): void {
+    if (!this._injectCache) {
+      this._injectCache = new Map()
+    }
+
+    this._injectCache.set(token, entry)
+  }
+
+  /**
+   * Сбрасывает inject-cache у этой ноды и ее потомков.
+   */
+  private clearInjectCacheDeep(): void {
+    const stack: NovaNode<any>[] = [this]
+    while (stack.length > 0) {
+      const node = stack.pop()!
+      node._injectCache?.clear()
+      for (const child of node.children) {
+        if (child instanceof NovaNode) {
+          stack.push(child)
+        }
+      }
+    }
+  }
+
+  /**
+   * Выполняет dispose callbacks текущей ноды.
+   */
+  private runDisposers(): void {
+    const disposers = this._disposers.splice(0)
+    for (const dispose of disposers) {
+      dispose()
+    }
+  }
+
+  /**
    * Выполняет внутреннюю операцию dispose.
    */
   override dispose(): void {
@@ -982,9 +1178,14 @@ export class NovaNode<
 
     this.nova.motion.cancel(this)
     this.unmountSubtree()
+    this.runDisposers()
     super.dispose()
     this.offAll()
     this._orderedChildren.length = 0
+    this._provides?.clear()
+    this._injectCache?.clear()
+    this._nodeContext = undefined
+    this._hasNodeContext = false
     this._inverseMatrixSource = undefined
     this._renderSubtreeDirty = true
     this._lifecycleState = 'destroyed'
@@ -1076,14 +1277,21 @@ export class NovaNode<
   /**
    * Добавляет child.
    */
-  override addChild(node: RaphNode<any>, options?: Parameters<RaphNode<any>['addChild']>[1]): boolean {
+  override addChild(node: RaphNode<any>, options: NovaAddChildOptions = {}): boolean {
+    const { context, ...raphOptions } = options
+    const hasExplicitContext = Object.prototype.hasOwnProperty.call(options, 'context')
+
     if (node instanceof NovaNode) {
       if (node.lifecycleState === 'destroyed') {
         throw new Error('Нельзя повторно добавить уничтоженную Nova-ноду')
       }
+      if (hasExplicitContext) {
+        node.setContext(context)
+      }
+      node.clearInjectCacheDeep()
       this.ensureRenderOrder(node)
     }
-    const result = super.addChild(node, options)
+    const result = super.addChild(node, raphOptions)
     this.markRenderDirtyFlags({ children: true, cache: true })
     this.markRenderSubtreeDirty(false)
     if (node instanceof NovaNode) {

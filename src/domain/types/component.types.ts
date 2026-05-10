@@ -2,6 +2,7 @@ import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaBounds, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
 import type { EventList } from '@endge/utils'
 
@@ -61,6 +62,8 @@ export interface NovaComponentCreateContext<E extends EventList = Record<string,
   app: NovaApp<E>
   surface: NovaSurface<E>
   registry: NovaSchemaRegistry
+  parent?: NovaNode<E>
+  context?: unknown
 }
 
 /**

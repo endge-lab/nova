@@ -1,4 +1,5 @@
 import type { RaphProperties } from '@endge/raph'
+import type { RaphKernel } from '@endge/raph'
 import type { RaphSchedulerType } from '@endge/raph'
 import type { mat3 } from 'gl-matrix'
 import type { RendererType } from '@/domain/types/renderer.types'
@@ -149,6 +150,14 @@ export interface NovaDebugOptions {
 }
 
 /**
+ * Описывает настройки подключения NovaApp к Raph runtime/kernel.
+ */
+export interface NovaRaphOptions {
+  kernel?: RaphKernel
+  runtimeId?: string
+}
+
+/**
  * Описывает контракт NovaAppCreateOptions.
  */
 export interface NovaAppCreateOptions<E extends EventList = Record<string, any>> {
@@ -158,6 +167,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   renderer?: NovaRendererOptions
   scheduler?: NovaSchedulerOptions
   debug?: NovaDebugOptions
+  raph?: NovaRaphOptions
   predefinedEvents?: (keyof E)[]
   schemaRegistry?: NovaSchemaRegistry
 }

@@ -4,6 +4,7 @@ import type { NovaRenderer } from '@/domain/types/renderer.types'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { EventList } from '@endge/utils'
+import type { NovaNodeContextOptions } from '@/domain/types/context.types'
 
 const MAX_SCHEMA_COMPONENT_DEPTH = 32
 
@@ -82,9 +83,10 @@ export class NovaSchemaRegistry {
   createNode<E extends EventList>(
     surface: NovaSurface<E>,
     schema: NovaComponentSchema<any>,
+    options: NovaNodeContextOptions = {},
   ): NovaComponentNode<any, any, any, any, E> {
-    const node = this.createDetachedNode(surface, schema)
-    surface.addChild(node)
+    const node = this.createDetachedNode(surface, schema, options)
+    surface.addChild(node, options)
     return node
   }
 
@@ -94,9 +96,13 @@ export class NovaSchemaRegistry {
   createChild<E extends EventList>(
     parent: NovaNode<E>,
     schema: NovaComponentSchema<any>,
+    options: NovaNodeContextOptions = {},
   ): NovaComponentNode<any, any, any, any, E> {
-    const node = this.createDetachedNode(parent.surface, schema)
-    parent.addChild(node)
+    const node = this.createDetachedNode(parent.surface, schema, {
+      ...options,
+      parent,
+    })
+    parent.addChild(node, options)
     return node
   }
 
@@ -106,6 +112,7 @@ export class NovaSchemaRegistry {
   private createDetachedNode<E extends EventList>(
     surface: NovaSurface<E>,
     schema: NovaComponentSchema<any>,
+    options: NovaNodeContextOptions & { parent?: NovaNode<E> } = {},
   ): NovaComponentNode<any, any, any, any, E> {
     const descriptor = this.resolve(schema.type)
     if (!descriptor) {
@@ -120,9 +127,14 @@ export class NovaSchemaRegistry {
         app: surface.nova,
         surface,
         registry: this,
+        parent: options.parent,
+        context: options.context,
       } as NovaComponentCreateContext<E>,
       schema,
     )
+    if (Object.prototype.hasOwnProperty.call(options, 'context')) {
+      node.setContext(options.context)
+    }
     return node
   }
 

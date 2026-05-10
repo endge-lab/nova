@@ -30,6 +30,8 @@ import {NovaComponentRegistry} from '@/model/runtime/components/NovaComponentReg
 import {NovaMotionEngine} from '@/model/motion/NovaMotionEngine'
 import type {NovaRendererConfig, NovaRendererConfigInput} from '@/domain/types/rendering/index'
 import {resolveNovaRendererConfig} from '@/model/render/policy/NovaRenderPolicy'
+import {NovaPhase} from '@/domain/constants/NovaPhase'
+import {createNovaRaphRuntime} from '@/model/runtime/app/createNovaRaphRuntime'
 
 /**
  * Управляет жизненным циклом Nova runtime, canvas, input, surfaces и фазами Raph.
@@ -38,6 +40,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     //
     // Ядро приложения: граф, canvas, renderer и события.
     private readonly _raph: RaphApp<NovaNodeProperties>
+    private readonly _ownsRaphKernel: boolean
     private readonly _canvas: NovaCanvas
     private readonly _renderer: NovaRenderer2D | null
     private readonly _mainRendererType: RendererType
@@ -73,6 +76,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     private readonly _debugger = new NovaDebug()
     private _keyboardActive = false
     private _keyboardHovered = false
+    private _contextVersion = 0
 
     /**
      * Создает приложение, подключает canvas, input, renderer и Raph-loop.
@@ -120,14 +124,13 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
         //
         // Инициализируем Raph core и root node.
-        const conf = Raph.configureLocal<NovaNodeProperties, NovaApp<E>, NovaNode<E>>(
-            () => this,
-            () => new NovaNode(this),
-        )
-        this._raph = conf.app
+        this._ownsRaphKernel = !options.raph?.kernel
+        this._raph = createNovaRaphRuntime(this, {
+            kernel: options.raph?.kernel,
+            runtimeId: options.raph?.runtimeId,
+            scheduler: options.scheduler?.type ?? RaphSchedulerType.AnimationFrame,
+        })
         this.metrics = new NovaMetrics(() => this.raph.UPS)
-        this.raph.setScheduler(options.scheduler?.type ?? RaphSchedulerType.AnimationFrame)
-        this.raph.init()
         this.resize(options.size)
         this.metrics.start()
 
@@ -141,7 +144,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Запускает начало кадра, motion engine и frame-level diagnostics.
      */
-    @RaphLocalPhase({name: 'before', priority: -1, always: true})
+    @RaphLocalPhase({name: NovaPhase.Before, priority: -1, always: true})
     before(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this.metrics.markFrameStart()
         this._debugger.frameStart()
@@ -151,7 +154,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Выполняет preupdate-фазу для dirty nodes.
      */
-    @RaphLocalPhase({name: 'preupdate', priority: 0})
+    @RaphLocalPhase({name: NovaPhase.PreUpdate, priority: 0})
     preupdate(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('preupdate')
         Raph.processDirtyNodes({payload: p})
@@ -161,7 +164,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Выполняет update-фазу для dirty nodes.
      */
-    @RaphLocalPhase({name: 'update', priority: 1})
+    @RaphLocalPhase({name: NovaPhase.Update, priority: 1})
     update(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('update')
         Raph.processDirtyNodes({payload: p})
@@ -171,7 +174,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Выполняет matrix-фазу и обновляет transform state dirty nodes.
      */
-    @RaphLocalPhase({name: 'matrix', priority: 2})
+    @RaphLocalPhase({name: NovaPhase.Matrix, priority: 2})
     matrix(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('matrix')
         Raph.processDirtyNodes({payload: p})
@@ -181,7 +184,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Собирает dirty surfaces и запускает render от корня каждого surface.
      */
-    @RaphLocalPhase({name: 'render', priority: 3, mode: 'dirty'})
+    @RaphLocalPhase({name: NovaPhase.Render, priority: 3, mode: 'dirty'})
     render(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('render')
 
@@ -211,7 +214,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Композитит Web2D surfaces в основной canvas и фиксирует факт отрисовки.
      */
-    @RaphLocalPhase({name: 'flush', priority: 4})
+    @RaphLocalPhase({name: NovaPhase.Flush, priority: 4})
     flush(): void {
         this._debugger.phaseStart('flush')
 
@@ -236,7 +239,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Завершает кадр и обновляет frame-level metrics.
      */
-    @RaphLocalPhase({name: 'after', priority: 10, always: true})
+    @RaphLocalPhase({name: NovaPhase.After, priority: 10, always: true})
     after(): void {
         this._debugger.frameEnd()
         this.metrics.markFrameEnd()
@@ -247,6 +250,14 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     invalidate(): void {
         this.raph.invalidate()
+    }
+
+    /**
+     * Увеличивает версию scoped context для lazy invalidation inject-cache.
+     */
+    bumpContextVersion(): number {
+        this._contextVersion += 1
+        return this._contextVersion
     }
 
     /**
@@ -331,6 +342,13 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     get raph(): RaphApp<NovaNodeProperties> {
         return this._raph
+    }
+
+    /**
+     * Возвращает версию scoped context приложения.
+     */
+    get contextVersion(): number {
+        return this._contextVersion
     }
 
     /**
@@ -665,6 +683,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         this._canvas.destroy()
 
         this.raph.clear()
+        if (this._ownsRaphKernel) {
+            this.raph.kernel.clear()
+        }
     }
 
     //
