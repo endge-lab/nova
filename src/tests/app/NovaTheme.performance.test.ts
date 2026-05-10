@@ -36,15 +36,14 @@ describe('Nova theme runtime performance', () => {
     const app = createTestApp<TestEvents>()
     const tokenCount = 128
     const readCount = 50_000
+    const tokens: Record<`--${string}`, string> = {}
+    for (let index = 0; index < tokenCount; index += 1) {
+      tokens[`--nova-bench-${index}`] = `#${index.toString(16).padStart(6, '0')}`
+    }
 
     app.theme.register({
       id: 'bench',
-      tokens: Object.fromEntries(
-        Array.from({ length: tokenCount }, (_item, index) => [
-          `--nova-bench-${index}`,
-          `#${index.toString(16).padStart(6, '0')}`,
-        ]),
-      ),
+      tokens,
     })
 
     let checksum = 0

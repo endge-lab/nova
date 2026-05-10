@@ -92,6 +92,10 @@ export interface NovaRendererTextConfig {
   dynamicBuckets: boolean
   prewarmAdjacentBuckets: boolean
   rasterBudgetMs: number
+  bucketThrottleMs: number
+  visibleOnlyRaster: boolean
+  fallbackPreviousScale: boolean
+  maxRasterScale: number
 }
 
 /**
@@ -474,6 +478,13 @@ export interface NovaRenderMetrics {
   textRasterDeferred?: number
   textAtlasPages?: number
   effectiveTextRasterScale?: number
+  visibleTextRuns?: number
+  culledTextRuns?: number
+  textureBatchFallbacks?: number
+  textBucketChanges?: number
+  textBudgetExhausted?: number
+  visibleRectItems?: number
+  culledRectItems?: number
   atlasUploads?: number
   uniformOnlyFrames?: number
   commands: number
