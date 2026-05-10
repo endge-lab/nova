@@ -269,13 +269,13 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     const node = this.resolveComponentNode(surface, value, key)
 
     if (this._activeComponentKey && this._activeComponentKey !== key) {
-      this._componentNodes.get(this._activeComponentKey)?.options({ visible: false })
+      this.hideComponentNode(this._componentNodes.get(this._activeComponentKey) ?? null)
     }
 
+    node.visible = true
     node.options({
       x: state.x - hotspot.x,
       y: state.y - hotspot.y,
-      visible: true,
     })
     node.dirty({ matrix: true, render: true })
     surface.dirty({ render: true })
@@ -314,9 +314,16 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     if (!this._activeComponentKey) return
 
     const node = this._componentNodes.get(this._activeComponentKey)
-    node?.options({ visible: false })
-    node?.surface.dirty({ render: true })
+    this.hideComponentNode(node ?? null)
     this._activeComponentKey = ''
+  }
+
+  private hideComponentNode(node: NovaNode<E> | null): void {
+    if (!node) return
+
+    node.visible = false
+    node.dirty({ matrix: true, render: true })
+    node.surface.dirty({ render: true })
   }
 
   private applyNativeCursor(value: string): void {

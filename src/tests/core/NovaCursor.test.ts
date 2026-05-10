@@ -277,6 +277,38 @@ describe('Nova cursor system', () => {
     app.destroy()
   })
 
+  it('marks component cursor overlay dirty when pointer leaves component cursor source', () => {
+    const app = createApp()
+    const surface = app.createSurface('cursor')
+    app.schema.register(TEST_CURSOR_DESCRIPTOR)
+
+    const node = surface.createNode(CursorBoxNode)
+    node.options({
+      x: 20,
+      y: 20,
+      width: 120,
+      height: 80,
+      interactive: true,
+      cursor: {
+        hover: { type: 'component', component: 'test.cursor', props: { active: true } },
+      },
+    })
+
+    app.cursors.syncPointer({ x: 40, y: 40, target: node })
+
+    const overlay = app.surfaces.find(item => item.name === 'nova-cursor-overlay')
+    const cursorNode = overlay?.children[0] as NovaNode<TestEvents> | undefined
+
+    expect(cursorNode?.localVisible).toBe(true)
+
+    app.cursors.syncPointer({ x: 200, y: 200, target: null })
+
+    expect(cursorNode?.localVisible).toBe(false)
+    expect(app.canvas.element.style.cursor).toBe('default')
+
+    app.destroy()
+  })
+
   it('resets cursor on canvas leave and destroys cursor overlay state', () => {
     const app = createApp(true)
     const surface = app.createSurface('cursor')

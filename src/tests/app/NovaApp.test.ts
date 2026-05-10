@@ -320,6 +320,45 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
+  it('does not prevent page wheel scroll when the hit node has no wheel handler', () => {
+    const app = createApp()
+    createInteractiveNode(app)
+
+    const event = new WheelEvent('wheel', {
+      clientX: 10,
+      clientY: 10,
+      deltaY: 40,
+      cancelable: true,
+      bubbles: true,
+    })
+    app.canvas.element.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+
+    app.destroy()
+  })
+
+  it('prevents page wheel scroll when Nova handles wheel on the hit node', () => {
+    const app = createApp()
+    const node = createInteractiveNode(app)
+    const onWheel = vi.fn()
+    node.on('wheel', onWheel)
+
+    const event = new WheelEvent('wheel', {
+      clientX: 10,
+      clientY: 10,
+      deltaY: 40,
+      cancelable: true,
+      bubbles: true,
+    })
+    app.canvas.element.dispatchEvent(event)
+
+    expect(onWheel).toHaveBeenCalledTimes(1)
+    expect(event.defaultPrevented).toBe(true)
+
+    app.destroy()
+  })
+
   it('keeps active keyboard scope silent until the canvas receives pointer activity', () => {
     const app = createApp({ keyboardScope: 'active' })
     const node = createInteractiveNode(app)

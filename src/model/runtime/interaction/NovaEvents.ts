@@ -458,24 +458,25 @@ export class NovaEvents<E extends EventList> {
   ): boolean {
     if (!target) return false
 
+    let handled = false
     const path = this.buildEventPath(target)
     for (const node of path.slice(0, -1)) {
-      this.callHandler(node.captureEventHandlers[type], event)
+      handled = this.callHandler(node.captureEventHandlers[type], event) || handled
       if (event.cancelBubble) return true
     }
 
-    this.callHandler(target.captureEventHandlers[type], event)
+    handled = this.callHandler(target.captureEventHandlers[type], event) || handled
     if (event.cancelBubble) return true
 
-    this.callHandler(target.eventHandlers[type], event)
+    handled = this.callHandler(target.eventHandlers[type], event) || handled
     if (event.cancelBubble) return true
 
     for (const node of path.slice(0, -1).reverse()) {
-      this.callHandler(node.eventHandlers[type], event)
+      handled = this.callHandler(node.eventHandlers[type], event) || handled
       if (event.cancelBubble) return true
     }
 
-    return true
+    return handled
   }
 
   /**
@@ -496,9 +497,10 @@ export class NovaEvents<E extends EventList> {
   /**
    * Выполняет внутреннюю операцию call handler.
    */
-  private callHandler(handler: unknown, event: MouseEvent | WheelEvent | KeyboardEvent | Event): void {
-    if (typeof handler !== 'function') return
+  private callHandler(handler: unknown, event: MouseEvent | WheelEvent | KeyboardEvent | Event): boolean {
+    if (typeof handler !== 'function') return false
     ;(handler as (e: typeof event) => void)(event)
+    return true
   }
 
   /**
@@ -745,13 +747,11 @@ export class NovaEvents<E extends EventList> {
 
     if (event.ctrlKey || event.metaKey) {
       const { x, y } = this.getCanvasMousePosition(event)
-      this.dispatchPointer('zoom', event, this.hitTest(x, y))
-      return true
+      return this.dispatchPointer('zoom', event, this.hitTest(x, y))
     }
 
     const { x, y } = this.getCanvasMousePosition(event)
-    this.dispatchPointer('wheel', event, this.hitTest(x, y))
-    return true
+    return this.dispatchPointer('wheel', event, this.hitTest(x, y))
   }
 
   /**
