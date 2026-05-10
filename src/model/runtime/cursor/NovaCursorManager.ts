@@ -96,6 +96,8 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Синхронизирует cursor с текущим pointer state.
    */
   syncPointer(input: NovaCursorPointerSync<E>): void {
+    if (this.cursorNodes.size === 0) return
+
     const source = this.resolveCursorSource(input.target, input.x, input.y)
     if (!source) {
       this.applyNativeCursor('default')

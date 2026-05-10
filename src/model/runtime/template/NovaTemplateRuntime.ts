@@ -38,6 +38,7 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
     removed: 0,
     patched: 0,
   }
+  private reconciling = false
 
   /**
    * Создает runtime для конкретного generated root node.
@@ -48,8 +49,18 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
    * Применяет новый template snapshot к managed children.
    */
   reconcile(children: NovaTemplateChildSchema[]): NovaTemplateReconcileResult<E> {
-    this.stats = reconcileNovaTemplateChildren(this.parent, this.managedChildren, children)
-    this.managedChildren = this.stats.nodes
+    if (this.reconciling) {
+      return this.stats
+    }
+
+    this.reconciling = true
+    try {
+      this.stats = reconcileNovaTemplateChildren(this.parent, this.managedChildren, children)
+      this.managedChildren = this.stats.nodes
+    } finally {
+      this.reconciling = false
+    }
+
     return this.stats
   }
 
@@ -66,6 +77,7 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
   dispose(): void {
     for (const child of this.managedChildren) child.remove()
     this.managedChildren = []
+    this.reconciling = false
     this.stats = {
       nodes: [],
       created: 0,
@@ -129,7 +141,7 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
   }
 
   reorderManagedChildren(parent, previousNodes, nextNodes)
-  parent.dirty({ update: true, render: true })
+  parent.dirty({ render: true })
 
   return {
     nodes: nextNodes,

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   NovaComponentNode,
+  NovaNode,
   NovaTemplateRuntime,
   reconcileNovaTemplateChildren,
   type NovaComponentDescriptor,
@@ -15,6 +16,22 @@ interface TestProps {
 
 class TemplateTestNode extends NovaComponentNode<TestProps> {
   render(): void {}
+}
+
+class TemplateHostNode extends NovaNode<Record<string, any>> {
+  readonly template = new NovaTemplateRuntime(this)
+  updateCount = 0
+
+  update(): void {
+    this.updateCount += 1
+    if (this.updateCount > 2) {
+      throw new Error('Template runtime scheduled a self-update loop')
+    }
+
+    this.template.reconcile([
+      { type: 'test.template', id: 'host-child', props: { label: 'Host child' } },
+    ])
+  }
 }
 
 function createDescriptor(): NovaComponentDescriptor<TestProps, unknown, Record<string, unknown>, TestProps> {
@@ -85,6 +102,20 @@ describe('Nova template runtime', () => {
     ])
 
     expect(result.nodes[0].getContext<{ rowId: string }>().rowId).toBe('row-1')
+
+    app.destroy()
+  })
+
+  it('does not schedule generated template hosts into a sync self-update loop', () => {
+    const app = createTestApp()
+    app.schema.register(createDescriptor())
+    const surface = app.createSurface2D('template-host')
+
+    const host = surface.createNode(TemplateHostNode)
+
+    expect(host.updateCount).toBe(1)
+    expect(host.children).toHaveLength(1)
+    expect(host.template.getStats().created).toBe(1)
 
     app.destroy()
   })
