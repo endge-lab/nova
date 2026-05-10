@@ -7,7 +7,7 @@ import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameB
 import { NovaTextAtlasManager } from '@/model/render/resources/NovaTextAtlasManager'
 import { resolveNovaRendererConfig } from '@/model/render/policy/NovaRenderPolicy'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import type { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
 
 type WebGLStats = {

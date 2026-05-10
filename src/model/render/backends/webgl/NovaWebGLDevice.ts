@@ -1,4 +1,4 @@
-import type { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 
 /**
  * Инкапсулирует WebGL2 context и базовые операции frame lifecycle.

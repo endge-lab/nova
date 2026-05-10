@@ -14,7 +14,7 @@ import type {
   NovaText,
 } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
-import type { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/NovaRenderPolicy'
 import { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'

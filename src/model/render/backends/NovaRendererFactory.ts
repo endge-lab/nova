@@ -1,7 +1,7 @@
 import { RendererType, type NovaRenderer } from '@/domain/types/renderer.types'
 import type { NovaRendererConfig } from '@/domain/types/rendering/index'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import type { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
 import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
 

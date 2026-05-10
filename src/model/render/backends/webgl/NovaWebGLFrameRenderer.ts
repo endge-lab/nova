@@ -12,7 +12,7 @@ import type {
   NovaSemanticScopeKind,
   NovaText,
 } from '@/domain/types/renderer.types'
-import { NovaGraphics } from '@/model/infrastructure/assets/NovaGraphics'
+import { NovaGraphics } from '@/model/platform/NovaGraphics'
 import type { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'
 import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
 import { NovaWebGLProgram } from '@/model/render/backends/webgl/NovaWebGLProgram'

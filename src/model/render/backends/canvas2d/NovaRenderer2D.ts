@@ -1,4 +1,4 @@
-import type { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type {
   NovaBorder,
   NovaCircle,
@@ -14,7 +14,7 @@ import type {
 } from '@/domain/types/renderer.types'
 import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
-import { NovaGraphics } from '@/model/infrastructure/assets/NovaGraphics'
+import { NovaGraphics } from '@/model/platform/NovaGraphics'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 

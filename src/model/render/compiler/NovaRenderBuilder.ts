@@ -13,7 +13,7 @@ import type {
   NovaSchemaItem,
   NovaText,
 } from '@/domain/types/renderer.types'
-import type { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'

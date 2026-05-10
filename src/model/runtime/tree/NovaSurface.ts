@@ -1,5 +1,5 @@
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
+import { NovaCanvas } from '@/model/platform/NovaCanvas'
 import { assertNovaRendererTypeImplemented, createNovaRenderer } from '@/model/render/backends/NovaRendererFactory'
 import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
 import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
