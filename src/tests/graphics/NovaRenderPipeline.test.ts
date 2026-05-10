@@ -233,6 +233,7 @@ describe('Nova render pipeline contracts', () => {
     expect(resolveNovaTextRasterBucket(quality, 0.2)).toBe(0.5)
     expect(resolveNovaTextRasterBucket(performance, 4)).toBe(1)
     expect(resolveNovaTextRasterScale(quality, 1.8, 2)).toBe(4)
+    expect(resolveNovaTextRasterScale({ ...quality, maxRasterScale: 3 }, 1.8, 2)).toBe(3)
   })
 
   it('builds display-order-preserving batches', () => {

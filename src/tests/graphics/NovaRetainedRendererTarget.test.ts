@@ -762,6 +762,127 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.bufferSubDataCalls).toBe(0)
   })
 
+  it('keeps text texture batches alive when offscreen runs are culled', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'run-atlas',
+          visibleOnlyRaster: true,
+          fallbackPreviousScale: true,
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [] as NovaSchema
+    for (let index = 0; index < 100; index += 1) {
+      schema.push(
+        {
+          type: 'text',
+          x: 10,
+          y: 10 + index,
+          width: 80,
+          height: 16,
+          text: `visible-${index}`,
+          styles: { color: '#ffffff', font: { size: 12 } },
+        },
+        {
+          type: 'text',
+          x: 2000,
+          y: 2000 + index,
+          width: 80,
+          height: 16,
+          text: `offscreen-${index}`,
+          styles: { color: '#ffffff', font: { size: 12 } },
+        },
+      )
+    }
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const first = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const warm = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(first.textureBatchFallbacks).toBe(0)
+    expect(first.visibleTextRuns).toBe(100)
+    expect(first.culledTextRuns).toBe(100)
+    expect(warm.textureBatchFallbacks).toBe(0)
+    expect(warm.uploadBytes).toBe(0)
+  })
+
+  it('defers visible text without falling back to per-text rendering when raster budget is exhausted', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'run-atlas',
+          visibleOnlyRaster: true,
+          fallbackPreviousScale: false,
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 0,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 80,
+        height: 16,
+        text: 'deferred',
+        styles: { color: '#ffffff', font: { size: 12 } },
+      },
+    ] as NovaSchema
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.textureBatchFallbacks).toBe(0)
+    expect(metrics.textRasterDeferred).toBe(1)
+    expect(metrics.textBudgetExhausted).toBe(1)
+  })
+
+  it('culls static rect streams when visible-only benchmark policy is enabled', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'run-atlas',
+          visibleOnlyRaster: true,
+        },
+      }),
+    )
+    const schema = [] as NovaSchema
+    for (let index = 0; index < 100; index += 1) {
+      schema.push(
+        { type: 'rect', x: 10, y: 10 + index, width: 20, height: 20, styles: { background: '#334155' } },
+        { type: 'rect', x: 2000, y: 2000 + index, width: 20, height: 20, styles: { background: '#64748b' } },
+      )
+    }
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.visibleRectItems).toBeGreaterThan(0)
+    expect(metrics.culledRectItems).toBeGreaterThan(0)
+    expect(metrics.instances).toBe(metrics.visibleRectItems)
+  })
+
   it('uses atlas pages for text, glyph and texture resources', () => {
     const config = resolveNovaRendererConfig()
     const textAtlas = new NovaTextAtlasManager(config.text)
@@ -845,7 +966,7 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(hitIndex.size).toBe(2)
   })
 
-  for (const testCase of RETAINED_CONTRACT_CASES.filter(testCase => !ACTIVE_RETAINED_CONTRACT_CASE_IDS.has(testCase.id))) {
-    it.todo(`${testCase.priority} ${testCase.id}: ${testCase.assertion}`)
+  for (const contractCase of RETAINED_CONTRACT_CASES.filter(testCase => !ACTIVE_RETAINED_CONTRACT_CASE_IDS.has(testCase.id))) {
+    it.todo(`${contractCase.priority} ${contractCase.id}: ${contractCase.assertion}`)
   }
 })

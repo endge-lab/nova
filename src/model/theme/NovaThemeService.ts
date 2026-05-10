@@ -150,13 +150,14 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
      * Создает resolver, совместимый с Nova UI Kit style engine.
      */
     createTokenResolver(): NovaThemeTokenResolver {
-        const service = this
+        const resolveToken = this.resolve.bind(this)
+        const resolveVersion = this.version.bind(this)
 
         return {
             get version() {
-                return service.version()
+                return resolveVersion()
             },
-            resolve: (name, fallback) => this.resolve(name, fallback),
+            resolve: resolveToken,
         }
     }
 

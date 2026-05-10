@@ -70,6 +70,13 @@ interface RenderStats {
   textRasterDeferred: number
   textAtlasPages: number
   effectiveTextRasterScale: number
+  visibleTextRuns: number
+  culledTextRuns: number
+  textureBatchFallbacks: number
+  textBucketChanges: number
+  textBudgetExhausted: number
+  visibleRectItems: number
+  culledRectItems: number
   atlasUploads: number
   atlasMemoryMB: number
 }
@@ -191,6 +198,7 @@ interface RectBatchCache {
   itemOffsets: Array<number>
   signatures: Array<string>
   contentVersion?: number
+  visibilityKey?: string
 }
 
 /**
@@ -201,12 +209,21 @@ interface TextureBatchCache {
   instances: number
   itemOffsets: Array<number>
   signatures: Array<string>
-  texture: TextureEntry
+  texture: TextureEntry | null
   upload: WebGLUploadState
   contentVersion?: number
   rasterScale?: number
+  visibilityKey?: string
   buffer?: WebGLBuffer
   vao?: WebGLVertexArrayObject
+}
+
+/**
+ * Описывает culled texture batch item.
+ */
+interface CulledTextureBatchItem {
+  culled: true
+  signature: string
 }
 
 /**
@@ -387,6 +404,8 @@ export class NovaWebGLFrameRenderer {
   private _time = 0
   private _viewportWidth = 1
   private _viewportHeight = 1
+  private _effectiveTextRasterScale = 0
+  private _lastTextBucketSwitchAt = 0
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -436,6 +455,13 @@ export class NovaWebGLFrameRenderer {
       textRasterDeferred: 0,
       textAtlasPages: this._textAtlasPages.length,
       effectiveTextRasterScale: 0,
+      visibleTextRuns: 0,
+      culledTextRuns: 0,
+      textureBatchFallbacks: 0,
+      textBucketChanges: 0,
+      textBudgetExhausted: 0,
+      visibleRectItems: 0,
+      culledRectItems: 0,
       atlasUploads: 0,
       atlasMemoryMB: this.textureMemoryMB(),
     }
@@ -549,6 +575,13 @@ export class NovaWebGLFrameRenderer {
       textRasterDeferred: stats.textRasterDeferred,
       textAtlasPages: this._textAtlasPages.length,
       effectiveTextRasterScale: stats.effectiveTextRasterScale,
+      visibleTextRuns: stats.visibleTextRuns,
+      culledTextRuns: stats.culledTextRuns,
+      textureBatchFallbacks: stats.textureBatchFallbacks,
+      textBucketChanges: stats.textBucketChanges,
+      textBudgetExhausted: stats.textBudgetExhausted,
+      visibleRectItems: stats.visibleRectItems,
+      culledRectItems: stats.culledRectItems,
       atlasUploads: stats.atlasUploads,
       uniformOnlyFrames: stats.uploadBytes === 0 && stats.textRasterMs === 0 ? 1 : 0,
       atlasMemoryMB: this.textureMemoryMB(),
@@ -703,18 +736,28 @@ export class NovaWebGLFrameRenderer {
     let batch = this._rectBatchCache.get(items)
     let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
+    const visibilityKey = this.resolveBatchVisibilityKey(items, transform)
     if (!batch) {
-      const nextBatch = this.buildRectBatch(items)
+      const nextBatch = this.buildRectBatch(items, transform, stats)
       if (!nextBatch) return false
       nextBatch.contentVersion = contentVersion
+      nextBatch.visibilityKey = visibilityKey
+      batch = nextBatch
+      this._rectBatchCache.set(items, nextBatch)
+    } else if (batch.visibilityKey !== visibilityKey) {
+      const nextBatch = this.buildRectBatch(items, transform, stats)
+      if (!nextBatch) return false
+      nextBatch.contentVersion = contentVersion
+      nextBatch.visibilityKey = visibilityKey
       batch = nextBatch
       this._rectBatchCache.set(items, nextBatch)
     } else if (contentVersion === undefined || batch.contentVersion !== contentVersion) {
       const update = this.updateRectBatch(items, batch, dirtyIndices)
       if (!update) {
-        const nextBatch = this.buildRectBatch(items)
+        const nextBatch = this.buildRectBatch(items, transform, stats)
         if (!nextBatch) return false
         nextBatch.contentVersion = contentVersion
+        nextBatch.visibilityKey = visibilityKey
         batch = nextBatch
         this._rectBatchCache.set(items, nextBatch)
       } else {
@@ -747,16 +790,24 @@ export class NovaWebGLFrameRenderer {
     let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
     const dirtyIndices = this.resolveSchemaDirtyIndices(items)
+    const visibilityKey = this.resolveBatchVisibilityKey(items, transform)
 
     if (!batch) {
-      batch = this.buildPlainRectBatch(items)
+      batch = this.buildPlainRectBatch(items, transform, stats)
       batch.contentVersion = contentVersion
+      batch.visibilityKey = visibilityKey
+      this._plainRectBatchCache.set(items, batch)
+    } else if (batch.visibilityKey !== visibilityKey) {
+      batch = this.buildPlainRectBatch(items, transform, stats)
+      batch.contentVersion = contentVersion
+      batch.visibilityKey = visibilityKey
       this._plainRectBatchCache.set(items, batch)
     } else if (contentVersion === undefined || batch.contentVersion !== contentVersion) {
       const update = this.updatePlainRectBatch(items, batch, dirtyIndices)
       if (!update) {
-        batch = this.buildPlainRectBatch(items)
+        batch = this.buildPlainRectBatch(items, transform, stats)
         batch.contentVersion = contentVersion
+        batch.visibilityKey = visibilityKey
         this._plainRectBatchCache.set(items, batch)
       } else {
         dirtyRanges = update.dirtyRanges
@@ -798,6 +849,7 @@ export class NovaWebGLFrameRenderer {
 
     this.applyLayerDirtyIndices(items, batch.texts, batch.textIndexBySourceIndex)
     if (batch.texts.length > 0 && !this.drawTextureSchemaBatch(batch.texts, transform, stats, contentVersion)) {
+      stats.textureBatchFallbacks += 1
       for (const text of batch.texts) {
         this.drawPrimitive(text, transform, stats)
       }
@@ -861,7 +913,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию build rect batch.
    */
-  private buildRectBatch(items: Array<NovaSchemaItem<any>>): RectBatchCache | null {
+  private buildRectBatch(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats): RectBatchCache | null {
     const data: Array<number> = []
     const itemOffsets: Array<number> = new Array(items.length).fill(-1)
     const signatures: Array<string> = new Array(items.length).fill('')
@@ -870,6 +922,11 @@ export class NovaWebGLFrameRenderer {
     for (let index = 0; index < items.length; index += 1) {
       const rect = items[index] as NovaRect
       signatures[index] = this.createRectSignature(rect)
+      if (this.shouldCullGeometryItems() && !this.isRectVisible(transform, rect.x, rect.y, rect.width, rect.height)) {
+        stats.culledRectItems += 1
+        continue
+      }
+      stats.visibleRectItems += 1
       const background = rect.styles?.background
       if (background && typeof background !== 'string') return null
       const style = compileNovaRectStyle(rect)
@@ -904,7 +961,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию build plain rect batch.
    */
-  private buildPlainRectBatch(items: Array<NovaSchemaItem<any>>): RectBatchCache {
+  private buildPlainRectBatch(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats): RectBatchCache {
     const data: Array<number> = []
     const itemOffsets: Array<number> = new Array(items.length).fill(-1)
     const signatures: Array<string> = new Array(items.length).fill('')
@@ -913,6 +970,11 @@ export class NovaWebGLFrameRenderer {
     for (let index = 0; index < items.length; index += 1) {
       const rect = items[index] as NovaRect
       signatures[index] = this.createRectSignature(rect)
+      if (this.shouldCullGeometryItems() && !this.isRectVisible(transform, rect.x, rect.y, rect.width, rect.height)) {
+        stats.culledRectItems += 1
+        continue
+      }
+      stats.visibleRectItems += 1
       const style = compileNovaRectStyle(rect)
       if (rect.width <= 0 || rect.height <= 0 || style.fill.a <= 0) continue
 
@@ -950,7 +1012,10 @@ export class NovaWebGLFrameRenderer {
       if (signature === batch.signatures[index]) continue
 
       const offset = batch.itemOffsets[index]
-      if (offset < 0) return null
+      if (offset < 0) {
+        batch.signatures[index] = signature
+        continue
+      }
       const background = rect.styles?.background
       if (background && typeof background !== 'string') return null
       const style = compileNovaRectStyle(rect)
@@ -1005,7 +1070,10 @@ export class NovaWebGLFrameRenderer {
       if (signature === batch.signatures[index]) continue
 
       const offset = batch.itemOffsets[index]
-      if (offset < 0) return null
+      if (offset < 0) {
+        batch.signatures[index] = signature
+        continue
+      }
 
       const style = compileNovaRectStyle(rect)
       if (rect.width <= 0 || rect.height <= 0 || style.fill.a <= 0) return null
@@ -1030,14 +1098,24 @@ export class NovaWebGLFrameRenderer {
     let batch: TextureBatchCache | null = this._textureBatchCache.get(items) ?? null
     let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
-    const rasterScale = this.resolveTextureRasterScale(items, transform)
+    const rasterScale = this.resolveTextureRasterScale(items, transform, stats)
     const dirtyIndices = this.resolveSchemaDirtyIndices(items)
+    const visibilityKey = this.resolveBatchVisibilityKey(items, transform)
 
     if (!batch) {
       batch = this.buildTextureBatch(items, stats, rasterScale, transform)
       if (!batch) return false
       batch.contentVersion = contentVersion
       batch.rasterScale = rasterScale
+      batch.visibilityKey = visibilityKey
+      this._textureBatchCache.set(items, batch)
+      this._ownedTextureBatchCaches.add(batch)
+    } else if (batch.visibilityKey !== visibilityKey) {
+      batch = this.buildTextureBatch(items, stats, rasterScale, transform)
+      if (!batch) return false
+      batch.contentVersion = contentVersion
+      batch.rasterScale = rasterScale
+      batch.visibilityKey = visibilityKey
       this._textureBatchCache.set(items, batch)
       this._ownedTextureBatchCaches.add(batch)
     } else if (contentVersion === undefined || batch.contentVersion !== contentVersion || batch.rasterScale !== rasterScale) {
@@ -1047,6 +1125,7 @@ export class NovaWebGLFrameRenderer {
         if (!batch) return false
         batch.contentVersion = contentVersion
         batch.rasterScale = rasterScale
+        batch.visibilityKey = visibilityKey
         this._textureBatchCache.set(items, batch)
         this._ownedTextureBatchCaches.add(batch)
       } else {
@@ -1057,7 +1136,7 @@ export class NovaWebGLFrameRenderer {
       }
     }
 
-    if (batch.data.length === 0) return true
+    if (batch.data.length === 0 || !batch.texture) return true
 
     this.flushRounded(stats)
     this.flushSolid(stats)
@@ -1094,6 +1173,10 @@ export class NovaWebGLFrameRenderer {
     for (let index = 0; index < items.length; index += 1) {
       const item = this.resolveTextureBatchItem(items[index], stats, rasterScale, transform)
       if (!item) return null
+      if (this.isCulledTextureBatchItem(item)) {
+        signatures[index] = item.signature
+        continue
+      }
       if (texture && texture !== item.texture) return null
 
       texture = item.texture
@@ -1104,8 +1187,6 @@ export class NovaWebGLFrameRenderer {
       this.pushTextureQuadVertices(data, item.x, item.y, item.width, item.height, item.opacity, item.u0, item.v0, item.u1, item.v1)
       instances += 1
     }
-
-    if (!texture) return null
 
     return {
       data: new Float32Array(data),
@@ -1138,7 +1219,13 @@ export class NovaWebGLFrameRenderer {
     for (let dirtyIndex = 0; dirtyIndex < indexCount; dirtyIndex += 1) {
       const index = dirtyIndices ? dirtyIndices[dirtyIndex] : dirtyIndex
       const item = this.resolveTextureBatchItem(items[index], stats, rasterScale, transform)
-      if (!item || item.texture !== batch.texture) return null
+      if (!item) return null
+      if (this.isCulledTextureBatchItem(item)) {
+        if (batch.itemOffsets[index] >= 0) return null
+        batch.signatures[index] = item.signature
+        continue
+      }
+      if (!batch.texture || item.texture !== batch.texture) return null
       if (item.signature === batch.signatures[index]) continue
 
       const offset = batch.itemOffsets[index]
@@ -1165,10 +1252,21 @@ export class NovaWebGLFrameRenderer {
     stats: RenderStats,
     rasterScale?: number,
     transform?: mat3,
-  ): TextureBatchItem | null {
+  ): TextureBatchItem | CulledTextureBatchItem | null {
     if (item.active === false) return null
 
     if (item.type === 'icon') {
+      if (
+        transform
+        && this.shouldCullTextureItems()
+        && !this.isRectVisible(transform, item.x, item.y, item.width, item.height)
+      ) {
+        return {
+          culled: true,
+          signature: ['culled-icon', item.x, item.y, item.width, item.height, item.styles?.opacity ?? 1].join('|'),
+        }
+      }
+
       const source = typeof item.icon === 'string' ? NovaGraphics.getAsset(item.icon) : item.icon
       if (!source) return null
       const key = typeof item.icon === 'string' ? `icon:${item.icon}` : `icon:${this.resolveSourceKey(source)}`
@@ -1197,13 +1295,23 @@ export class NovaWebGLFrameRenderer {
         && this.shouldCullTextRuns()
         && !this.isRectVisible(transform, item.x, item.y, item.width, item.height)
       ) {
-        return null
+        stats.culledTextRuns += 1
+        return {
+          culled: true,
+          signature: this.createCulledTextSignature(item, rasterScale),
+        }
       }
+      stats.visibleTextRuns += 1
 
       const style = compileNovaTextStyle(item)
       const scale = rasterScale ?? this._device.canvas.dpr
       const atlasItem = this.resolveTextAtlasItem(item, style, scale, stats)
-      if (!atlasItem) return null
+      if (!atlasItem) {
+        return {
+          culled: true,
+          signature: ['deferred-text', this.createCulledTextSignature(item, scale)].join('|'),
+        }
+      }
 
       return {
         texture: atlasItem.texture,
@@ -1221,6 +1329,33 @@ export class NovaWebGLFrameRenderer {
     }
 
     return null
+  }
+
+  /**
+   * Проверяет culled marker для texture batch.
+   */
+  private isCulledTextureBatchItem(item: TextureBatchItem | CulledTextureBatchItem): item is CulledTextureBatchItem {
+    return 'culled' in item
+  }
+
+  /**
+   * Создает signature для culled text без rasterize.
+   */
+  private createCulledTextSignature(text: NovaText, rasterScale?: number): string {
+    return [
+      'culled-text',
+      text.text,
+      text.x,
+      text.y,
+      text.width,
+      text.height,
+      text.styles?.color,
+      text.styles?.font?.family,
+      text.styles?.font?.size,
+      text.styles?.font?.weight,
+      text.styles?.opacity,
+      rasterScale ?? 0,
+    ].join('|')
   }
 
   /**
@@ -1358,10 +1493,14 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию draw text.
    */
   private drawText(text: NovaText, transform: mat3, stats: RenderStats): void {
-    if (this.shouldCullTextRuns() && !this.isRectVisible(transform, text.x, text.y, text.width, text.height)) return
+    if (this.shouldCullTextRuns() && !this.isRectVisible(transform, text.x, text.y, text.width, text.height)) {
+      stats.culledTextRuns += 1
+      return
+    }
+    stats.visibleTextRuns += 1
 
     const style = compileNovaTextStyle(text)
-    const scale = this.resolveTextRasterScale(transform)
+    const scale = this.resolveTextRasterScale(transform, stats)
     const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats)
     if (!atlasItem) return
 
@@ -1384,18 +1523,45 @@ export class NovaWebGLFrameRenderer {
   /**
    * Вычисляет texture raster scale.
    */
-  private resolveTextureRasterScale(items: Array<NovaSchemaItem<any>>, transform: mat3): number | undefined {
-    return items.some(item => item.type === 'text') ? this.resolveTextRasterScale(transform) : undefined
+  private resolveTextureRasterScale(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats): number | undefined {
+    return items.some(item => item.type === 'text') ? this.resolveTextRasterScale(transform, stats) : undefined
   }
 
   /**
    * Вычисляет text raster scale.
    */
-  private resolveTextRasterScale(transform: mat3): number {
+  private resolveTextRasterScale(transform: mat3, stats: RenderStats): number {
     const scaleX = Math.hypot(transform[0], transform[1])
     const scaleY = Math.hypot(transform[3], transform[4])
     const zoom = Math.max(0.01, scaleX, scaleY)
-    return resolveNovaTextRasterScale(this._textConfig, zoom, this._device.canvas.dpr)
+    const nextScale = resolveNovaTextRasterScale(this._textConfig, zoom, this._device.canvas.dpr)
+
+    if (!this._effectiveTextRasterScale) {
+      this._effectiveTextRasterScale = nextScale
+      this._lastTextBucketSwitchAt = performance.now()
+      stats.textBucketChanges += 1
+      stats.effectiveTextRasterScale = nextScale
+      return nextScale
+    }
+
+    if (nextScale === this._effectiveTextRasterScale) {
+      stats.effectiveTextRasterScale = this._effectiveTextRasterScale
+      return this._effectiveTextRasterScale
+    }
+
+    const throttleMs = Math.max(0, this._textConfig.bucketThrottleMs)
+    const now = performance.now()
+    if (this._textConfig.fallbackPreviousScale && throttleMs > 0 && now - this._lastTextBucketSwitchAt < throttleMs) {
+      stats.textRasterDeferred += 1
+      stats.effectiveTextRasterScale = this._effectiveTextRasterScale
+      return this._effectiveTextRasterScale
+    }
+
+    this._effectiveTextRasterScale = nextScale
+    this._lastTextBucketSwitchAt = now
+    stats.textBucketChanges += 1
+    stats.effectiveTextRasterScale = nextScale
+    return nextScale
   }
 
   /**
@@ -1414,6 +1580,7 @@ export class NovaWebGLFrameRenderer {
       stats.textCacheHits += 1
       current.lastUsed = this._time
       current.page.lastUsed = this._time
+      this.prewarmAdjacentTextBuckets(text, style, scale, stats)
       return this.createTextAtlasDrawableItem(current)
     }
 
@@ -1422,15 +1589,14 @@ export class NovaWebGLFrameRenderer {
     const rasterBudgetMs = this.shouldBudgetTextRaster()
       ? Math.max(0, this._textConfig.rasterBudgetMs)
       : Number.POSITIVE_INFINITY
-    if (fallback && stats.textRasterMs >= rasterBudgetMs) {
+    if (stats.textRasterMs >= rasterBudgetMs) {
       stats.textRasterDeferred += 1
-      fallback.lastUsed = this._time
-      fallback.page.lastUsed = this._time
-      return this.createTextAtlasDrawableItem(fallback)
-    }
-
-    if (!fallback && stats.textRasterMs >= rasterBudgetMs) {
-      stats.textRasterDeferred += 1
+      stats.textBudgetExhausted += 1
+      if (fallback && this._textConfig.fallbackPreviousScale) {
+        fallback.lastUsed = this._time
+        fallback.page.lastUsed = this._time
+        return this.createTextAtlasDrawableItem(fallback)
+      }
       return null
     }
 
@@ -1443,7 +1609,57 @@ export class NovaWebGLFrameRenderer {
     const entry = this.uploadTextAtlasEntry(key, baseKey, raster, stats)
     this._textFallbackKeys.set(baseKey, key)
     stats.textAtlasPages = this._textAtlasPages.length
+    this.prewarmAdjacentTextBuckets(text, style, scale, stats)
     return this.createTextAtlasDrawableItem(entry)
+  }
+
+  /**
+   * Подготавливает соседние text buckets в рамках оставшегося raster budget.
+   */
+  private prewarmAdjacentTextBuckets(
+    text: NovaText,
+    style: NovaCompiledTextStyle,
+    scale: number,
+    stats: RenderStats,
+  ): void {
+    if (!this._textConfig.prewarmAdjacentBuckets || !this.shouldBudgetTextRaster()) return
+
+    const budgetMs = Math.max(0, this._textConfig.rasterBudgetMs)
+    if (stats.textRasterMs >= budgetMs) return
+
+    for (const nextScale of this.resolveAdjacentTextRasterScales(scale)) {
+      if (stats.textRasterMs >= budgetMs) {
+        stats.textBudgetExhausted += 1
+        return
+      }
+
+      const key = this.createTextKey(text, style, nextScale)
+      if (this._textAtlasEntries.has(key)) continue
+
+      const baseKey = this.createTextBaseKey(text, style)
+      const rasterStartedAt = performance.now()
+      const raster = this.rasterizeText(text, style, nextScale)
+      stats.textRasterMs += performance.now() - rasterStartedAt
+      stats.textRasterCount += 1
+      this.uploadTextAtlasEntry(key, baseKey, raster, stats)
+    }
+  }
+
+  /**
+   * Возвращает соседние raster scales для prewarm.
+   */
+  private resolveAdjacentTextRasterScales(scale: number): Array<number> {
+    const dpr = Math.max(0.1, this._device.canvas.dpr)
+    const scales = this._textConfig.zoomBuckets
+      .map(bucket => Math.min(this._textConfig.maxRasterScale, dpr * bucket))
+      .filter(bucketScale => Number.isFinite(bucketScale) && bucketScale > 0)
+      .sort((a, b) => a - b)
+    const index = scales.findIndex(bucketScale => bucketScale === scale)
+    if (index < 0) return []
+
+    return [scales[index - 1], scales[index + 1]].filter((item): item is number =>
+      typeof item === 'number' && item !== scale,
+    )
   }
 
   /**
@@ -1635,7 +1851,41 @@ export class NovaWebGLFrameRenderer {
    * Проверяет, включена ли policy-driven culling для text runs.
    */
   private shouldCullTextRuns(): boolean {
-    return this._textConfig.mode === 'run-atlas'
+    return this._textConfig.mode === 'run-atlas' && this._textConfig.visibleOnlyRaster
+  }
+
+  /**
+   * Проверяет, включен ли culling для texture stream.
+   */
+  private shouldCullTextureItems(): boolean {
+    return this._textConfig.mode === 'run-atlas' && this._textConfig.visibleOnlyRaster
+  }
+
+  /**
+   * Проверяет, включен ли viewport culling для geometry streams.
+   */
+  private shouldCullGeometryItems(): boolean {
+    return this._textConfig.mode === 'run-atlas' && this._textConfig.visibleOnlyRaster
+  }
+
+  /**
+   * Создает ключ viewport visibility для batches, зависящих от transform.
+   */
+  private resolveBatchVisibilityKey(items: Array<NovaSchemaItem<any>>, transform: mat3): string | undefined {
+    const hasText = items.some(item => item.type === 'text' || item.type === 'icon')
+    const hasGeometry = items.some(item => item.type === 'rect')
+    if ((!hasText || !this.shouldCullTextureItems()) && (!hasGeometry || !this.shouldCullGeometryItems())) return undefined
+
+    return [
+      this._viewportWidth,
+      this._viewportHeight,
+      transform[0].toFixed(4),
+      transform[1].toFixed(4),
+      transform[3].toFixed(4),
+      transform[4].toFixed(4),
+      transform[6].toFixed(2),
+      transform[7].toFixed(2),
+    ].join('|')
   }
 
   /**
@@ -2452,7 +2702,14 @@ export class NovaWebGLFrameRenderer {
   private flushTexture(stats: RenderStats): void {
     if (this._textureData.length === 0 && !this._textureCachedData) return
     const texture = this._textureCachedBatch?.texture ?? this._textureBatch
-    if (!texture) return
+    if (!texture) {
+      this._textureData = []
+      this._textureBatch = null
+      this._textureCachedData = null
+      this._textureCachedDirtyRanges = null
+      this._textureCachedBatch = null
+      return
+    }
 
     const gl = this._gl
     const data = this._textureCachedData ?? new Float32Array(this._textureData)
