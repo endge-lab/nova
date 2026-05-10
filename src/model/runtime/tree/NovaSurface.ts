@@ -16,6 +16,7 @@ import {
   type NovaRenderQueueStats,
   type NovaRenderSubtreeStats,
 } from '@/domain/types/renderer.types'
+import type { NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaNodeProperties } from '@/domain/types/base.types'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { ConstructorOrFactory } from '@endge/utils'
@@ -34,6 +35,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   private _activeRenderer: NovaRenderer
   private _renderCompiler: NovaRenderCompiler<E>
   private _renderGraph: NovaRenderGraph
+  private _renderMetrics: NovaRenderMetrics | null = null
 
   protected _dirty: boolean = false
   private _renderPipeline: NovaRenderPipeline = 'retained'
@@ -122,17 +124,19 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
     const { frame } = this._renderCompiler.compileSurface(this)
     if (this._renderer instanceof NovaRendererWebGL) {
-      this._renderer.renderFrame(frame)
+      const metrics = this._renderer.renderFrame(frame)
+      this._renderMetrics = metrics
       this._renderQueueStats = {
-        commands: frame.metrics.commands,
-        items: frame.metrics.items,
-        batches: frame.metrics.batches,
+        commands: metrics.commands,
+        items: metrics.items,
+        batches: metrics.batches,
       }
       return
     }
 
     if (this._renderer instanceof NovaRenderer2D) {
       const metrics = this._renderer.renderFrame(frame)
+      this._renderMetrics = metrics
       this._renderQueueStats = {
         commands: metrics.commands,
         items: metrics.items,
@@ -387,5 +391,12 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
    */
   get renderCullingStats(): NovaRenderCullingStats {
     return this._renderCullingStats
+  }
+
+  /**
+   * Возвращает последние retained renderer metrics.
+   */
+  get renderMetrics(): NovaRenderMetrics | null {
+    return this._renderMetrics
   }
 }

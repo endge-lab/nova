@@ -16,6 +16,7 @@ import {
   createNovaRenderGroup,
   resolveNovaRendererConfig,
   type NovaCanvas,
+  type NovaParticleBatch,
   type NovaSchema,
 } from '@/index'
 
@@ -158,6 +159,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     RGBA: 0x1908,
     SCISSOR_TEST: 0x0c11,
     SRC_ALPHA: 0x0302,
+    STATIC_DRAW: 0x88e4,
     TEXTURE0: 0x84c0,
     TEXTURE_2D: 0x0de1,
     TEXTURE_MAG_FILTER: 0x2800,
@@ -196,6 +198,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     detachShader: noop,
     disable: noop,
     drawArrays: vi.fn(),
+    drawArraysInstanced: vi.fn(),
     enable: noop,
     enableVertexAttribArray: noop,
     getAttribLocation: () => 0,
@@ -219,6 +222,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     uniform4f: noop,
     uniformMatrix3fv: vi.fn(),
     useProgram: noop,
+    vertexAttribDivisor: vi.fn(),
     vertexAttribPointer: noop,
     viewport: noop,
   } as unknown as WebGL2RenderingContext
@@ -360,6 +364,61 @@ function createCompiledFrameWithGraph(canvas: NovaCanvas, schema: NovaSchema) {
   }
 }
 
+function createParticleBatch(count: number): NovaParticleBatch {
+  const positions = new Float32Array(count * 2)
+  const sizes = new Float32Array(count)
+  const colors = new Float32Array(count * 4)
+  const strokeColors = new Float32Array(count * 4)
+  const strokeWidths = new Float32Array(count)
+
+  for (let index = 0; index < count; index += 1) {
+    positions[index * 2] = (index % 10) * 10
+    positions[index * 2 + 1] = Math.floor(index / 10) * 10
+    sizes[index] = 4
+    colors[index * 4] = 1
+    colors[index * 4 + 1] = 1
+    colors[index * 4 + 2] = 1
+    colors[index * 4 + 3] = 0
+    strokeColors[index * 4] = 1
+    strokeColors[index * 4 + 1] = 1
+    strokeColors[index * 4 + 2] = 1
+    strokeColors[index * 4 + 3] = 1
+    strokeWidths[index] = 1
+  }
+
+  return {
+    kind: 'circle',
+    count,
+    positions,
+    sizes,
+    colors,
+    strokeColors,
+    strokeWidths,
+    revision: 0,
+    staticRevision: 1,
+  }
+}
+
+function createParticleFrame(canvas: NovaCanvas, batch: NovaParticleBatch) {
+  const frameBuilder = new NovaRenderFrameBuilder('particle-test', {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    dpr: canvas.dpr,
+  })
+  const graph = new NovaRenderGraph('particle-test', frameBuilder.rootGroup)
+  const writer = new NovaRenderCommandWriter(frameBuilder, frameBuilder.rootGroup, graph)
+  const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+  writer.setCurrentNode('particle-node')
+  builder.particles(batch)
+
+  return {
+    frame: frameBuilder.build(),
+    graph,
+  }
+}
+
 describe('Nova retained WebGL2 renderer target contract matrix', () => {
   it('keeps retained-renderer contract case ids unique', () => {
     expect(new Set(ids(RETAINED_CONTRACT_CASES)).size).toBe(RETAINED_CONTRACT_CASES.length)
@@ -427,6 +486,19 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(layers[layers.length - 1]).toBe('text')
     expect(layers.every((layer, index) => index === 0 || layerOrder[layer] >= layerOrder[layers[index - 1]])).toBe(true)
     expect(plan.batches.every(batch => batch.slotCount > 0)).toBe(true)
+  })
+
+  it('compiles ctx.particles into retained particle stream handles', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const batch = createParticleBatch(16)
+    const { frame, graph } = createParticleFrame(canvas, batch)
+    const handles = graph.handlesByNodeId.get('particle-node') ?? []
+
+    expect(frame.commands.filter(command => command.type === 'drawParticles')).toHaveLength(1)
+    expect(handles).toHaveLength(1)
+    expect(handles[0].streamKind).toBe('particle-circle')
+    expect(handles[0].count).toBe(16)
   })
 
   it('routes plain rect batches through the smaller solid stream instead of the rounded stream', () => {
@@ -558,6 +630,34 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.bufferSubDataCalls).toBe(0)
     expect(warm.uniformOnlyFrames).toBe(1)
     expect(warm.nodeRenderCalls).toBe(0)
+  })
+
+  it('uploads only particle position data when a retained particle batch moves', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const batch = createParticleBatch(100)
+    const { frame } = createParticleFrame(canvas, batch)
+
+    const first = renderer.renderFrame(frame)
+    const warm = renderer.renderFrame(frame)
+    const positions = batch.positions as Float32Array
+
+    for (let index = 0; index < batch.count; index += 1) {
+      positions[index * 2] += 1
+      positions[index * 2 + 1] += 1
+    }
+    batch.revision = 1
+
+    const moved = renderer.renderFrame(frame)
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.uploadBytes).toBe(0)
+    expect(moved.uploadBytes).toBe(batch.count * 2 * 4)
+    expect(moved.bufferSubDataCalls).toBe(1)
+    expect(moved.bufferDataCalls).toBe(0)
+    expect(moved.updatedHandles).toBe(batch.count)
+    expect(gl.drawArraysInstanced).toHaveBeenCalled()
   })
 
   it('keeps SlayLines motion data stable and moves via shader metadata', () => {

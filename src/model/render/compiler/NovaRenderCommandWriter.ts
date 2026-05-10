@@ -6,7 +6,7 @@ import type {
   NovaRenderGroup,
   NovaRenderItem,
 } from '@/domain/types/rendering/index'
-import type { NovaSchemaItem, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
+import type { NovaParticleBatch, NovaSchemaItem, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
 import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/NovaRenderItem'
 import type { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
 import type { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
@@ -180,6 +180,37 @@ export class NovaRenderCommandWriter {
   }
 
   /**
+   * Записывает retained particle batch как отдельный stream command.
+   */
+  drawParticles(batch: NovaParticleBatch, nodeId = this._currentNodeId): NovaRenderCommand {
+    const order = this._frameBuilder.nextOrder()
+    const streamKind = batch.kind === 'sprite' ? 'particle-sprite' : 'particle-circle'
+    const item = createNovaRenderItem({
+      id: `item:${++this._itemId}`,
+      nodeId,
+      groupId: this._group.id,
+      layerId: this._group.layerId,
+      kind: streamKind,
+      order,
+      batchKey: `particles:${batch.kind}:${batch.texture ? 'texture' : 'solid'}`,
+      bounds: 'x' in batch && 'y' in batch && 'width' in batch && 'height' in batch
+        ? { x: batch.x as number, y: batch.y as number, width: batch.width as number, height: batch.height as number }
+        : undefined,
+      clip: this.currentClip,
+    })
+
+    this._frameBuilder.addItem(item)
+    this.addParticleHandle(item, batch, nodeId, streamKind)
+
+    return this.command({
+      type: 'drawParticles',
+      itemId: item.id,
+      particleBatch: batch,
+      order,
+    })
+  }
+
+  /**
    * Выполняет внутреннюю операцию cursor.
    */
   cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): NovaRenderCommand {
@@ -231,6 +262,38 @@ export class NovaRenderCommandWriter {
       localBounds: 'x' in item && 'y' in item && 'width' in item && 'height' in item
         ? { x: item.x, y: item.y, width: item.width, height: item.height }
         : undefined,
+    }
+
+    this._graph.addHandle(handle)
+  }
+
+  /**
+   * Добавляет handle для retained particle stream.
+   */
+  private addParticleHandle(renderItem: NovaRenderItem, batch: NovaParticleBatch, nodeId: string, streamKind: NovaRenderHandle['streamKind']): void {
+    if (!this._graph) return
+
+    const handle: NovaRenderHandle = {
+      id: `handle:${++this._handleId}`,
+      nodeId,
+      itemId: renderItem.id,
+      groupId: renderItem.groupId,
+      layerId: renderItem.layerId,
+      streamId: `${renderItem.groupId}:${streamKind}`,
+      streamKind,
+      offset: 0,
+      count: batch.count,
+      batchKey: renderItem.batchKey,
+      versions: {
+        transform: 0,
+        layout: 0,
+        paint: batch.staticRevision ?? 0,
+        children: 0,
+        resource: 0,
+        cache: 0,
+        visibility: 0,
+      },
+      localBounds: renderItem.bounds,
     }
 
     this._graph.addHandle(handle)

@@ -1,6 +1,7 @@
 import type { mat3 } from 'gl-matrix'
 import type {
   NovaBounds,
+  NovaParticleBatch,
   NovaSemanticScopeKind,
   NovaSchemaItem,
   RendererType,
@@ -221,6 +222,8 @@ export type NovaRenderItemKind =
   | 'image'
   | 'texture'
   | 'cached-group'
+  | 'particle-circle'
+  | 'particle-sprite'
   | 'custom'
 
 /**
@@ -256,6 +259,8 @@ export type NovaRenderStreamKind =
   | 'text-run'
   | 'icon'
   | 'cached-group'
+  | 'particle-circle'
+  | 'particle-sprite'
 
 /**
  * Описывает тип NovaRenderSemanticLayer.
@@ -355,6 +360,7 @@ export type NovaRenderCommandType =
   | 'clearClip'
   | 'drawItem'
   | 'drawSchemaBatch'
+  | 'drawParticles'
   | 'cursor'
   | 'beginGroup'
   | 'endGroup'
@@ -374,6 +380,7 @@ export interface NovaRenderCommand {
   schemaMode?: 'batched' | 'ordered'
   schemaSemanticScope?: NovaSemanticScopeKind
   schemaContentVersion?: number
+  particleBatch?: NovaParticleBatch
   transform?: mat3
   clip?: NovaRenderClip
   cursor?: 'default' | 'pointer' | 'col-resize' | 'row-resize'

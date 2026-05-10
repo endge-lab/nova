@@ -246,6 +246,10 @@ export function resolveNovaRenderStreamStride(kind: NovaRenderStreamKind): numbe
       return 10
     case 'text-run':
       return 12
+    case 'particle-circle':
+      return 12
+    case 'particle-sprite':
+      return 8
     default:
       return 8
   }
@@ -260,6 +264,7 @@ export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): Nova
     case 'rounded-rect':
     case 'motion-rect':
     case 'circle':
+    case 'particle-circle':
     case 'polygon':
       return 'background'
     case 'border':
@@ -268,6 +273,7 @@ export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): Nova
     case 'texture-quad':
     case 'icon':
     case 'cached-group':
+    case 'particle-sprite':
       return 'texture'
     case 'text-run':
       return 'text'

@@ -5,6 +5,7 @@ import type {
   NovaCircle,
   NovaIcon,
   NovaLine,
+  NovaParticleBatch,
   NovaPolygon,
   NovaRect,
   NovaSchemaItem,
@@ -30,6 +31,9 @@ const FLOAT_BYTES = 4
 const RECT_STRIDE = 21
 const SOLID_STRIDE = 9
 const TEXTURE_STRIDE = 8
+const PARTICLE_POSITION_STRIDE = 2
+const PARTICLE_CIRCLE_STATIC_STRIDE = 10
+const PARTICLE_SPRITE_STATIC_STRIDE = 2
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
 const TEXT_RASTER_ZOOM_BUCKETS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 8, 16]
 
@@ -178,6 +182,39 @@ interface WebGLUploadState {
 }
 
 /**
+ * Описывает cache для instanced circle particle batch.
+ */
+interface ParticleCircleBatchCache {
+  positionData: Float32Array
+  staticData: Float32Array
+  count: number
+  revision?: number
+  staticRevision?: number
+  positionUpload: WebGLUploadState
+  staticUpload: WebGLUploadState
+  positionBuffer: WebGLBuffer
+  staticBuffer: WebGLBuffer
+  vao: WebGLVertexArrayObject
+}
+
+/**
+ * Описывает cache для instanced sprite particle batch.
+ */
+interface ParticleSpriteBatchCache {
+  positionData: Float32Array
+  staticData: Float32Array
+  count: number
+  revision?: number
+  staticRevision?: number
+  texture?: TextureEntry
+  positionUpload: WebGLUploadState
+  staticUpload: WebGLUploadState
+  positionBuffer: WebGLBuffer
+  staticBuffer: WebGLBuffer
+  vao: WebGLVertexArrayObject
+}
+
+/**
  * Описывает контракт FloatDirtyRange.
  */
 interface FloatDirtyRange {
@@ -232,9 +269,12 @@ export class NovaWebGLFrameRenderer {
   private readonly _roundedProgram: NovaWebGLProgram
   private readonly _solidProgram: NovaWebGLProgram
   private readonly _textureProgram: NovaWebGLProgram
+  private readonly _particleCircleProgram: NovaWebGLProgram
+  private readonly _particleSpriteProgram: NovaWebGLProgram
   private readonly _roundedBuffer: WebGLBuffer
   private readonly _solidBuffer: WebGLBuffer
   private readonly _textureBuffer: WebGLBuffer
+  private readonly _particleQuadBuffer: WebGLBuffer
   private readonly _roundedVao: WebGLVertexArrayObject
   private readonly _solidVao: WebGLVertexArrayObject
   private readonly _textureVao: WebGLVertexArrayObject
@@ -246,7 +286,11 @@ export class NovaWebGLFrameRenderer {
   private readonly _rectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
   private readonly _textureBatchCache = new WeakMap<NovaSchemaItem<any>[], TextureBatchCache>()
   private readonly _semanticBatchCache = new WeakMap<NovaSchemaItem<any>[], NonOverlapLayeredBatchCache>()
+  private readonly _particleCircleBatchCache = new WeakMap<NovaParticleBatch, ParticleCircleBatchCache>()
+  private readonly _particleSpriteBatchCache = new WeakMap<NovaParticleBatch, ParticleSpriteBatchCache>()
   private readonly _ownedTextureBatchCaches = new Set<TextureBatchCache>()
+  private readonly _ownedParticleCircleBatchCaches = new Set<ParticleCircleBatchCache>()
+  private readonly _ownedParticleSpriteBatchCaches = new Set<ParticleSpriteBatchCache>()
   private readonly _roundedUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _solidUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _textureUpload: WebGLUploadState = createWebGLUploadState()
@@ -275,9 +319,13 @@ export class NovaWebGLFrameRenderer {
     this._roundedProgram = NovaWebGLProgram.create(this._gl, ROUNDED_RECT_VERTEX_SHADER, ROUNDED_RECT_FRAGMENT_SHADER)
     this._solidProgram = NovaWebGLProgram.create(this._gl, SOLID_VERTEX_SHADER, SOLID_FRAGMENT_SHADER)
     this._textureProgram = NovaWebGLProgram.create(this._gl, TEXTURE_VERTEX_SHADER, TEXTURE_FRAGMENT_SHADER)
+    this._particleCircleProgram = NovaWebGLProgram.create(this._gl, PARTICLE_CIRCLE_VERTEX_SHADER, PARTICLE_CIRCLE_FRAGMENT_SHADER)
+    this._particleSpriteProgram = NovaWebGLProgram.create(this._gl, PARTICLE_SPRITE_VERTEX_SHADER, PARTICLE_SPRITE_FRAGMENT_SHADER)
     this._roundedBuffer = this.createBuffer()
     this._solidBuffer = this.createBuffer()
     this._textureBuffer = this.createBuffer()
+    this._particleQuadBuffer = this.createBuffer()
+    this.initializeParticleQuadBuffer()
     this._roundedVao = this.createRoundedVao()
     this._solidVao = this.createSolidVao()
     this._textureVao = this.createTextureVao()
@@ -377,6 +425,9 @@ export class NovaWebGLFrameRenderer {
             }
           }
           break
+        case 'drawParticles':
+          if (command.particleBatch) this.drawParticleBatch(command.particleBatch, currentTransform, stats)
+          break
         case 'cursor':
         case 'beginGroup':
         case 'endGroup':
@@ -444,15 +495,30 @@ export class NovaWebGLFrameRenderer {
       if (cache.vao) this._gl.deleteVertexArray(cache.vao)
     }
     this._ownedTextureBatchCaches.clear()
+    for (const cache of this._ownedParticleCircleBatchCaches) {
+      this._gl.deleteBuffer(cache.positionBuffer)
+      this._gl.deleteBuffer(cache.staticBuffer)
+      this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedParticleCircleBatchCaches.clear()
+    for (const cache of this._ownedParticleSpriteBatchCaches) {
+      this._gl.deleteBuffer(cache.positionBuffer)
+      this._gl.deleteBuffer(cache.staticBuffer)
+      this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedParticleSpriteBatchCaches.clear()
     this._gl.deleteBuffer(this._roundedBuffer)
     this._gl.deleteBuffer(this._solidBuffer)
     this._gl.deleteBuffer(this._textureBuffer)
+    this._gl.deleteBuffer(this._particleQuadBuffer)
     this._gl.deleteVertexArray(this._roundedVao)
     this._gl.deleteVertexArray(this._solidVao)
     this._gl.deleteVertexArray(this._textureVao)
     this._roundedProgram.destroy()
     this._solidProgram.destroy()
     this._textureProgram.destroy()
+    this._particleCircleProgram.destroy()
+    this._particleSpriteProgram.destroy()
   }
 
   /**
@@ -1184,6 +1250,135 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Рисует retained particle batch через specialized instanced stream.
+   */
+  private drawParticleBatch(batch: NovaParticleBatch, transform: mat3, stats: RenderStats): void {
+    if (batch.active === false || batch.count <= 0) return
+
+    if (batch.kind === 'sprite') {
+      this.drawSpriteParticleBatch(batch, transform, stats)
+      return
+    }
+
+    this.drawCircleParticleBatch(batch, transform, stats)
+  }
+
+  /**
+   * Рисует circle particles через analytic shader.
+   */
+  private drawCircleParticleBatch(batch: NovaParticleBatch, transform: mat3, stats: RenderStats): void {
+    let cache = this._particleCircleBatchCache.get(batch)
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+    let positionDirty: FloatDirtyRange[] | null = null
+    let staticDirty: FloatDirtyRange[] | null = null
+
+    if (!cache || cache.count !== batch.count) {
+      cache = this.createCircleParticleCache(batch)
+      this._particleCircleBatchCache.set(batch, cache)
+      this._ownedParticleCircleBatchCaches.add(cache)
+    }
+
+    if (cache.revision !== revision) {
+      this.writeParticlePositions(batch, cache.positionData)
+      cache.revision = revision
+      positionDirty = [{ start: 0, end: batch.count * PARTICLE_POSITION_STRIDE }]
+    }
+
+    if (cache.staticRevision !== staticRevision) {
+      this.writeCircleParticleStaticData(batch, cache.staticData)
+      cache.staticRevision = staticRevision
+      staticDirty = [{ start: 0, end: batch.count * PARTICLE_CIRCLE_STATIC_STRIDE }]
+    }
+
+    this.flush(stats)
+    const uploadStartedAt = performance.now()
+    const gl = this._gl
+    gl.bindVertexArray(cache.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.positionBuffer)
+    this.uploadArrayBuffer(cache.positionData, cache.positionUpload, stats, positionDirty)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.staticBuffer)
+    this.uploadArrayBuffer(cache.staticData, cache.staticUpload, stats, staticDirty)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    this._particleCircleProgram.use()
+    gl.uniform2f(this._particleCircleProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._particleCircleProgram.uniformLocation('u_transform'), false, transform)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.count)
+
+    stats.instances += batch.count
+    stats.drawCalls += 1
+    stats.batches += 1
+    if (positionDirty) {
+      stats.updatedHandles += batch.count
+      stats.dirtyStreamRanges += 1
+    }
+  }
+
+  /**
+   * Рисует sprite particles через texture instancing.
+   */
+  private drawSpriteParticleBatch(batch: NovaParticleBatch, transform: mat3, stats: RenderStats): void {
+    const source = typeof batch.texture === 'string' ? NovaGraphics.getAsset(batch.texture) : batch.texture
+    if (!source) return
+
+    const textureKey = typeof batch.texture === 'string' ? `particle:${batch.texture}` : `particle:${this.resolveSourceKey(source)}`
+    let texture = this._textures.get(textureKey)
+    if (!texture) texture = this.createTextureFromSource(textureKey, source, stats)
+    texture.lastUsed = this._time
+
+    let cache = this._particleSpriteBatchCache.get(batch)
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+    let positionDirty: FloatDirtyRange[] | null = null
+    let staticDirty: FloatDirtyRange[] | null = null
+
+    if (!cache || cache.count !== batch.count || cache.texture !== texture) {
+      cache = this.createSpriteParticleCache(batch, texture)
+      this._particleSpriteBatchCache.set(batch, cache)
+      this._ownedParticleSpriteBatchCaches.add(cache)
+    }
+
+    if (cache.revision !== revision) {
+      this.writeParticlePositions(batch, cache.positionData)
+      cache.revision = revision
+      positionDirty = [{ start: 0, end: batch.count * PARTICLE_POSITION_STRIDE }]
+    }
+
+    if (cache.staticRevision !== staticRevision) {
+      this.writeSpriteParticleStaticData(batch, cache.staticData)
+      cache.staticRevision = staticRevision
+      staticDirty = [{ start: 0, end: batch.count * PARTICLE_SPRITE_STATIC_STRIDE }]
+    }
+
+    this.flush(stats)
+    const uploadStartedAt = performance.now()
+    const gl = this._gl
+    gl.bindVertexArray(cache.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.positionBuffer)
+    this.uploadArrayBuffer(cache.positionData, cache.positionUpload, stats, positionDirty)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.staticBuffer)
+    this.uploadArrayBuffer(cache.staticData, cache.staticUpload, stats, staticDirty)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    this._particleSpriteProgram.use()
+    gl.uniform2f(this._particleSpriteProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._particleSpriteProgram.uniformLocation('u_transform'), false, transform)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texture.texture)
+    gl.uniform1i(this._particleSpriteProgram.uniformLocation('u_texture'), 0)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.count)
+
+    stats.instances += batch.count
+    stats.drawCalls += 1
+    stats.batches += 1
+    if (positionDirty) {
+      stats.updatedHandles += batch.count
+      stats.dirtyStreamRanges += 1
+    }
+  }
+
+  /**
    * Выполняет внутреннюю операцию draw texture source.
    */
   private drawTextureSource(
@@ -1201,6 +1396,99 @@ export class NovaWebGLFrameRenderer {
     if (!texture) texture = this.createTextureFromSource(key, source, stats)
     texture.lastUsed = this._time
     this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats)
+  }
+
+  /**
+   * Создает cache для circle particle batch.
+   */
+  private createCircleParticleCache(batch: NovaParticleBatch): ParticleCircleBatchCache {
+    const positionBuffer = this.createBuffer()
+    const staticBuffer = this.createBuffer()
+    const cache: ParticleCircleBatchCache = {
+      positionData: new Float32Array(batch.count * PARTICLE_POSITION_STRIDE),
+      staticData: new Float32Array(batch.count * PARTICLE_CIRCLE_STATIC_STRIDE),
+      count: batch.count,
+      positionUpload: createWebGLUploadState(),
+      staticUpload: createWebGLUploadState(),
+      positionBuffer,
+      staticBuffer,
+      vao: this.createParticleCircleVao(positionBuffer, staticBuffer),
+    }
+
+    this.writeParticlePositions(batch, cache.positionData)
+    this.writeCircleParticleStaticData(batch, cache.staticData)
+    return cache
+  }
+
+  /**
+   * Создает cache для sprite particle batch.
+   */
+  private createSpriteParticleCache(batch: NovaParticleBatch, texture: TextureEntry): ParticleSpriteBatchCache {
+    const positionBuffer = this.createBuffer()
+    const staticBuffer = this.createBuffer()
+    const cache: ParticleSpriteBatchCache = {
+      positionData: new Float32Array(batch.count * PARTICLE_POSITION_STRIDE),
+      staticData: new Float32Array(batch.count * PARTICLE_SPRITE_STATIC_STRIDE),
+      count: batch.count,
+      texture,
+      positionUpload: createWebGLUploadState(),
+      staticUpload: createWebGLUploadState(),
+      positionBuffer,
+      staticBuffer,
+      vao: this.createParticleSpriteVao(positionBuffer, staticBuffer),
+    }
+
+    this.writeParticlePositions(batch, cache.positionData)
+    this.writeSpriteParticleStaticData(batch, cache.staticData)
+    return cache
+  }
+
+  /**
+   * Записывает dynamic particle positions.
+   */
+  private writeParticlePositions(batch: NovaParticleBatch, target: Float32Array): void {
+    for (let index = 0; index < batch.count; index += 1) {
+      target[index * 2] = batch.positions[index * 2] ?? 0
+      target[index * 2 + 1] = batch.positions[index * 2 + 1] ?? 0
+    }
+  }
+
+  /**
+   * Записывает static circle particle attributes.
+   */
+  private writeCircleParticleStaticData(batch: NovaParticleBatch, target: Float32Array): void {
+    const opacity = batch.opacity ?? 1
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const fillOffset = index * 4
+      const strokeOffset = index * 4
+      const targetOffset = index * PARTICLE_CIRCLE_STATIC_STRIDE
+
+      target[targetOffset] = batch.sizes[index] ?? 1
+      target[targetOffset + 1] = batch.colors[fillOffset] ?? 1
+      target[targetOffset + 2] = batch.colors[fillOffset + 1] ?? 1
+      target[targetOffset + 3] = batch.colors[fillOffset + 2] ?? 1
+      target[targetOffset + 4] = (batch.colors[fillOffset + 3] ?? 1) * opacity
+      target[targetOffset + 5] = batch.strokeColors?.[strokeOffset] ?? 1
+      target[targetOffset + 6] = batch.strokeColors?.[strokeOffset + 1] ?? 1
+      target[targetOffset + 7] = batch.strokeColors?.[strokeOffset + 2] ?? 1
+      target[targetOffset + 8] = (batch.strokeColors?.[strokeOffset + 3] ?? 0) * opacity
+      target[targetOffset + 9] = batch.strokeWidths?.[index] ?? 0
+    }
+  }
+
+  /**
+   * Записывает static sprite particle attributes.
+   */
+  private writeSpriteParticleStaticData(batch: NovaParticleBatch, target: Float32Array): void {
+    const opacity = batch.opacity ?? 1
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const targetOffset = index * PARTICLE_SPRITE_STATIC_STRIDE
+      const colorOffset = index * 4
+      target[targetOffset] = batch.sizes[index] ?? 1
+      target[targetOffset + 1] = (batch.colors[colorOffset + 3] ?? 1) * opacity
+    }
   }
 
   /**
@@ -1832,6 +2120,54 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Создает VAO для circle particle stream.
+   */
+  private createParticleCircleVao(positionBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttribDivisor(this._particleCircleProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+    this.bindAttribDivisor(this._particleCircleProgram, 'a_center', 2, PARTICLE_POSITION_STRIDE * FLOAT_BYTES, 0, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
+    const stride = PARTICLE_CIRCLE_STATIC_STRIDE * FLOAT_BYTES
+    this.bindAttribDivisor(this._particleCircleProgram, 'a_radius', 1, stride, 0, 1)
+    this.bindAttribDivisor(this._particleCircleProgram, 'a_fill', 4, stride, 1, 1)
+    this.bindAttribDivisor(this._particleCircleProgram, 'a_stroke', 4, stride, 5, 1)
+    this.bindAttribDivisor(this._particleCircleProgram, 'a_strokeWidth', 1, stride, 9, 1)
+
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
+   * Создает VAO для sprite particle stream.
+   */
+  private createParticleSpriteVao(positionBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttribDivisor(this._particleSpriteProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer)
+    this.bindAttribDivisor(this._particleSpriteProgram, 'a_position', 2, PARTICLE_POSITION_STRIDE * FLOAT_BYTES, 0, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
+    const stride = PARTICLE_SPRITE_STATIC_STRIDE * FLOAT_BYTES
+    this.bindAttribDivisor(this._particleSpriteProgram, 'a_size', 1, stride, 0, 1)
+    this.bindAttribDivisor(this._particleSpriteProgram, 'a_opacity', 1, stride, 1, 1)
+
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
    * Создает vao.
    */
   private createVao(): WebGLVertexArrayObject {
@@ -1847,6 +2183,32 @@ export class NovaWebGLFrameRenderer {
     const location = program.attribLocation(name)
     this._gl.enableVertexAttribArray(location)
     this._gl.vertexAttribPointer(location, size, this._gl.FLOAT, false, stride, offsetFloats * FLOAT_BYTES)
+  }
+
+  /**
+   * Привязывает instanced attribute.
+   */
+  private bindAttribDivisor(program: NovaWebGLProgram, name: string, size: number, stride: number, offsetFloats: number, divisor: number): void {
+    const location = program.attribLocation(name)
+    this._gl.enableVertexAttribArray(location)
+    this._gl.vertexAttribPointer(location, size, this._gl.FLOAT, false, stride, offsetFloats * FLOAT_BYTES)
+    this._gl.vertexAttribDivisor(location, divisor)
+  }
+
+  /**
+   * Загружает shared unit quad для instanced particle streams.
+   */
+  private initializeParticleQuadBuffer(): void {
+    const quad = new Float32Array([
+      -1, -1,
+      1, -1,
+      -1, 1,
+      -1, 1,
+      1, -1,
+      1, 1,
+    ])
+    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this._gl.bufferData(this._gl.ARRAY_BUFFER, quad, this._gl.STATIC_DRAW)
   }
 
   /**
@@ -2302,5 +2664,89 @@ in vec4 v_color;
 out vec4 outColor;
 void main() {
   outColor = texture(u_texture, v_uv) * v_color;
+}
+`
+
+const PARTICLE_CIRCLE_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec2 a_center;
+in float a_radius;
+in vec4 a_fill;
+in vec4 a_stroke;
+in float a_strokeWidth;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_local;
+out float v_radius;
+out vec4 v_fill;
+out vec4 v_stroke;
+out float v_strokeWidth;
+void main() {
+  vec2 local = a_unit * a_radius;
+  vec2 position = a_center + local;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_local = local;
+  v_radius = a_radius;
+  v_fill = a_fill;
+  v_stroke = a_stroke;
+  v_strokeWidth = a_strokeWidth;
+}
+`
+
+const PARTICLE_CIRCLE_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec2 v_local;
+in float v_radius;
+in vec4 v_fill;
+in vec4 v_stroke;
+in float v_strokeWidth;
+out vec4 outColor;
+void main() {
+  float dist = length(v_local) - v_radius;
+  float aa = max(fwidth(dist), 0.001);
+  float shapeAlpha = 1.0 - smoothstep(-aa, aa, dist);
+  float inner = v_strokeWidth > 0.0
+    ? 1.0 - smoothstep(-v_strokeWidth - aa, -v_strokeWidth + aa, dist)
+    : 1.0;
+  float strokeMask = clamp(1.0 - inner, 0.0, 1.0);
+  vec4 color = mix(v_fill, v_stroke, strokeMask);
+  outColor = vec4(color.rgb, color.a * shapeAlpha);
+}
+`
+
+const PARTICLE_SPRITE_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec2 a_position;
+in float a_size;
+in float a_opacity;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_uv;
+out float v_opacity;
+void main() {
+  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = a_position + uv * a_size;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_uv = uv;
+  v_opacity = a_opacity;
+}
+`
+
+const PARTICLE_SPRITE_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform sampler2D u_texture;
+in vec2 v_uv;
+in float v_opacity;
+out vec4 outColor;
+void main() {
+  outColor = texture(u_texture, v_uv) * vec4(1.0, 1.0, 1.0, v_opacity);
 }
 `

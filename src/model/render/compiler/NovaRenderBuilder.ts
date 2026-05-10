@@ -4,6 +4,7 @@ import type {
   NovaCircle,
   NovaIcon,
   NovaLine,
+  NovaParticleBatch,
   NovaPolygon,
   NovaRect,
   NovaRenderer,
@@ -35,6 +36,7 @@ export class NovaRenderBuilder implements NovaRenderer {
     polygon: true,
     icon: true,
     text: true,
+    particles: true,
     measureText: true,
   }
 
@@ -168,6 +170,14 @@ export class NovaRenderBuilder implements NovaRenderer {
    */
   icon(params: NovaIcon): void {
     this.schemaItem({ ...params, type: 'icon' })
+  }
+
+  /**
+   * Записывает retained particle batch без разворачивания в schema items.
+   */
+  particles(batch: NovaParticleBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawParticles(batch)
   }
 
   /**

@@ -4,6 +4,7 @@ import type {
   NovaCircle,
   NovaIcon,
   NovaLine,
+  NovaParticleBatch,
   NovaPolygon,
   NovaRect,
   NovaRenderer,
@@ -34,6 +35,7 @@ export class NovaRenderer2D implements NovaRenderer {
     polygon: true,
     icon: true,
     text: true,
+    particles: true,
     measureText: true,
   }
 
@@ -120,6 +122,12 @@ export class NovaRenderer2D implements NovaRenderer {
         case 'drawSchemaBatch':
           if (command.schemaItems?.length) {
             this.schema(command.schemaItems)
+            drawCalls += 1
+          }
+          break
+        case 'drawParticles':
+          if (command.particleBatch) {
+            this.particles(command.particleBatch)
             drawCalls += 1
           }
           break
@@ -456,6 +464,54 @@ export class NovaRenderer2D implements NovaRenderer {
     }
 
     ctx.drawImage(iconObject, p.x, p.y, p.width, p.height)
+    ctx.restore()
+  }
+
+  /**
+   * Рисует retained particle batch через Canvas2D fallback.
+   */
+  particles(batch: NovaParticleBatch): void {
+    const ctx = this.ctx
+    const opacity = batch.opacity ?? 1
+    const positions = batch.positions
+    const sizes = batch.sizes
+    const colors = batch.colors
+    const strokeColors = batch.strokeColors
+    const strokeWidths = batch.strokeWidths
+
+    ctx.save()
+    ctx.globalAlpha = opacity
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const x = positions[index * 2] ?? 0
+      const y = positions[index * 2 + 1] ?? 0
+      const size = sizes[index] ?? 1
+
+      if (batch.kind === 'sprite') {
+        const source = typeof batch.texture === 'string' ? NovaGraphics.getAsset(batch.texture) : batch.texture
+        if (source) ctx.drawImage(source, x, y, size, size)
+        continue
+      }
+
+      const fillOffset = index * 4
+      const strokeOffset = index * 4
+      const fillAlpha = (colors[fillOffset + 3] ?? 1) * opacity
+      const strokeAlpha = ((strokeColors?.[strokeOffset + 3] ?? 0) as number) * opacity
+      const strokeWidth = strokeWidths?.[index] ?? 0
+
+      ctx.beginPath()
+      ctx.arc(x, y, size, 0, Math.PI * 2)
+      if (fillAlpha > 0) {
+        ctx.fillStyle = `rgba(${Math.round((colors[fillOffset] ?? 1) * 255)}, ${Math.round((colors[fillOffset + 1] ?? 1) * 255)}, ${Math.round((colors[fillOffset + 2] ?? 1) * 255)}, ${fillAlpha})`
+        ctx.fill()
+      }
+      if (strokeAlpha > 0 && strokeWidth > 0 && strokeColors) {
+        ctx.lineWidth = strokeWidth
+        ctx.strokeStyle = `rgba(${Math.round((strokeColors[strokeOffset] ?? 1) * 255)}, ${Math.round((strokeColors[strokeOffset + 1] ?? 1) * 255)}, ${Math.round((strokeColors[strokeOffset + 2] ?? 1) * 255)}, ${strokeAlpha})`
+        ctx.stroke()
+      }
+    }
+
     ctx.restore()
   }
 

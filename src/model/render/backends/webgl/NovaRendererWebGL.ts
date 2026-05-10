@@ -5,6 +5,7 @@ import type {
   NovaCircle,
   NovaIcon,
   NovaLine,
+  NovaParticleBatch,
   NovaPolygon,
   NovaRect,
   NovaRenderer,
@@ -39,6 +40,7 @@ export class NovaRendererWebGL implements NovaRenderer {
     polygon: true,
     icon: true,
     text: true,
+    particles: true,
     measureText: true,
   }
 
@@ -170,6 +172,13 @@ export class NovaRendererWebGL implements NovaRenderer {
    */
   icon(_params: NovaIcon): void {
     this.throwImmediateApiError('icon')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию particles.
+   */
+  particles(_batch: NovaParticleBatch): void {
+    this.throwImmediateApiError('particles')
   }
 
   /**

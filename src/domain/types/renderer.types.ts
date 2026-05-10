@@ -196,6 +196,34 @@ export interface NovaPolygon extends NovaUIBase {
 }
 
 /**
+ * Описывает тип NovaParticleBatchKind.
+ */
+export type NovaParticleBatchKind = 'circle' | 'sprite'
+
+/**
+ * Описывает массив числовых данных particle stream.
+ */
+export type NovaParticleNumberData = Float32Array | readonly number[]
+
+/**
+ * Описывает retained particle batch для массовых dynamic-сцен.
+ */
+export interface NovaParticleBatch extends NovaUIBase {
+  kind: NovaParticleBatchKind
+  count: number
+  positions: NovaParticleNumberData
+  sizes: NovaParticleNumberData
+  colors: NovaParticleNumberData
+  strokeColors?: NovaParticleNumberData
+  strokeWidths?: NovaParticleNumberData
+  velocities?: NovaParticleNumberData
+  texture?: CanvasImageSource | string
+  opacity?: number
+  revision?: number
+  staticRevision?: number
+}
+
+/**
  * Паттерн полосок (например, для заливки фона).
  */
 export interface NovaStripePattern {
@@ -257,6 +285,7 @@ export interface NovaRendererCapabilities {
   polygon: boolean
   icon: boolean
   text: boolean
+  particles: boolean
   measureText: boolean
 }
 
@@ -364,6 +393,7 @@ export interface NovaRenderer {
   circle(params: NovaCircle): void
   polygon(params: NovaPolygon): void
   icon(params: NovaIcon): void
+  particles(batch: NovaParticleBatch): void
 
   measureText(params: NovaText): { width: number; height: number }
 
