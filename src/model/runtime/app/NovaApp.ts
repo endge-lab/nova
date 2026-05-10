@@ -351,6 +351,13 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
 
     /**
+     * Обновляет CSS cursor основного canvas независимо от active renderer backend.
+     */
+    cursor(value: string): void {
+        this._canvas.element.style.cursor = value
+    }
+
+    /**
      * Возвращает Nova event system.
      */
     get events(): NovaEvents<E> {
