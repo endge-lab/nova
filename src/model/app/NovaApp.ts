@@ -30,20 +30,28 @@ import { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
 import type { NovaRendererConfig, NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import { resolveNovaRendererConfig } from '@/model/rendering/policy/NovaRenderPolicy'
 
+/**
+ * Управляет жизненным циклом Nova runtime, canvas, input, surfaces и фазами Raph.
+ */
 export class NovaApp<E extends EventList = Record<string, any>> {
-  // Ядро
+  // Ядро приложения: граф, canvas, renderer и события.
   private readonly _raph: RaphApp<NovaNodeProperties>
   private readonly _canvas: NovaCanvas
   private readonly _renderer: NovaRenderer2D | null
   private readonly _mainRendererType: RendererType
   private readonly _events: NovaEvents<E>
+
+  // Настройки ввода, WebGL context attributes и глобальный renderer config.
   private readonly _inputOptions: ResolvedNovaInputOptions
   private readonly _webglAttributes?: WebGLContextAttributes
   private _rendererConfig: NovaRendererConfig
+
+  // Порядок surfaces нужен для стабильного compositing и hit-test.
   private readonly _surfaceOrder = new WeakMap<NovaSurface<E>, number>()
   private readonly _orderedSurfaces: Array<NovaSurface<E>> = []
   private _surfaceOrderCounter = 0
 
+  // Общие runtime-сервисы приложения.
   readonly store = new NovaStore()
   readonly schema: NovaSchemaRegistry
   readonly components = new NovaComponentRegistry()
@@ -51,20 +59,21 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   readonly bus: EventBus<E>
   readonly metrics: NovaMetrics
 
-  // NovaAppOptions
+  // Текущее состояние debug-режима.
   private _debug: boolean | string | string[] = false
 
-  // Системные
+  // Счетчики для диагностики сцен и графа.
   __tasks = 0
   __groups = 0
+
+  // Внутренний debugger и состояние keyboard routing.
   private readonly __debugger = new NovaDebug()
   private _keyboardActive = false
   private _keyboardHovered = false
 
-  //
-  // CTOR
-  //
-
+  /**
+   * Создает приложение, подключает canvas, input, renderer и Raph-loop.
+   */
   constructor(options: NovaAppCreateOptions<E>) {
     if (!(options.target instanceof HTMLCanvasElement)) {
       throw new Error('NovaApp target must be an HTMLCanvasElement')
@@ -95,10 +104,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       Telemetry.enabled = options.debug.telemetry
     }
 
-    // events
+    // Подключаем DOM-события после создания bus и input options.
     this.setupEventListeners()
 
-    // Raph core
+    // Инициализируем Raph core и root node.
     const conf = Raph.configureLocal<NovaNodeProperties, NovaApp<E>, NovaNode<E>>(
       () => this,
       () => new NovaNode(this),
@@ -117,9 +126,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
   }
 
-  //
-  // RAPH CORE
-  //
+  /**
+   * Запускает начало кадра, motion engine и frame-level diagnostics.
+   */
   @RaphLocalPhase({ name: 'before', priority: -1, always: true })
   before(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
     this.metrics.markFrameStart()
@@ -127,6 +136,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.motion.tick(p.frame)
   }
 
+  /**
+   * Выполняет preupdate-фазу для dirty nodes.
+   */
   @RaphLocalPhase({ name: 'preupdate', priority: 0 })
   preupdate(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
     this.__debugger.phaseStart('preupdate')
@@ -134,6 +146,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.__debugger.phaseEnd()
   }
 
+  /**
+   * Выполняет update-фазу для dirty nodes.
+   */
   @RaphLocalPhase({ name: 'update', priority: 1 })
   update(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
     this.__debugger.phaseStart('update')
@@ -141,6 +156,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.__debugger.phaseEnd()
   }
 
+  /**
+   * Выполняет matrix-фазу и обновляет transform state dirty nodes.
+   */
   @RaphLocalPhase({ name: 'matrix', priority: 2 })
   matrix(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
     this.__debugger.phaseStart('matrix')
@@ -148,6 +166,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.__debugger.phaseEnd()
   }
 
+  /**
+   * Собирает dirty surfaces и запускает render от корня каждого surface.
+   */
   @RaphLocalPhase({ name: 'render', priority: 3, mode: 'dirty' })
   render(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
     this.__debugger.phaseStart('render')
@@ -166,8 +187,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       }
     }
 
-    // Render всегда идет от корня surface, чтобы дочерние dirty-ноды
-    // не рисовались поверх уже собранного слоя повторно.
+    // Render всегда идет от корня surface, чтобы дочерние dirty-ноды не рисовались поверх слоя повторно.
     for (const surface of dirtySurfaces) {
       surface.doRender()
     }
@@ -175,6 +195,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.__debugger.phaseEnd()
   }
 
+  /**
+   * Композитит Web2D surfaces в основной canvas и фиксирует факт отрисовки.
+   */
   @RaphLocalPhase({ name: 'flush', priority: 4 })
   flush(): void {
     this.__debugger.phaseStart('flush')
@@ -193,26 +216,39 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.__debugger.phaseEnd()
   }
 
+  /**
+   * Завершает кадр и обновляет frame-level metrics.
+   */
   @RaphLocalPhase({ name: 'after', priority: 10, always: true })
   after(): void {
     this.__debugger.frameEnd()
     this.metrics.markFrameEnd()
   }
 
-  // При наличии изменений запустит нужные фазы у нужных узлов.
-  // (Сам по себе не несет нагрузки, если нет изменений)
+  /**
+   * Планирует выполнение Raph-фаз при наличии dirty nodes.
+   */
   invalidate(): void {
     this.raph.invalidate()
   }
 
+  /**
+   * Запускает постоянный scheduler loop.
+   */
   startLoop(): void {
     this.raph.startLoop()
   }
 
+  /**
+   * Останавливает постоянный scheduler loop.
+   */
   stopLoop(): void {
     this.raph.stopLoop()
   }
 
+  /**
+   * Применяет runtime-настройки приложения без пересоздания NovaApp.
+   */
   options(opts: Partial<NovaAppOptions>): void {
     if (opts.debug !== undefined) {
       this._debug = opts.debug
@@ -242,37 +278,54 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
   }
 
+  /**
+   * Передает DOM-событие в Nova event system.
+   */
   handleEvent(type: keyof NovaNodeEventHandlers, event: Event): boolean {
     return this._events.handle(type, event)
   }
 
+  /**
+   * Переключает стратегию hit-test для интерактивных nodes.
+   */
   setHitTestMode(mode: NovaHitTestMode): void {
     this._events.hitTestMode = mode
   }
 
+  /**
+   * Обновляет глобальный renderer config с учетом текущих defaults.
+   */
   configureRenderer(config: NovaRendererConfigInput): NovaRendererConfig {
     this._rendererConfig = resolveNovaRendererConfig(config, this._rendererConfig)
     return this._rendererConfig
   }
 
+  /**
+   * Создает, монтирует и возвращает сцену, привязанную к этому приложению.
+   */
   createScene<T extends NovaScene<E>>(SceneClass: new (app: NovaApp<E>, ...args: any[]) => T, ...args: any[]): T {
     const scene = new SceneClass(this, ...args)
     scene.mount()
     return scene
   }
 
-  //
-  // PROPERTIES
-  //
-
+  /**
+   * Возвращает Raph runtime приложения.
+   */
   get raph(): RaphApp<NovaNodeProperties> {
     return this._raph
   }
 
+  /**
+   * Возвращает canvas wrapper приложения.
+   */
   get canvas(): NovaCanvas {
     return this._canvas
   }
 
+  /**
+   * Возвращает Web2D renderer для production Web2D mode.
+   */
   get renderer(): NovaRenderer2D {
     if (!this._renderer) {
       throw new Error('NovaApp.renderer is available only when main renderer is RendererType.Web2D.')
@@ -280,54 +333,86 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return this._renderer
   }
 
+  /**
+   * Возвращает Nova event system.
+   */
   get events(): NovaEvents<E> {
     return this._events
   }
 
+  /**
+   * Возвращает surfaces, подключенные к root Raph graph.
+   */
   get surfaces(): NovaSurface<E>[] {
     return this.raph.root.children as unknown as NovaSurface<E>[]
   }
 
+  /**
+   * Возвращает runtime debugger приложения.
+   */
   get debugger(): NovaDebug {
     return this.__debugger
   }
 
+  /**
+   * Возвращает текущую ширину root canvas в logical pixels.
+   */
   get width(): number {
     return this.raph.root.get('width')
   }
 
+  /**
+   * Возвращает текущую высоту root canvas в logical pixels.
+   */
   get height(): number {
     return this.raph.root.get('height')
   }
 
+  /**
+   * Возвращает фактический device pixel ratio canvas.
+   */
   get dpr(): number {
     return this.canvas.dpr
   }
 
+  /**
+   * Возвращает верхнее ограничение device pixel ratio.
+   */
   get maxDpr(): number {
     return this.canvas.maxDpr
   }
 
+  /**
+   * Возвращает WebGL context attributes, переданные при создании приложения.
+   */
   get webglAttributes(): WebGLContextAttributes | undefined {
     return this._webglAttributes
   }
 
+  /**
+   * Возвращает основной renderer type приложения.
+   */
   get mainRendererType(): RendererType {
     return this._mainRendererType
   }
 
+  /**
+   * Возвращает актуальный глобальный renderer config.
+   */
   get rendererConfig(): NovaRendererConfig {
     return this._rendererConfig
   }
 
+  /**
+   * Возвращает resolved input options.
+   */
   get inputOptions(): ResolvedNovaInputOptions {
     return this._inputOptions
   }
 
-  //
-  // STATE
-  //
-
+  /**
+   * Создает logical surface, который рендерится через Web2D backend.
+   */
   createSurface2D<T extends NovaSurface<E>>(
     name: string,
     SurfaceClass: new (...args: any[]) => T = NovaSurface<E> as any,
@@ -337,6 +422,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return this.addSurface(surface)
   }
 
+  /**
+   * Создает logical surface, который рендерится через WebGL backend.
+   */
   createSurfaceWebGL<T extends NovaSurface<E>>(
     name: string,
     SurfaceClass: new (...args: any[]) => T = NovaSurface as any,
@@ -346,6 +434,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return this.addSurface(surface)
   }
 
+  /**
+   * Добавляет surface в Raph graph, монтирует subtree и обновляет порядок слоев.
+   */
   addSurface<T extends NovaSurface<E>>(surface: T): T {
     this.ensureSurfaceOrder(surface)
 
@@ -355,7 +446,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       height: this.height,
     })
 
-    // Добавляем в RaphGraph
+    // Добавляем в Raph graph.
     this.raph.addNode(surface as unknown as RaphNode<NovaNodeProperties>)
     surface.mountSubtree()
     this.invalidate()
@@ -363,6 +454,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return surface
   }
 
+  /**
+   * Возвращает surfaces в порядке compositing.
+   */
   private getOrderedSurfaces(): Array<NovaSurface<E>> {
     this._orderedSurfaces.length = 0
 
@@ -382,25 +476,40 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return this._orderedSurfaces
   }
 
+  /**
+   * Фиксирует стабильный порядок добавления surface, если он еще не был сохранен.
+   */
   private ensureSurfaceOrder(surface: NovaSurface<E>): void {
     if (this._surfaceOrder.has(surface)) return
     this._surfaceOrder.set(surface, this._surfaceOrderCounter++)
   }
 
+  /**
+   * Возвращает стабильный индекс добавления surface.
+   */
   private surfaceOrderOf(surface: NovaSurface<E>): number {
     this.ensureSurfaceOrder(surface)
     return this._surfaceOrder.get(surface)!
   }
 
+  /**
+   * Регистрирует node в интерактивном индексе событий.
+   */
   registerInteractiveNode(node: NovaNode<E>): void {
     this._events.interactiveNodes.add(node)
     this._events.markSpatialDirty(node)
   }
 
+  /**
+   * Удаляет node из всех event indexes и active references.
+   */
   unregisterInteractiveNode(node: NovaNode<E>): void {
     this._events.removeNodeReferences(node)
   }
 
+  /**
+   * Сравнивает две nodes по итоговому visual order с учетом surface и hierarchy.
+   */
   compareRenderOrder(a: NovaNode<E>, b: NovaNode<E>): number {
     if (a === b) return 0
     if (a.surface !== b.surface) {
@@ -421,6 +530,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return aStamp.length - bStamp.length
   }
 
+  /**
+   * Строит числовой stamp, который описывает положение node в render order.
+   */
   getRenderOrderStamp(node: NovaNode<E>): number[] {
     const path = this.getRenderPath(node)
     const stamp: number[] = [node.surface.weight, this.surfaceOrderOf(node.surface)]
@@ -434,6 +546,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return stamp
   }
 
+  /**
+   * Возвращает путь от surface root до указанной node.
+   */
   private getRenderPath(node: NovaNode<E>): Array<NovaNode<E>> {
     const path: Array<NovaNode<E>> = []
     let current: unknown = node
@@ -446,6 +561,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return path
   }
 
+  /**
+   * Меняет размеры root canvas и синхронизирует dimensions всех surfaces.
+   */
   resize(size: Partial<NovaSizeOptions> = {}): void {
     const root = this.raph.root!
 
@@ -468,6 +586,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.raph.invalidate()
   }
 
+  /**
+   * Освобождает runtime, события, metrics, surfaces и canvas.
+   */
   destroy(): void {
     this.motion.destroy()
 
@@ -497,13 +618,15 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this.raph.clear()
   }
 
-  //
-  // SYSTEM
-  //
-
+  // Зарегистрированные window event handlers для корректного destroy.
   private _boundWindowEvents: Record<string, (e: Event) => void> = {}
+
+  // Зарегистрированные canvas event handlers для корректного destroy.
   private _boundCanvasEvents: Record<string, (e: Event) => void> = {}
 
+  /**
+   * Подключает pointer и keyboard listeners согласно input options.
+   */
   private setupEventListeners(): void {
     if (this._inputOptions.pointer.enabled) {
       for (const domEvent of ['contextmenu', 'mousemove', 'mousedown', 'mouseup', 'wheel'] as const) {
@@ -569,6 +692,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
   }
 
+  /**
+   * Нормализует пользовательские input options в полный resolved config.
+   */
   private resolveInputOptions(options: NovaInputOptions = {}): ResolvedNovaInputOptions {
     return {
       pointer: {
@@ -584,6 +710,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
   }
 
+  /**
+   * Проверяет, должен ли NovaApp обрабатывать конкретное keyboard event.
+   */
   private shouldHandleKeyboardEvent(event: KeyboardEvent): boolean {
     const options = this._inputOptions.keyboard
 
@@ -606,6 +735,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     return false
   }
 
+  /**
+   * Применяет preventDefault для keyboard event согласно настройкам input.
+   */
   private applyKeyboardPreventDefault(event: KeyboardEvent, handled: boolean): void {
     const preventDefault = this._inputOptions.keyboard.preventDefault
 
@@ -614,6 +746,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
   }
 
+  /**
+   * Проверяет, является ли target редактируемым DOM-элементом.
+   */
   private isEditableTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) return false
 
