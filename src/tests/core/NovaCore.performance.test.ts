@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { EventList } from '@endge/utils'
 import {
   Nova,
   NovaContainer,
@@ -10,15 +11,14 @@ import {
   RendererType,
   type NovaApp,
 } from '@/index'
-import type { EventList } from '@endge/utils'
 
 type TestEvents = EventList
 
 type AuditLog = {
-  renders: string[]
-  updates: string[]
-  surfaceFlushes: string[]
-  surfaceRenders: string[]
+  renders: Array<string>
+  updates: Array<string>
+  surfaceFlushes: Array<string>
+  surfaceRenders: Array<string>
 }
 
 function createAuditLog(): AuditLog {
@@ -734,7 +734,7 @@ describe('Nova core behavior and performance smoke', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface2D('scene', AuditSurface, log)
-    const order: string[] = []
+    const order: Array<string> = []
     const group = surface.createNode(AuditNode, 'group', log)
     const child = new AuditNode(app, surface, 'child', log)
 
@@ -756,7 +756,7 @@ describe('Nova core behavior and performance smoke', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface2D('scene', AuditSurface, log)
-    const order: string[] = []
+    const order: Array<string> = []
     const group = surface.createNode(AuditNode, 'group', log)
     const child = new AuditNode(app, surface, 'child', log)
 
@@ -1022,7 +1022,7 @@ describe('Nova core behavior and performance smoke', () => {
       x: (index % 200) * 12,
       y: Math.floor(index / 200) * 12,
     }))
-    const nodes = positions.map((position) => ({
+    const nodes = positions.map(position => ({
       active: true,
       visible: true,
       getRenderBounds: () => ({

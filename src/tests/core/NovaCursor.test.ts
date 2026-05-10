@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { EventList } from '@endge/utils'
 import {
   Nova,
   NovaComponentNode,
@@ -14,7 +15,6 @@ import {
   type NovaSchema,
   type NovaSurface,
 } from '@/index'
-import type { EventList } from '@endge/utils'
 
 type TestEvents = EventList
 

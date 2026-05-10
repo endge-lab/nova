@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import {
+import type {
+  NovaNode ,
   Nova,
-  NovaNode,
   RaphSchedulerType,
   RendererType,
   NovaRendererWebGL,

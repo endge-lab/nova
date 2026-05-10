@@ -44,7 +44,7 @@ export class NovaGraphics {
       stripeWidth: number
       angle?: number
       sizeK?: number
-    }
+    },
   ): HTMLCanvasElement | null {
     if (this.assetsMap.has(name)) {
       console.warn(`Pattern "${name}" already exists`)

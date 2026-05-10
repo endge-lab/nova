@@ -1,3 +1,5 @@
+import type { ConstructorOrFactory , EventList } from '@endge/utils'
+import { createInstance } from '@endge/utils'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import { NovaCanvas } from '@/model/platform/NovaCanvas'
 import { assertNovaRendererTypeImplemented, createNovaRenderer } from '@/model/render/backends/NovaRendererFactory'
@@ -19,9 +21,6 @@ import {
 import type { NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaNodeProperties } from '@/domain/types/base.types'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { ConstructorOrFactory } from '@endge/utils'
-import { createInstance } from '@endge/utils'
-import type { EventList } from '@endge/utils'
 
 /**
  * Описывает logical surface, который связывает subtree, viewport и renderer pipeline.
@@ -223,8 +222,8 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
    * Создает node.
    */
   createNode<T extends NovaNode<E>>(
-    NodeClassOrFactory?: ConstructorOrFactory<T, [NovaApp<E>, NovaSurface<E>, ...any[]]>,
-    ...args: any[]
+    NodeClassOrFactory?: ConstructorOrFactory<T, [NovaApp<E>, NovaSurface<E>, ...Array<any>]>,
+    ...args: Array<any>
   ): T {
     const node: T = NodeClassOrFactory
       ? createInstance(NodeClassOrFactory, this._nova, this, ...args)

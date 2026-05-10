@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { EventList } from '@endge/utils'
 import {
   Nova,
   RaphSchedulerType,
@@ -7,7 +8,6 @@ import {
   type NovaRaphOptions,
   type NovaSoundOptions,
 } from '@/index'
-import type { EventList } from '@endge/utils'
 
 /**
  * Создает mock Canvas2D context для jsdom-тестов Nova.

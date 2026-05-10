@@ -74,4 +74,3 @@ export class NovaComponentRegistry {
     this._nodes.clear()
   }
 }
-

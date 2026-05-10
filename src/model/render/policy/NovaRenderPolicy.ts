@@ -35,7 +35,7 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
     quality: 'balanced',
     mode: 'auto',
     maxAtlasMemoryMB: 128,
-    zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as number[],
+    zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as Array<number>,
     dynamicBuckets: true,
     prewarmAdjacentBuckets: true,
     rasterBudgetMs: 4,
@@ -127,7 +127,7 @@ export function resolveNovaTextRasterScale(config: NovaRendererTextConfig, zoom:
 /**
  * Возвращает отсортированный непустой список zoom buckets.
  */
-function normalizeTextZoomBuckets(buckets: readonly number[]): number[] {
+function normalizeTextZoomBuckets(buckets: ReadonlyArray<number>): Array<number> {
   const normalized = buckets
     .filter(bucket => Number.isFinite(bucket) && bucket > 0)
     .sort((a, b) => a - b)

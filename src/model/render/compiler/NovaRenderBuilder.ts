@@ -41,7 +41,7 @@ export class NovaRenderBuilder implements NovaRenderer {
   }
 
   private readonly _measureCanvas = document.createElement('canvas')
-  private readonly _nodeStack: string[] = []
+  private readonly _nodeStack: Array<string> = []
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -281,7 +281,7 @@ export class NovaRenderBuilder implements NovaRenderer {
     if (items.length < FAST_SCHEMA_BATCH_THRESHOLD) return false
 
     this._writer.drawSchemaBatch(
-      items as NovaSchemaItem<any>[],
+      items as Array<NovaSchemaItem<any>>,
       mode,
       Array.isArray(schema) ? schema.semanticScope : undefined,
       Array.isArray(schema) ? schema.contentVersion : undefined,

@@ -1,7 +1,7 @@
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaLifecycleState } from '@/domain/types/renderer.types'
 import type { EventList } from '@endge/utils'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaLifecycleState } from '@/domain/types/renderer.types'
 
 /**
  * Описывает монтируемую сцену Nova и управляет ее жизненным циклом.

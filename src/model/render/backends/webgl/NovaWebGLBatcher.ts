@@ -5,7 +5,7 @@ import type { NovaRenderItem } from '@/domain/types/rendering/index'
  */
 export interface NovaWebGLRenderBatch {
   key: string
-  items: NovaRenderItem[]
+  items: Array<NovaRenderItem>
 }
 
 /**
@@ -15,8 +15,8 @@ export class NovaWebGLBatcher {
   /**
    * Выполняет внутреннюю операцию build display order batches.
    */
-  buildDisplayOrderBatches(items: NovaRenderItem[]): NovaWebGLRenderBatch[] {
-    const batches: NovaWebGLRenderBatch[] = []
+  buildDisplayOrderBatches(items: Array<NovaRenderItem>): Array<NovaWebGLRenderBatch> {
+    const batches: Array<NovaWebGLRenderBatch> = []
     const ordered = [...items].sort((a, b) => a.order - b.order)
 
     for (const item of ordered) {

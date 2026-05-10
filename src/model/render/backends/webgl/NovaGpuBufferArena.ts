@@ -23,8 +23,8 @@ export class NovaGpuBufferArena {
   private _slotByteLength = 0
   private _nextSlotIndex = 0
   private _nextByteOffset = 0
-  private readonly _freeSlots: NovaGpuBufferSlot[] = []
-  private readonly _dirtyRanges: NovaGpuDirtyByteRange[] = []
+  private readonly _freeSlots: Array<NovaGpuBufferSlot> = []
+  private readonly _dirtyRanges: Array<NovaGpuDirtyByteRange> = []
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -118,7 +118,7 @@ export class NovaGpuBufferArena {
   /**
    * Выполняет внутреннюю операцию consume dirty ranges.
    */
-  consumeDirtyRanges(): NovaGpuDirtyByteRange[] {
+  consumeDirtyRanges(): Array<NovaGpuDirtyByteRange> {
     const ranges = this.mergeDirtyRanges(this._dirtyRanges)
     this._dirtyRanges.length = 0
     return ranges
@@ -127,7 +127,7 @@ export class NovaGpuBufferArena {
   /**
    * Проверяет, нужно ли выполнить upload full.
    */
-  shouldUploadFull(byteLength: number, dirtyRanges: NovaGpuDirtyByteRange[]): boolean {
+  shouldUploadFull(byteLength: number, dirtyRanges: Array<NovaGpuDirtyByteRange>): boolean {
     if (byteLength <= 0 || dirtyRanges.length === 0) return false
     const dirtyBytes = dirtyRanges.reduce((sum, range) => sum + Math.max(0, range.end - range.start), 0)
     return dirtyBytes / byteLength >= this._fullUploadDirtyRatio
@@ -136,11 +136,11 @@ export class NovaGpuBufferArena {
   /**
    * Объединяет dirty ranges.
    */
-  mergeDirtyRanges(ranges: NovaGpuDirtyByteRange[]): NovaGpuDirtyByteRange[] {
+  mergeDirtyRanges(ranges: Array<NovaGpuDirtyByteRange>): Array<NovaGpuDirtyByteRange> {
     if (ranges.length <= 1) return ranges
 
     const sorted = [...ranges].sort((a, b) => a.start - b.start)
-    const merged: NovaGpuDirtyByteRange[] = []
+    const merged: Array<NovaGpuDirtyByteRange> = []
 
     for (const range of sorted) {
       const last = merged[merged.length - 1]

@@ -1,8 +1,8 @@
+import type { EventList } from '@endge/utils'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaComponentDescriptor } from '@/domain/types/component.types'
-import type { EventList } from '@endge/utils'
 import type { NovaMotionOptions, NovaMotionPlayback } from '@/domain/types/motion.types'
 
 /**
@@ -45,9 +45,9 @@ export abstract class NovaComponentNode<
    * Обновляет props.
    */
   setProps(patch: Partial<TProps>): this {
-    const changedKeys: (keyof TProps)[] = []
+    const changedKeys: Array<keyof TProps> = []
 
-    for (const key of Object.keys(patch) as (keyof TProps)[]) {
+    for (const key of Object.keys(patch) as Array<keyof TProps>) {
       const nextValue = patch[key]
       if (nextValue === undefined || this.props[key] === nextValue) continue
       this.props[key] = nextValue as TProps[typeof key]
@@ -86,7 +86,7 @@ export abstract class NovaComponentNode<
   /**
    * Обрабатывает событие props changed.
    */
-  protected onPropsChanged(_changedKeys: (keyof TProps)[]): void {}
+  protected onPropsChanged(_changedKeys: Array<keyof TProps>): void {}
 
   /**
    * Выполняет внутреннюю операцию transition to.
@@ -98,7 +98,7 @@ export abstract class NovaComponentNode<
   /**
    * Вычисляет dirty.
    */
-  private resolveDirty(changedKeys: (keyof TProps)[]): { matrix?: boolean; update?: boolean; render?: boolean } {
+  private resolveDirty(changedKeys: Array<keyof TProps>): { matrix?: boolean; update?: boolean; render?: boolean } {
     const policy = this.descriptor.dirtyPolicy
     if (!policy) return { update: true, render: true }
 
@@ -118,7 +118,7 @@ export abstract class NovaComponentNode<
 /**
  * Выполняет внутреннюю операцию intersects.
  */
-function intersects<T>(changedKeys: readonly T[], policyKeys?: readonly T[]): boolean {
+function intersects<T>(changedKeys: ReadonlyArray<T>, policyKeys?: ReadonlyArray<T>): boolean {
   if (!policyKeys?.length) return false
   return changedKeys.some(key => policyKeys.includes(key))
 }

@@ -1,10 +1,9 @@
-import { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { EventList } from '@endge/utils'
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaNodeEventHandlers , NovaDragEventMeta } from '@/domain/types/events.types'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import { NovaSpatialIndex } from '@/model/runtime/interaction/NovaSpatialIndex'
 import type { NovaHitTestMode } from '@/domain/types/renderer.types'
-import type { NovaDragEventMeta } from '@/domain/types/events.types'
 
 /**
  * Описывает тип NovaPointerDomEvent.

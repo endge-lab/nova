@@ -1,3 +1,5 @@
+import { randomString } from '@endge/utils'
+import type { mat3 } from 'gl-matrix'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type {
   NovaBorder,
@@ -12,8 +14,6 @@ import type {
   NovaText,
   NovaTextChunk,
 } from '@/domain/types/renderer.types'
-import { randomString } from '@endge/utils'
-import type { mat3 } from 'gl-matrix'
 import { NovaGraphics } from '@/model/platform/NovaGraphics'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
@@ -353,12 +353,12 @@ export class NovaRenderer2D implements NovaRenderer {
   } {
     if (!padding) return { left: 0, right: 0, top: 0, bottom: 0 }
     if ('all' in padding)
-      return {
+      {return {
         left: padding.all,
         right: padding.all,
         top: padding.all,
         bottom: padding.all,
-      }
+      }}
     if ('horizontal' in padding || 'vertical' in padding) {
       return {
         left: padding.horizontal || 0,
@@ -801,12 +801,12 @@ export class NovaRenderer2D implements NovaRenderer {
   /**
    * Выполняет внутреннюю операцию parse markdown to chunks.
    */
-  private _parseMarkdownToChunks(input: string): NovaTextChunk[] {
+  private _parseMarkdownToChunks(input: string): Array<NovaTextChunk> {
     if (!input?.length) {
       return [{ text: '' }]
     }
     const lines = input.split('\n')
-    const chunks: NovaTextChunk[] = []
+    const chunks: Array<NovaTextChunk> = []
 
     for (const line of lines) {
       const parts = line.split(/(\*\*[^*]+\*\*|_[^_]+_)/g)

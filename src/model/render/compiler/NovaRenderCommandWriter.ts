@@ -15,8 +15,8 @@ import type { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderF
  * Записывает render commands в instruction buffer и поддерживает clip stack.
  */
 export class NovaRenderCommandWriter {
-  private readonly _transformStack: mat3[] = []
-  private readonly _clipStack: NovaRenderClip[] = []
+  private readonly _transformStack: Array<mat3> = []
+  private readonly _clipStack: Array<NovaRenderClip> = []
   private _currentTransform = mat3.create()
   private _itemId = 0
   private _commandId = 0
@@ -147,7 +147,7 @@ export class NovaRenderCommandWriter {
    * Выполняет внутреннюю операцию draw schema batch.
    */
   drawSchemaBatch(
-    items: NovaSchemaItem<any>[],
+    items: Array<NovaSchemaItem<any>>,
     mode: 'batched' | 'ordered' = 'batched',
     semanticScope?: NovaSemanticScopeKind,
     contentVersion?: number,

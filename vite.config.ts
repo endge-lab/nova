@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config'
 import path from 'path'
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import dts from 'vite-plugin-dts'
 
@@ -11,7 +11,7 @@ const externalPackages = [
 ]
 
 function isExternal(id: string): boolean {
-  return externalPackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))
+  return externalPackages.some(pkg => id === pkg || id.startsWith(`${pkg}/`))
 }
 
 export default defineConfig({

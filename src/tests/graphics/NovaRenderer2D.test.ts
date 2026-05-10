@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 
-function createContextSpy(): CanvasRenderingContext2D & { calls: string[] } {
-  const calls: string[] = []
+function createContextSpy(): CanvasRenderingContext2D & { calls: Array<string> } {
+  const calls: Array<string> = []
   const state: Record<PropertyKey, any> = {
     canvas: document.createElement('canvas'),
     calls,
-    setTransform: (...args: number[]) => calls.push(`setTransform:${args.join(':')}`),
-    clearRect: (...args: number[]) => calls.push(`clearRect:${args.join(':')}`),
-    scale: (...args: number[]) => calls.push(`scale:${args.join(':')}`),
+    setTransform: (...args: Array<number>) => calls.push(`setTransform:${args.join(':')}`),
+    clearRect: (...args: Array<number>) => calls.push(`clearRect:${args.join(':')}`),
+    scale: (...args: Array<number>) => calls.push(`scale:${args.join(':')}`),
   }
 
   return new Proxy(state, {
@@ -23,7 +23,7 @@ function createContextSpy(): CanvasRenderingContext2D & { calls: string[] } {
       target[prop] = value
       return true
     },
-  }) as CanvasRenderingContext2D & { calls: string[] }
+  }) as CanvasRenderingContext2D & { calls: Array<string> }
 }
 
 function createCanvasStub(context: CanvasRenderingContext2D): NovaCanvas {

@@ -88,7 +88,7 @@ export interface NovaRendererTextConfig {
   quality: 'performance' | 'balanced' | 'quality'
   mode: 'auto' | 'run-atlas' | 'glyph-atlas' | 'msdf'
   maxAtlasMemoryMB: number
-  zoomBuckets: number[]
+  zoomBuckets: Array<number>
   dynamicBuckets: boolean
   prewarmAdjacentBuckets: boolean
   rasterBudgetMs: number
@@ -297,7 +297,7 @@ export interface NovaRenderStream {
   slotCapacity: number
   slotCount: number
   version: number
-  slots: NovaRenderStreamSlot[]
+  slots: Array<NovaRenderStreamSlot>
 }
 
 /**
@@ -324,7 +324,7 @@ export interface NovaBatchPlan {
   groupId: NovaRenderGroupId
   semanticScope?: NovaSemanticScopeKind
   version: number
-  batches: NovaRenderBatch[]
+  batches: Array<NovaRenderBatch>
 }
 
 /**
@@ -376,7 +376,7 @@ export interface NovaRenderCommand {
   groupId?: NovaRenderGroupId
   layerId?: NovaRenderLayerId
   itemId?: NovaRenderItemId
-  schemaItems?: NovaSchemaItem<any>[]
+  schemaItems?: Array<NovaSchemaItem<any>>
   schemaMode?: 'batched' | 'ordered'
   schemaSemanticScope?: NovaSemanticScopeKind
   schemaContentVersion?: number
@@ -392,8 +392,8 @@ export interface NovaRenderCommand {
 export interface NovaInstructionBuffer {
   id: string
   version: number
-  commands: NovaRenderCommand[]
-  items: NovaRenderItem[]
+  commands: Array<NovaRenderCommand>
+  items: Array<NovaRenderItem>
   reused: boolean
 }
 
@@ -412,14 +412,14 @@ export interface NovaRenderGroup {
   dirtyFlags: NovaRenderDirtyFlags
   versions: NovaRenderVersions
   instructionBuffer: NovaInstructionBuffer
-  renderHandlesByNodeId?: Map<string, NovaRenderHandle[]>
+  renderHandlesByNodeId?: Map<string, Array<NovaRenderHandle>>
   streams?: Map<NovaRenderStreamId, NovaRenderStream>
   batchPlan?: NovaBatchPlan
   chunkBounds?: NovaBounds
   semanticScope?: NovaSemanticScopeKind
   cacheTargetId?: NovaRenderTargetId
   visible?: boolean
-  childGroupIds: NovaRenderGroupId[]
+  childGroupIds: Array<NovaRenderGroupId>
   bounds?: NovaBounds
   lastCompiledVersion: number
   lastRenderedVersion: number
@@ -492,11 +492,11 @@ export interface NovaRenderFrame {
   surfaceId: string
   rendererType: RendererType
   viewport: NovaRenderViewport
-  layers: NovaRenderLayer[]
-  targets: NovaRenderTarget[]
-  groups: NovaRenderGroup[]
-  items: NovaRenderItem[]
-  commands: NovaRenderCommand[]
+  layers: Array<NovaRenderLayer>
+  targets: Array<NovaRenderTarget>
+  groups: Array<NovaRenderGroup>
+  items: Array<NovaRenderItem>
+  commands: Array<NovaRenderCommand>
   resourceDelta: NovaRenderResourceDelta
   metrics: NovaRenderMetrics
 }

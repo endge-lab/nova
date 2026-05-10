@@ -214,7 +214,7 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     return top
   }
 
-  private getCursorCandidates(x: number, y: number): NovaNode<E>[] {
+  private getCursorCandidates(x: number, y: number): Array<NovaNode<E>> {
     if (this._spatialFullDirty) {
       this._spatialIndex.rebuild(this.cursorNodes)
       this._spatialDirtyNodes.clear()
@@ -347,7 +347,7 @@ export function resolveNovaCursorValue<E extends EventList>(
 }
 
 function resolveRuleCursor<E extends EventList>(
-  rules: NovaCursorRule[],
+  rules: Array<NovaCursorRule>,
   state: NovaCursorRuntimeState<E>,
 ): NovaCursorValue | null {
   for (const rule of rules) {
@@ -374,7 +374,7 @@ function cursorRuleMatches<E extends EventList>(
 }
 
 function stateMatches<E extends EventList>(
-  required: NovaCursorStateName | NovaCursorStateName[],
+  required: NovaCursorStateName | Array<NovaCursorStateName>,
   state: NovaCursorRuntimeState<E>,
 ): boolean {
   const states = Array.isArray(required) ? required : [required]

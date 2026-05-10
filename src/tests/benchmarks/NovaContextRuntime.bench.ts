@@ -103,7 +103,7 @@ function createInjectFixture(count: number) {
   const surface = app.createSurface2D('inject')
   const token = createNovaContextToken<{ id: number }>('bench.inject')
   const provider = createBenchNode(app, surface)
-  const nodes: BenchNode[] = []
+  const nodes: Array<BenchNode> = []
 
   provider.provide(token, { id: 1 })
   for (let i = 0; i < count; i++) {

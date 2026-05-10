@@ -66,7 +66,7 @@ export type NovaMotionKeyframe = NovaMotionPatch & {
 export interface NovaMotionTrack {
   target: NovaMotionTarget
   at?: number
-  keyframes: NovaMotionKeyframe[]
+  keyframes: Array<NovaMotionKeyframe>
   easing?: NovaMotionOptions['easing']
   duration?: number
 }
@@ -86,7 +86,7 @@ export interface NovaMotionSequenceItem {
  * Описывает контракт NovaMotionStaggerOptions.
  */
 export interface NovaMotionStaggerOptions {
-  targets: NovaMotionTarget[]
+  targets: Array<NovaMotionTarget>
   patch: NovaMotionPatch
   each: number
   duration?: number
@@ -97,8 +97,8 @@ export interface NovaMotionStaggerOptions {
  * Описывает контракт NovaMotionTimelineOptions.
  */
 export interface NovaMotionTimelineOptions extends NovaMotionOptions {
-  tracks?: NovaMotionTrack[]
-  sequence?: NovaMotionSequenceItem[]
+  tracks?: Array<NovaMotionTrack>
+  sequence?: Array<NovaMotionSequenceItem>
   stagger?: NovaMotionStaggerOptions
 }
 

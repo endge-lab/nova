@@ -6,8 +6,8 @@ import type { NovaBounds } from '@/domain/types/renderer.types'
  */
 export interface NovaRenderCullingResult {
   testedGroups: number
-  visibleGroups: NovaRenderGroup[]
-  culledGroupIds: string[]
+  visibleGroups: Array<NovaRenderGroup>
+  culledGroupIds: Array<string>
 }
 
 /**
@@ -46,8 +46,8 @@ export function isNovaRenderGroupVisible(group: NovaRenderGroup, viewport: NovaR
  * Выполняет публичную операцию collect visible nova render groups.
  */
 export function collectVisibleNovaRenderGroups(groups: Iterable<NovaRenderGroup>, viewport: NovaRenderViewport): NovaRenderCullingResult {
-  const visibleGroups: NovaRenderGroup[] = []
-  const culledGroupIds: string[] = []
+  const visibleGroups: Array<NovaRenderGroup> = []
+  const culledGroupIds: Array<string> = []
   let testedGroups = 0
 
   for (const group of groups) {

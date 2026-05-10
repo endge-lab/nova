@@ -18,7 +18,7 @@ export interface NovaCompiledBoxStyle {
   borderColor: NovaParsedColor
   borderWidth: number
   borderRadius: number
-  dashPattern?: number[]
+  dashPattern?: Array<number>
 }
 
 /**
@@ -93,7 +93,7 @@ export function compileNovaCircleStyle(circle: NovaCircle): NovaCompiledBoxStyle
 /**
  * Компилирует nova line style.
  */
-export function compileNovaLineStyle(line: NovaLine): { color: NovaParsedColor; width: number; opacity: number; dashPattern?: number[] } {
+export function compileNovaLineStyle(line: NovaLine): { color: NovaParsedColor; width: number; opacity: number; dashPattern?: Array<number> } {
   return {
     color: parseNovaColor(line.styles?.color, 0x000000ff),
     width: line.styles?.width ?? 1,

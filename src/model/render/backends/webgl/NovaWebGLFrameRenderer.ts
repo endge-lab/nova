@@ -188,8 +188,8 @@ interface RasterizedText {
 interface RectBatchCache {
   data: Float32Array
   instances: number
-  itemOffsets: number[]
-  signatures: string[]
+  itemOffsets: Array<number>
+  signatures: Array<string>
   contentVersion?: number
 }
 
@@ -199,8 +199,8 @@ interface RectBatchCache {
 interface TextureBatchCache {
   data: Float32Array
   instances: number
-  itemOffsets: number[]
-  signatures: string[]
+  itemOffsets: Array<number>
+  signatures: Array<string>
   texture: TextureEntry
   upload: WebGLUploadState
   contentVersion?: number
@@ -213,9 +213,9 @@ interface TextureBatchCache {
  * Описывает контракт NonOverlapLayeredBatchCache.
  */
 interface NonOverlapLayeredBatchCache {
-  rects: NovaSchemaItem<any>[]
-  icons: NovaSchemaItem<any>[]
-  texts: NovaSchemaItem<any>[]
+  rects: Array<NovaSchemaItem<any>>
+  icons: Array<NovaSchemaItem<any>>
+  texts: Array<NovaSchemaItem<any>>
 }
 
 /**
@@ -282,7 +282,7 @@ function createWebGLUploadState(): WebGLUploadState {
  * Описывает контракт RectBatchUpdate.
  */
 interface RectBatchUpdate {
-  dirtyRanges: FloatDirtyRange[]
+  dirtyRanges: Array<FloatDirtyRange>
   changedItems: number
 }
 
@@ -290,7 +290,7 @@ interface RectBatchUpdate {
  * Описывает контракт TextureBatchUpdate.
  */
 interface TextureBatchUpdate {
-  dirtyRanges: FloatDirtyRange[]
+  dirtyRanges: Array<FloatDirtyRange>
   changedItems: number
 }
 
@@ -343,14 +343,14 @@ export class NovaWebGLFrameRenderer {
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _textRasterCanvas = document.createElement('canvas')
   private readonly _textures = new Map<string, TextureEntry>()
-  private readonly _textAtlasPages: TextAtlasPage[] = []
+  private readonly _textAtlasPages: Array<TextAtlasPage> = []
   private readonly _textAtlasEntries = new Map<string, TextAtlasEntry>()
   private readonly _textFallbackKeys = new Map<string, string>()
   private readonly _sourceTextureKeys = new WeakMap<object, string>()
-  private readonly _plainRectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
-  private readonly _rectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
-  private readonly _textureBatchCache = new WeakMap<NovaSchemaItem<any>[], TextureBatchCache>()
-  private readonly _semanticBatchCache = new WeakMap<NovaSchemaItem<any>[], NonOverlapLayeredBatchCache>()
+  private readonly _plainRectBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, RectBatchCache>()
+  private readonly _rectBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, RectBatchCache>()
+  private readonly _textureBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, TextureBatchCache>()
+  private readonly _semanticBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, NonOverlapLayeredBatchCache>()
   private readonly _particleCircleBatchCache = new WeakMap<NovaParticleBatch, ParticleCircleBatchCache>()
   private readonly _particleSpriteBatchCache = new WeakMap<NovaParticleBatch, ParticleSpriteBatchCache>()
   private readonly _ownedTextureBatchCaches = new Set<TextureBatchCache>()
@@ -360,16 +360,16 @@ export class NovaWebGLFrameRenderer {
   private readonly _solidUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _textureUpload: WebGLUploadState = createWebGLUploadState()
 
-  private _rectData: number[] = []
+  private _rectData: Array<number> = []
   private _rectCachedData: Float32Array | null = null
-  private _rectCachedDirtyRanges: FloatDirtyRange[] | null = null
-  private _solidData: number[] = []
+  private _rectCachedDirtyRanges: Array<FloatDirtyRange> | null = null
+  private _solidData: Array<number> = []
   private _solidCachedData: Float32Array | null = null
-  private _solidCachedDirtyRanges: FloatDirtyRange[] | null = null
-  private _textureData: number[] = []
+  private _solidCachedDirtyRanges: Array<FloatDirtyRange> | null = null
+  private _textureData: Array<number> = []
   private _textureBatch: TextureEntry | null = null
   private _textureCachedData: Float32Array | null = null
-  private _textureCachedDirtyRanges: FloatDirtyRange[] | null = null
+  private _textureCachedDirtyRanges: Array<FloatDirtyRange> | null = null
   private _textureCachedBatch: TextureBatchCache | null = null
   private _roundedTransform = mat3.create()
   private _solidTransform = mat3.create()
@@ -432,8 +432,8 @@ export class NovaWebGLFrameRenderer {
     const itemMap = frame.items.length > 0 ? new Map(frame.items.map(item => [item.id, item])) : null
     const identity = mat3.create()
     let currentTransform = identity
-    const transformStack: mat3[] = []
-    const clipStack: NovaRenderClip[] = []
+    const transformStack: Array<mat3> = []
+    const clipStack: Array<NovaRenderClip> = []
 
     this._time += 1
     this._viewportWidth = Math.max(1, frame.viewport.width)
@@ -616,7 +616,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Вычисляет schema content version.
    */
-  private resolveSchemaContentVersion(items: NovaSchemaItem<any>[] | undefined, fallback: number | undefined): number | undefined {
+  private resolveSchemaContentVersion(items: Array<NovaSchemaItem<any>> | undefined, fallback: number | undefined): number | undefined {
     return (items as { contentVersion?: number } | undefined)?.contentVersion ?? fallback
   }
 
@@ -624,7 +624,7 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию draw schema batch.
    */
   private drawSchemaBatch(
-    items: NovaSchemaItem<any>[],
+    items: Array<NovaSchemaItem<any>>,
     transform: mat3,
     stats: RenderStats,
     semanticScope?: NovaSemanticScopeKind,
@@ -643,7 +643,7 @@ export class NovaWebGLFrameRenderer {
     }
 
     let batch = this._rectBatchCache.get(items)
-    let dirtyRanges: FloatDirtyRange[] | null = null
+    let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
     if (!batch) {
       const nextBatch = this.buildRectBatch(items)
@@ -684,9 +684,9 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию draw plain rect schema batch.
    */
-  private drawPlainRectSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
+  private drawPlainRectSchemaBatch(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
     let batch = this._plainRectBatchCache.get(items)
-    let dirtyRanges: FloatDirtyRange[] | null = null
+    let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
 
     if (!batch) {
@@ -725,7 +725,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию draw non overlap layered schema batch.
    */
-  private drawNonOverlapLayeredSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
+  private drawNonOverlapLayeredSchemaBatch(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
     if (items.length === 0) return true
 
     const batch = this.resolveNonOverlapLayeredBatch(items)
@@ -747,13 +747,13 @@ export class NovaWebGLFrameRenderer {
   /**
    * Вычисляет non overlap layered batch.
    */
-  private resolveNonOverlapLayeredBatch(items: NovaSchemaItem<any>[]): NonOverlapLayeredBatchCache | null {
+  private resolveNonOverlapLayeredBatch(items: Array<NovaSchemaItem<any>>): NonOverlapLayeredBatchCache | null {
     const cached = this._semanticBatchCache.get(items)
     if (cached) return cached
 
-    const rects: NovaSchemaItem<any>[] = []
-    const icons: NovaSchemaItem<any>[] = []
-    const texts: NovaSchemaItem<any>[] = []
+    const rects: Array<NovaSchemaItem<any>> = []
+    const icons: Array<NovaSchemaItem<any>> = []
+    const texts: Array<NovaSchemaItem<any>> = []
 
     for (const item of items) {
       if (item.active === false) continue
@@ -785,10 +785,10 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию build rect batch.
    */
-  private buildRectBatch(items: NovaSchemaItem<any>[]): RectBatchCache | null {
-    const data: number[] = []
-    const itemOffsets: number[] = new Array(items.length).fill(-1)
-    const signatures: string[] = new Array(items.length).fill('')
+  private buildRectBatch(items: Array<NovaSchemaItem<any>>): RectBatchCache | null {
+    const data: Array<number> = []
+    const itemOffsets: Array<number> = new Array(items.length).fill(-1)
+    const signatures: Array<string> = new Array(items.length).fill('')
     let instances = 0
 
     for (let index = 0; index < items.length; index += 1) {
@@ -828,10 +828,10 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию build plain rect batch.
    */
-  private buildPlainRectBatch(items: NovaSchemaItem<any>[]): RectBatchCache {
-    const data: number[] = []
-    const itemOffsets: number[] = new Array(items.length).fill(-1)
-    const signatures: string[] = new Array(items.length).fill('')
+  private buildPlainRectBatch(items: Array<NovaSchemaItem<any>>): RectBatchCache {
+    const data: Array<number> = []
+    const itemOffsets: Array<number> = new Array(items.length).fill(-1)
+    const signatures: Array<string> = new Array(items.length).fill('')
     let instances = 0
 
     for (let index = 0; index < items.length; index += 1) {
@@ -856,10 +856,10 @@ export class NovaWebGLFrameRenderer {
   /**
    * Обновляет rect batch.
    */
-  private updateRectBatch(items: NovaSchemaItem<any>[], batch: RectBatchCache): RectBatchUpdate | null {
+  private updateRectBatch(items: Array<NovaSchemaItem<any>>, batch: RectBatchCache): RectBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
 
-    const dirtyRanges: FloatDirtyRange[] = []
+    const dirtyRanges: Array<FloatDirtyRange> = []
     let changedItems = 0
 
     for (let index = 0; index < items.length; index += 1) {
@@ -903,12 +903,12 @@ export class NovaWebGLFrameRenderer {
   /**
    * Обновляет plain rect batch.
    */
-  private updatePlainRectBatch(items: NovaSchemaItem<any>[], batch: RectBatchCache): RectBatchUpdate | null {
+  private updatePlainRectBatch(items: Array<NovaSchemaItem<any>>, batch: RectBatchCache): RectBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) {
       return null
     }
 
-    const dirtyRanges: FloatDirtyRange[] = []
+    const dirtyRanges: Array<FloatDirtyRange> = []
     let changedItems = 0
 
     for (let index = 0; index < items.length; index += 1) {
@@ -936,11 +936,11 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию draw texture schema batch.
    */
-  private drawTextureSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
+  private drawTextureSchemaBatch(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
     if (items.length === 0) return true
 
     let batch: TextureBatchCache | null = this._textureBatchCache.get(items) ?? null
-    let dirtyRanges: FloatDirtyRange[] | null = null
+    let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
     const rasterScale = this.resolveTextureRasterScale(items, transform)
 
@@ -991,14 +991,14 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию build texture batch.
    */
   private buildTextureBatch(
-    items: NovaSchemaItem<any>[],
+    items: Array<NovaSchemaItem<any>>,
     stats: RenderStats,
     rasterScale?: number,
     transform?: mat3,
   ): TextureBatchCache | null {
-    const data: number[] = []
-    const itemOffsets: number[] = new Array(items.length).fill(-1)
-    const signatures: string[] = new Array(items.length).fill('')
+    const data: Array<number> = []
+    const itemOffsets: Array<number> = new Array(items.length).fill(-1)
+    const signatures: Array<string> = new Array(items.length).fill('')
     let texture: TextureEntry | null = null
     let instances = 0
 
@@ -1033,7 +1033,7 @@ export class NovaWebGLFrameRenderer {
    * Обновляет texture batch.
    */
   private updateTextureBatch(
-    items: NovaSchemaItem<any>[],
+    items: Array<NovaSchemaItem<any>>,
     batch: TextureBatchCache,
     stats: RenderStats,
     rasterScale?: number,
@@ -1041,7 +1041,7 @@ export class NovaWebGLFrameRenderer {
   ): TextureBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
 
-    const dirtyRanges: FloatDirtyRange[] = []
+    const dirtyRanges: Array<FloatDirtyRange> = []
     let changedItems = 0
 
     for (let index = 0; index < items.length; index += 1) {
@@ -1292,7 +1292,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Вычисляет texture raster scale.
    */
-  private resolveTextureRasterScale(items: NovaSchemaItem<any>[], transform: mat3): number | undefined {
+  private resolveTextureRasterScale(items: Array<NovaSchemaItem<any>>, transform: mat3): number | undefined {
     return items.some(item => item.type === 'text') ? this.resolveTextRasterScale(transform) : undefined
   }
 
@@ -1624,8 +1624,8 @@ export class NovaWebGLFrameRenderer {
     let cache = this._particleCircleBatchCache.get(batch)
     const revision = batch.revision ?? 0
     const staticRevision = batch.staticRevision ?? 0
-    let positionDirty: FloatDirtyRange[] | null = null
-    let staticDirty: FloatDirtyRange[] | null = null
+    let positionDirty: Array<FloatDirtyRange> | null = null
+    let staticDirty: Array<FloatDirtyRange> | null = null
 
     if (!cache || cache.count !== batch.count) {
       cache = this.createCircleParticleCache(batch)
@@ -1684,8 +1684,8 @@ export class NovaWebGLFrameRenderer {
     let cache = this._particleSpriteBatchCache.get(batch)
     const revision = batch.revision ?? 0
     const staticRevision = batch.staticRevision ?? 0
-    let positionDirty: FloatDirtyRange[] | null = null
-    let staticDirty: FloatDirtyRange[] | null = null
+    let positionDirty: Array<FloatDirtyRange> | null = null
+    let staticDirty: Array<FloatDirtyRange> | null = null
 
     if (!cache || cache.count !== batch.count || cache.texture !== texture) {
       cache = this.createSpriteParticleCache(batch, texture)
@@ -1899,7 +1899,7 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию push rounded rect vertices.
    */
   private pushRoundedRectVertices(
-    target: number[],
+    target: Array<number>,
     x: number,
     y: number,
     width: number,
@@ -2008,7 +2008,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию push solid rect vertices.
    */
-  private pushSolidRectVertices(target: number[], x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number, meta?: NovaShaderRenderMeta | null): void {
+  private pushSolidRectVertices(target: Array<number>, x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number, meta?: NovaShaderRenderMeta | null): void {
     const animation = resolveAnimationVector(meta)
     this.pushSolidVertexTo(target, x, y, fill, opacity, animation)
     this.pushSolidVertexTo(target, x + width, y, fill, opacity, animation)
@@ -2083,7 +2083,7 @@ export class NovaWebGLFrameRenderer {
     opacity: number,
     transform: mat3,
     stats: RenderStats,
-    dashPattern?: number[],
+    dashPattern?: Array<number>,
   ): void {
     if (width <= 0 || color.a <= 0) return
     if (dashPattern?.length && dashPattern[0] > 0 && dashPattern[1] > 0) {
@@ -2124,7 +2124,7 @@ export class NovaWebGLFrameRenderer {
     opacity: number,
     transform: mat3,
     stats: RenderStats,
-    dashPattern: number[],
+    dashPattern: Array<number>,
   ): void {
     const dash = dashPattern[0] ?? 0
     const gap = dashPattern[1] ?? 0
@@ -2187,7 +2187,7 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию push texture quad vertices.
    */
   private pushTextureQuadVertices(
-    target: number[],
+    target: Array<number>,
     x: number,
     y: number,
     width: number,
@@ -2260,7 +2260,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию push solid vertex to.
    */
-  private pushSolidVertexTo(target: number[], x: number, y: number, color: NovaParsedColor, opacity: number, animation = EMPTY_SHADER_ANIMATION): void {
+  private pushSolidVertexTo(target: Array<number>, x: number, y: number, color: NovaParsedColor, opacity: number, animation = EMPTY_SHADER_ANIMATION): void {
     target.push(x, y, color.r, color.g, color.b, color.a * opacity, animation.phase, animation.speed, animation.amplitude)
   }
 
@@ -2392,7 +2392,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию upload array buffer.
    */
-  private uploadArrayBuffer(data: Float32Array, state: WebGLUploadState, stats: RenderStats, dirtyRanges: FloatDirtyRange[] | null = null): void {
+  private uploadArrayBuffer(data: Float32Array, state: WebGLUploadState, stats: RenderStats, dirtyRanges: Array<FloatDirtyRange> | null = null): void {
     const gl = this._gl
     stats.gpuBufferCapacityBytes += Math.max(state.capacityBytes, data.byteLength)
 
@@ -2590,12 +2590,18 @@ export class NovaWebGLFrameRenderer {
    */
   private initializeParticleQuadBuffer(): void {
     const quad = new Float32Array([
-      -1, -1,
-      1, -1,
-      -1, 1,
-      -1, 1,
-      1, -1,
-      1, 1,
+      -1,
+-1,
+      1,
+-1,
+      -1,
+1,
+      -1,
+1,
+      1,
+-1,
+      1,
+1,
     ])
     this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._particleQuadBuffer)
     this._gl.bufferData(this._gl.ARRAY_BUFFER, quad, this._gl.STATIC_DRAW)
@@ -2839,11 +2845,11 @@ function mat3Equals(a: mat3, b: mat3): boolean {
 /**
  * Объединяет float dirty ranges.
  */
-function mergeFloatDirtyRanges(ranges: FloatDirtyRange[]): FloatDirtyRange[] {
+function mergeFloatDirtyRanges(ranges: Array<FloatDirtyRange>): Array<FloatDirtyRange> {
   if (ranges.length <= 1) return ranges
 
   const sorted = [...ranges].sort((a, b) => a.start - b.start)
-  const merged: FloatDirtyRange[] = []
+  const merged: Array<FloatDirtyRange> = []
   let current = { ...sorted[0] }
 
   for (let index = 1; index < sorted.length; index += 1) {

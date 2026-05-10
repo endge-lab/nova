@@ -1,10 +1,8 @@
-import type { RaphProperties } from '@endge/raph'
-import type { RaphKernel } from '@endge/raph'
-import type { RaphSchedulerType } from '@endge/raph'
+import type { RaphProperties , RaphKernel , RaphSchedulerType } from '@endge/raph'
 import type { mat3 } from 'gl-matrix'
+import type { EventList } from '@endge/utils'
 import type { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRendererConfigInput } from '@/domain/types/rendering/index'
-import type { EventList } from '@endge/utils'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSoundOptions } from '@/domain/types/sound.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
@@ -47,7 +45,7 @@ export interface NovaNodeProperties extends RaphProperties {
  * Описывает контракт NovaAppOptions.
  */
 export interface NovaAppOptions {
-  debug: boolean | string | string[]
+  debug: boolean | string | Array<string>
 
   loop: boolean
   width: number
@@ -148,7 +146,7 @@ export interface NovaSchedulerOptions {
  * Описывает контракт NovaDebugOptions.
  */
 export interface NovaDebugOptions {
-  enabled?: boolean | string | string[]
+  enabled?: boolean | string | Array<string>
   telemetry?: boolean
   overlay?: boolean
 }
@@ -173,7 +171,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   sound?: NovaSoundOptions
   debug?: NovaDebugOptions
   raph?: NovaRaphOptions
-  predefinedEvents?: (keyof E)[]
+  predefinedEvents?: Array<keyof E>
   schemaRegistry?: NovaSchemaRegistry
 }
 

@@ -41,7 +41,7 @@ export interface NovaTextureAtlasPage {
  */
 export class NovaTextureAtlasManager<T = unknown> {
   private readonly _entries = new Map<string, NovaTextureAtlasEntry<T>>()
-  private readonly _pages: NovaTextureAtlasPage[] = []
+  private readonly _pages: Array<NovaTextureAtlasPage> = []
   private _bytes = 0
   private _tick = 0
 
@@ -67,14 +67,14 @@ export class NovaTextureAtlasManager<T = unknown> {
   /**
    * Возвращает entries.
    */
-  get entries(): NovaTextureAtlasEntry<T>[] {
+  get entries(): Array<NovaTextureAtlasEntry<T>> {
     return [...this._entries.values()]
   }
 
   /**
    * Возвращает pages.
    */
-  get pages(): NovaTextureAtlasPage[] {
+  get pages(): Array<NovaTextureAtlasPage> {
     return this._pages.map(page => ({
       ...page,
       entries: new Set(page.entries),
@@ -120,8 +120,8 @@ export class NovaTextureAtlasManager<T = unknown> {
   /**
    * Выполняет внутреннюю операцию evict to budget.
    */
-  evictToBudget(): NovaTextureAtlasEntry<T>[] {
-    const evicted: NovaTextureAtlasEntry<T>[] = []
+  evictToBudget(): Array<NovaTextureAtlasEntry<T>> {
+    const evicted: Array<NovaTextureAtlasEntry<T>> = []
     const budgetBytes = this._options.maxMemoryMB * 1024 * 1024
     if (this._bytes <= budgetBytes) return evicted
 

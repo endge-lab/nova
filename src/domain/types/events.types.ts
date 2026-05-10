@@ -47,7 +47,7 @@ export type DomEventName =
   | 'mouseenter'
   | 'mouseleave'
 
-export const CanvasDomEvents: DomEventName[] = [
+export const CanvasDomEvents: Array<DomEventName> = [
   'click',
   'contextmenu',
   'mousemove',

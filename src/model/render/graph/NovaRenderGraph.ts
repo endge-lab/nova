@@ -21,7 +21,7 @@ import {
 export class NovaRenderGraph {
   readonly groupsById = new Map<NovaRenderGroupId, NovaRenderGroup>()
   readonly groupByNodeId = new Map<string, NovaRenderGroup>()
-  readonly handlesByNodeId = new Map<string, NovaRenderHandle[]>()
+  readonly handlesByNodeId = new Map<string, Array<NovaRenderHandle>>()
   readonly handlesByItemId = new Map<NovaRenderItemId, NovaRenderHandle>()
   readonly streamsByGroupId = new Map<NovaRenderGroupId, Map<NovaRenderStreamId, NovaTypedRenderStream>>()
   readonly batchPlanByGroupId = new Map<NovaRenderGroupId, NovaBatchPlan>()
@@ -106,7 +106,7 @@ export class NovaRenderGraph {
   /**
    * Выполняет внутреннюю операцию replace handles.
    */
-  replaceHandles(nodeId: string, handles: NovaRenderHandle[]): void {
+  replaceHandles(nodeId: string, handles: Array<NovaRenderHandle>): void {
     for (const handle of this.handlesByNodeId.get(nodeId) ?? []) {
       this.handlesByItemId.delete(handle.itemId)
       const group = this.groupsById.get(handle.groupId)

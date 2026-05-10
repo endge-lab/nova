@@ -1,20 +1,16 @@
 import { mat3 } from 'gl-matrix'
-import { RaphNode } from '@endge/raph'
-import { RaphPropagation } from '@endge/raph'
-import type { DataPathDef } from '@endge/raph'
+import { RaphNode , RaphPropagation , RaphAfter, RaphProperty } from '@endge/raph'
+import type { DataPathDef , RaphApp } from '@endge/raph'
+import type { OneOrMany , EventList } from '@endge/utils'
 import type { NovaNodeProperties } from '@/domain/types/base.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
-import { RaphAfter, RaphProperty } from '@endge/raph'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaBounds, NovaLifecycleState, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
-import type { RaphApp } from '@endge/raph'
 import type { NovaEvents } from '@/model/runtime/interaction/NovaEvents'
 import type { NovaDebug } from '@/model/runtime/debug/NovaDebug'
-import type { OneOrMany } from '@endge/utils'
-import type { EventList } from '@endge/utils'
 import type { NovaNodeSoundMap, NovaSoundCueInput, NovaSoundHandle } from '@/domain/types/sound.types'
 import { boundsEquals, boundsIntersects, copyBounds, createEmptyBounds, transformBounds } from '@/domain/utils/bounds'
 import { resolveSchemaBounds } from '@/domain/utils/schemaBounds'
@@ -235,7 +231,7 @@ export class NovaNode<
     phase: 'update',
     default: true,
     propagation: RaphPropagation.Down,
-    compute: (self) => {
+    compute: self => {
       const localActive = self.getLocal('localActive') ?? true
       const parentActive = self.parent?.get('active') ?? true
       return localActive && parentActive
@@ -262,7 +258,7 @@ export class NovaNode<
     phase: 'render',
     default: true,
     propagation: RaphPropagation.Down,
-    compute: (self) => {
+    compute: self => {
       const localVisible = self.getLocal('localVisible') ?? true
       const parentVisible = self.parent?.get('visible') ?? true
       return localVisible && parentVisible
@@ -406,7 +402,7 @@ export class NovaNode<
     default: mat3.create(),
     propagation: RaphPropagation.Down,
     dependsOn: ['x', 'y', 'scaleX', 'scaleY', 'rotation'],
-    compute: (self) => {
+    compute: self => {
       const x = self.x || 0
       const y = self.y || 0
       const rot = self.rotation || 0
@@ -595,7 +591,7 @@ export class NovaNode<
     opts:
       | { matrix?: boolean; update?: boolean; render?: boolean }
       | string
-      | string[],
+      | Array<string>,
   ): void {
     if (typeof opts === 'string') {
       this.raph.dirty(opts, this)
@@ -603,7 +599,7 @@ export class NovaNode<
     }
 
     if (Array.isArray(opts)) {
-      opts.forEach((opt) => this.raph.dirty(opt, this))
+      opts.forEach(opt => this.raph.dirty(opt, this))
       return
     }
 
@@ -741,7 +737,7 @@ export class NovaNode<
     handler: NonNullable<NovaNodeEventHandlers[K]>,
   ): void {
     if (Array.isArray(type)) {
-      type.forEach((t) => this.on(t, handler))
+      type.forEach(t => this.on(t, handler))
       return
     }
     this.installEventHandler(type, handler)
@@ -836,12 +832,12 @@ export class NovaNode<
     }
 
     this._soundUserHandlers.set(type, handler)
-    this.eventHandlers[type] = ((event: Event, ...args: unknown[]) => {
+    this.eventHandlers[type] = ((event: Event, ...args: Array<unknown>) => {
       const handle = this.nova.sound.playCue(cue)
       if (handle) this.trackSoundHandle(handle)
       const userHandler = this._soundUserHandlers.get(type)
       if (typeof userHandler === 'function') {
-        return (userHandler as (...handlerArgs: unknown[]) => unknown)(event, ...args)
+        return (userHandler as (...handlerArgs: Array<unknown>) => unknown)(event, ...args)
       }
       return undefined
     }) as NonNullable<NovaNodeEventHandlers[K]>
@@ -1263,7 +1259,7 @@ export class NovaNode<
    * Сбрасывает inject-cache у этой ноды и ее потомков.
    */
   private clearInjectCacheDeep(): void {
-    const stack: NovaNode<any>[] = [this]
+    const stack: Array<NovaNode<any>> = [this]
     while (stack.length > 0) {
       const node = stack.pop()!
       node._injectCache?.clear()

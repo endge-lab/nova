@@ -19,7 +19,7 @@ export interface NovaSoundOptions {
   volume?: number
   maxVoices?: number
   unlock?: NovaSoundUnlockMode
-  formats?: string[]
+  formats?: Array<string>
 }
 
 /**
@@ -27,7 +27,7 @@ export interface NovaSoundOptions {
  */
 export interface NovaSoundDescriptor {
   id: string
-  src: string | string[]
+  src: string | Array<string>
   category?: string
   volume?: number
   loop?: boolean

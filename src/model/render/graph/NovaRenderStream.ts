@@ -46,11 +46,11 @@ export class NovaTypedRenderStream implements NovaRenderStream {
   readonly groupId: NovaRenderGroupId
   readonly kind: NovaRenderStreamKind
   readonly strideFloats: number
-  readonly slots: NovaRenderStreamSlot[] = []
+  readonly slots: Array<NovaRenderStreamSlot> = []
 
   private readonly _slotsByItemId = new Map<string, NovaRenderStreamSlot>()
-  private readonly _freeSlots: number[] = []
-  private readonly _dirtyRanges: NovaRenderStreamDirtyRange[] = []
+  private readonly _freeSlots: Array<number> = []
+  private readonly _dirtyRanges: Array<NovaRenderStreamDirtyRange> = []
   private _data: Float32Array
   private _slotCount = 0
   private _version = 0
@@ -149,7 +149,7 @@ export class NovaTypedRenderStream implements NovaRenderStream {
   /**
    * Записывает slot.
    */
-  writeSlot(itemId: string, values: readonly number[]): boolean {
+  writeSlot(itemId: string, values: ReadonlyArray<number>): boolean {
     const slot = this._slotsByItemId.get(itemId)
     if (!slot || values.length > this.strideFloats) return false
 
@@ -184,7 +184,7 @@ export class NovaTypedRenderStream implements NovaRenderStream {
   /**
    * Выполняет внутреннюю операцию consume dirty ranges.
    */
-  consumeDirtyRanges(): NovaRenderStreamDirtyRange[] {
+  consumeDirtyRanges(): Array<NovaRenderStreamDirtyRange> {
     const merged = mergeSlotDirtyRanges(this._dirtyRanges)
     this._dirtyRanges.length = 0
     return merged
@@ -321,7 +321,7 @@ export function createNovaBatchPlan(
     return a.slot.order - b.slot.order
   })
 
-  const batches: NovaRenderBatch[] = []
+  const batches: Array<NovaRenderBatch> = []
   for (const current of slots) {
     const last = batches[batches.length - 1]
     if (
@@ -363,11 +363,11 @@ export function createNovaBatchPlan(
 /**
  * Объединяет slot dirty ranges.
  */
-function mergeSlotDirtyRanges(ranges: NovaRenderStreamDirtyRange[]): NovaRenderStreamDirtyRange[] {
+function mergeSlotDirtyRanges(ranges: Array<NovaRenderStreamDirtyRange>): Array<NovaRenderStreamDirtyRange> {
   if (ranges.length <= 1) return [...ranges]
 
   const sorted = [...ranges].sort((a, b) => a.startSlot - b.startSlot)
-  const merged: NovaRenderStreamDirtyRange[] = []
+  const merged: Array<NovaRenderStreamDirtyRange> = []
 
   for (const range of sorted) {
     const last = merged[merged.length - 1]

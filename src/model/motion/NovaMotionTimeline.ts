@@ -13,8 +13,8 @@ export function compileNovaMotionTimeline(
   playback: NovaMotionPlayback,
   options: NovaMotionTimelineOptions,
   readValue: (target: NovaMotionSegment['target'], key: string) => NovaMotionValue,
-): NovaMotionSegment[] {
-  const segments: NovaMotionSegment[] = []
+): Array<NovaMotionSegment> {
+  const segments: Array<NovaMotionSegment> = []
 
   for (const track of options.tracks ?? []) {
     const baseAt = track.at ?? 0

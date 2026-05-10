@@ -27,7 +27,7 @@ type RetainedContractCase = {
   assertion: string
 }
 
-const RETAINED_CONTRACT_CASES: RetainedContractCase[] = [
+const RETAINED_CONTRACT_CASES: Array<RetainedContractCase> = [
   {
     id: 'transform-dirty-skips-node-render',
     priority: 'P0',
@@ -133,7 +133,7 @@ const ACTIVE_RETAINED_CONTRACT_CASE_IDS = new Set([
   'local-space-hit-index-moving-group',
 ])
 
-function ids(cases: RetainedContractCase[]): string[] {
+function ids(cases: Array<RetainedContractCase>): Array<string> {
   return cases.map(testCase => testCase.id)
 }
 

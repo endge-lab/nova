@@ -39,8 +39,8 @@ export type FrameStat = {
 type Snapshot = {
   label: string
   at: number
-  stats: FrameStat[]
-  events: Evt[]
+  stats: Array<FrameStat>
+  events: Array<Evt>
 }
 
 /**
@@ -56,8 +56,8 @@ export class GfxTelemetry {
   private readonly statsLimit: number
   private _enabled = false
 
-  private _events: Evt[] = []
-  private _stats: FrameStat[] = []
+  private _events: Array<Evt> = []
+  private _stats: Array<FrameStat> = []
 
   private _snapListeners = new Set<SnapshotHandler>()
 
@@ -170,35 +170,35 @@ export const Telemetry = new GfxTelemetry({ statsLimit: 300, eventsLimit: 1000 }
 /**
  * Выполняет публичную операцию analyze snapshot.
  */
-export function analyzeSnapshot(snap: { stats: FrameStat[]; events: Evt[] }) {
+export function analyzeSnapshot(snap: { stats: Array<FrameStat>; events: Array<Evt> }) {
   const ev = snap.events
   const st = snap.stats
   const last = st[st.length - 1]
-  const flags: string[] = []
+  const flags: Array<string> = []
   const notes: any = {}
 
   // lost/restored
-  const losts = ev.filter((e) => e.k === 'ctx:lost').length
-  const restored = ev.filter((e) => e.k === 'ctx:restored').length
+  const losts = ev.filter(e => e.k === 'ctx:lost').length
+  const restored = ev.filter(e => e.k === 'ctx:restored').length
   if (losts > 1 || (losts >= 1 && restored === 0)) flags.push('lost_loop')
 
   // resize bursts
   const now = performance.now()
-  const recentResize = ev.filter((e) => e.k === 'canvas:resize' && now - e.t < 1000).length
+  const recentResize = ev.filter(e => e.k === 'canvas:resize' && now - e.t < 1000).length
   if (recentResize >= 3) flags.push('resize_loop')
 
   // gl errors
-  const gle = ev.filter((e) => e.k === 'gl:error')
+  const gle = ev.filter(e => e.k === 'gl:error')
   if (gle.length) {
     flags.push('gl_error_guard')
-    notes.glErrors = gle.map((e) => e.d)
+    notes.glErrors = gle.map(e => e.d)
   }
 
   if (last && last.backbufferBytes) {
     const ratios = st
-      .filter((x) => x.backbufferBytes)
+      .filter(x => x.backbufferBytes)
       .slice(-10)
-      .map((x) => x.bytes / (x.backbufferBytes || 1))
+      .map(x => x.bytes / (x.backbufferBytes || 1))
     const maxR = Math.max(...ratios, 0)
     const avgR = ratios.reduce((a, b) => a + b, 0) / (ratios.length || 1)
     notes.uploadRatio = { max: +maxR.toFixed(1), avg: +avgR.toFixed(1) }

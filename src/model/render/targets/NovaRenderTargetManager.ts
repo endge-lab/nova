@@ -22,7 +22,7 @@ export class NovaRenderTargetManager {
   /**
    * Возвращает targets.
    */
-  get targets(): NovaRenderTarget[] {
+  get targets(): Array<NovaRenderTarget> {
     return [...this._targets.values()]
   }
 

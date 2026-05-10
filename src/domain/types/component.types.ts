@@ -1,10 +1,10 @@
+import type { EventList } from '@endge/utils'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaBounds, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
-import type { EventList } from '@endge/utils'
 
 /**
  * Описывает тип NovaSchemaDescriptorKind.
@@ -23,9 +23,9 @@ export type NovaComponentDirtyPhase = 'update' | 'render' | 'matrix'
  * Описывает контракт NovaComponentDirtyPolicy.
  */
 export interface NovaComponentDirtyPolicy<TProps extends Record<string, any> = Record<string, any>> {
-  update?: readonly (keyof TProps)[]
-  render?: readonly (keyof TProps)[]
-  matrix?: readonly (keyof TProps)[]
+  update?: ReadonlyArray<keyof TProps>
+  render?: ReadonlyArray<keyof TProps>
+  matrix?: ReadonlyArray<keyof TProps>
 }
 
 /**

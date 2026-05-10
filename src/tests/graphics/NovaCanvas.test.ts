@@ -9,7 +9,7 @@ describe('NovaCanvas', () => {
   })
 
   it('does not bind WebGL1 or experimental-webgl for the target WebGL renderer', () => {
-    const requestedContextTypes: string[] = []
+    const requestedContextTypes: Array<string> = []
 
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
       requestedContextTypes.push(type)

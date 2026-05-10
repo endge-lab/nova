@@ -1,9 +1,9 @@
+import type { EventList } from '@endge/utils'
 import type { NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentSchema, NovaSchemaRenderMode } from '@/domain/types/component.types'
 import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaRenderer } from '@/domain/types/renderer.types'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { EventList } from '@endge/utils'
 import type { NovaNodeContextOptions } from '@/domain/types/context.types'
 
 const MAX_SCHEMA_COMPONENT_DEPTH = 32

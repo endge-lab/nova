@@ -1,7 +1,7 @@
+import type { EventList } from '@endge/utils'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
-import type { EventList } from '@endge/utils'
 import type { NovaBounds } from '@/domain/types/renderer.types'
 import { createEmptyBounds, unionBounds } from '@/domain/utils/bounds'
 

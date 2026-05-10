@@ -1,5 +1,5 @@
-import type { NovaBounds } from '@/domain/types/renderer.types'
 import type { mat3 } from 'gl-matrix'
+import type { NovaBounds } from '@/domain/types/renderer.types'
 
 /**
  * Создает empty bounds.

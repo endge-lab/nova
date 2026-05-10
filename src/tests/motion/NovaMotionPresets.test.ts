@@ -91,7 +91,7 @@ describe('NovaMotion presets and patterns', () => {
     expect(source).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PRESETS) as NovaMotionPresetName[])('runs preset %s through start, middle and final ticks', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('runs preset %s through start, middle and final ticks', name => {
     const node = surface.createNode(VisualNode)
 
     const playback = app.motion.preset(node, name, {
@@ -149,7 +149,7 @@ describe('NovaMotion presets and patterns', () => {
     expect(node.strokeWidth).toBe(1)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PATTERNS) as NovaMotionPatternName[])('runs pattern %s on a target group', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('runs pattern %s on a target group', name => {
     const targets = Array.from({ length: 16 }, (_, index) => {
       const node = surface.createNode(VisualNode)
       node.options({ x: 20 + (index % 4) * 24, y: 20 + Math.floor(index / 4) * 22 })
@@ -171,7 +171,7 @@ describe('NovaMotion presets and patterns', () => {
     expect(['running', 'finished']).toContain(playback.state)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PATTERNS) as NovaMotionPatternName[])('keeps looping pattern %s alive with repeat infinity', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('keeps looping pattern %s alive with repeat infinity', name => {
     const targets = Array.from({ length: 16 }, (_, index) => {
       const node = surface.createNode(VisualNode)
       node.options({ x: 20 + (index % 4) * 24, y: 20 + Math.floor(index / 4) * 22 })

@@ -1,6 +1,6 @@
+import type { EventList } from '@endge/utils'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaBounds } from '@/domain/types/renderer.types'
-import type { EventList } from '@endge/utils'
 
 const DEFAULT_CELL_SIZE = 128
 

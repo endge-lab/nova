@@ -43,7 +43,7 @@ export class NovaTextAtlasManager {
   /**
    * Возвращает pages.
    */
-  get pages(): NovaTextureAtlasPage[] {
+  get pages(): Array<NovaTextureAtlasPage> {
     return this._atlas.pages
   }
 

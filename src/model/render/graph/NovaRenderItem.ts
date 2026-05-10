@@ -1,3 +1,4 @@
+import type { mat3 } from 'gl-matrix'
 import type {
   NovaRenderClip,
   NovaRenderGroupId,
@@ -7,7 +8,6 @@ import type {
   NovaRenderStreamKind,
 } from '@/domain/types/rendering/index'
 import type { NovaBounds, NovaSchemaItem } from '@/domain/types/renderer.types'
-import type { mat3 } from 'gl-matrix'
 
 /**
  * Описывает контракт CreateNovaRenderItemOptions.

@@ -22,7 +22,7 @@ type RetainedBenchmarkCase = {
   target: BenchmarkTarget
 }
 
-const RETAINED_BENCHMARKS: RetainedBenchmarkCase[] = [
+const RETAINED_BENCHMARKS: Array<RetainedBenchmarkCase> = [
   {
     id: 'rect-static-10k',
     area: 'rect',

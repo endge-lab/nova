@@ -26,7 +26,7 @@ interface NovaSoundAsset {
  * Описывает нормализованный descriptor.
  */
 interface ResolvedNovaSoundDescriptor extends Required<Omit<NovaSoundDescriptor, 'src'>> {
-  src: string[]
+  src: Array<string>
 }
 
 /**
@@ -121,7 +121,7 @@ function resolveSourceFormat(source: string): string {
 /**
  * Проверяет поддержку source по format preference.
  */
-function isFormatAllowed(source: string, formats: string[]): boolean {
+function isFormatAllowed(source: string, formats: Array<string>): boolean {
   const format = resolveSourceFormat(source)
   if (format === 'tone' || source.startsWith('data:')) return true
   if (!format) return true
@@ -131,7 +131,7 @@ function isFormatAllowed(source: string, formats: string[]): boolean {
 /**
  * Выбирает лучший source с учетом списка форматов.
  */
-function resolvePreferredSource(sources: string[], formats: string[]): string {
+function resolvePreferredSource(sources: Array<string>, formats: Array<string>): string {
   for (const format of formats) {
     const matched = sources.find(source => resolveSourceFormat(source) === format && isFormatAllowed(source, formats))
     if (matched) return matched
@@ -155,7 +155,7 @@ export class NovaSoundEngine {
   private readonly activeHandles = new Set<NovaSoundPlaybackHandle>()
   private readonly lastPlayedAt = new Map<string, number>()
   private readonly categoryVolumes = new Map<string, number>()
-  private readonly formats: string[]
+  private readonly formats: Array<string>
   private readonly backend: NovaSoundBackend
   private readonly maxVoices: number
   private readonly unlockMode: NovaSoundOptions['unlock']
@@ -190,7 +190,7 @@ export class NovaSoundEngine {
   /**
    * Загружает один или несколько sound descriptors.
    */
-  async load(input: NovaSoundDescriptor | NovaSoundDescriptor[]): Promise<void> {
+  async load(input: NovaSoundDescriptor | Array<NovaSoundDescriptor>): Promise<void> {
     const descriptors = Array.isArray(input) ? input : [input]
     await Promise.all(descriptors.map(descriptor => this.loadOne(descriptor)))
   }
@@ -198,7 +198,7 @@ export class NovaSoundEngine {
   /**
    * Алиас для фоновой предзагрузки sound descriptors.
    */
-  async preload(input: NovaSoundDescriptor | NovaSoundDescriptor[]): Promise<void> {
+  async preload(input: NovaSoundDescriptor | Array<NovaSoundDescriptor>): Promise<void> {
     await this.load(input)
   }
 

@@ -321,7 +321,7 @@ type PresetRunner = (
  */
 type PatternRunner = (
   engine: NovaMotionEngine,
-  targets: NovaMotionTarget[],
+  targets: Array<NovaMotionTarget>,
   options?: NovaMotionPatternOptions,
 ) => NovaMotionPlayback
 
@@ -342,7 +342,7 @@ export function runNovaMotionPreset(
  */
 export function runNovaMotionPattern(
   engine: NovaMotionEngine,
-  targets: NovaMotionTarget[],
+  targets: Array<NovaMotionTarget>,
   name: NovaMotionPatternName,
   options: NovaMotionPatternOptions = {},
 ): NovaMotionPlayback {
@@ -808,7 +808,7 @@ function readValue(target: NovaMotionTarget, key: string): NovaMotionValue {
 /**
  * Обновляет targets.
  */
-function setTargets(targets: NovaMotionTarget[], patch: NovaMotionPatch): void {
+function setTargets(targets: Array<NovaMotionTarget>, patch: NovaMotionPatch): void {
   for (const target of targets) {
     for (const [key, value] of Object.entries(patch)) {
       if (key in target) {

@@ -1,5 +1,5 @@
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { EventList } from '@endge/utils'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 /**
  * Описывает имя состояния pointer для выбора cursor.
@@ -92,8 +92,8 @@ export type NovaCursorContextValue = string | number | boolean
 /**
  * Описывает условие cursor rule.
  */
-export interface NovaCursorRuleCondition extends Record<string, NovaCursorContextValue | NovaCursorStateName | NovaCursorStateName[] | undefined> {
-  state?: NovaCursorStateName | NovaCursorStateName[]
+export interface NovaCursorRuleCondition extends Record<string, NovaCursorContextValue | NovaCursorStateName | Array<NovaCursorStateName> | undefined> {
+  state?: NovaCursorStateName | Array<NovaCursorStateName>
 }
 
 /**
@@ -110,7 +110,7 @@ export interface NovaCursorRule {
 export type NovaCursorDeclaration =
   | NovaCursorValue
   | NovaCursorStateMap
-  | NovaCursorRule[]
+  | Array<NovaCursorRule>
 
 /**
  * Описывает контекст cursor rule на node.

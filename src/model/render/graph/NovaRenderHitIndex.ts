@@ -72,8 +72,8 @@ export class NovaRenderHitIndex<T = unknown> {
   /**
    * Выполняет query bounds.
    */
-  queryBounds(bounds: NovaBounds): NovaRenderHitEntry<T>[] {
-    const result: NovaRenderHitEntry<T>[] = []
+  queryBounds(bounds: NovaBounds): Array<NovaRenderHitEntry<T>> {
+    const result: Array<NovaRenderHitEntry<T>> = []
     for (const entry of this._entries.values()) {
       if (novaBoundsIntersects(entry.bounds, bounds)) result.push(entry)
     }

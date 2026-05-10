@@ -56,7 +56,7 @@ export interface NovaRect extends NovaUIBase {
       width?: number
       radius?: number
       dashPattern?: [number, number]
-      position?: ('left' | 'right' | 'top' | 'bottom')[] | 'vertical' | 'horizontal' | 'all'
+      position?: Array<'left' | 'right' | 'top' | 'bottom'> | 'vertical' | 'horizontal' | 'all'
     }
     opacity?: number
   }
@@ -70,7 +70,7 @@ export interface NovaBorder extends NovaUIBase {
   y: number
   width: number
   height: number
-  position?: ('left' | 'right' | 'top' | 'bottom')[] | 'vertical' | 'horizontal' | 'all'
+  position?: Array<'left' | 'right' | 'top' | 'bottom'> | 'vertical' | 'horizontal' | 'all'
   styles?: {
     color?: string
     width?: number
@@ -132,7 +132,7 @@ export interface NovaLine extends NovaUIBase {
   styles?: {
     color?: string
     width?: number
-    dashPattern?: number[]
+    dashPattern?: Array<number>
     opacity?: number
   }
 }
@@ -186,7 +186,7 @@ export interface NovaIcon extends NovaUIBase {
  * Описывает контракт NovaPolygon.
  */
 export interface NovaPolygon extends NovaUIBase {
-  points: { x: number; y: number }[]
+  points: Array<{ x: number; y: number }>
   styles?: {
     background?: string
     stroke?: string
@@ -203,7 +203,7 @@ export type NovaParticleBatchKind = 'circle' | 'sprite'
 /**
  * Описывает массив числовых данных particle stream.
  */
-export type NovaParticleNumberData = Float32Array | readonly number[]
+export type NovaParticleNumberData = Float32Array | ReadonlyArray<number>
 
 /**
  * Описывает retained particle batch для массовых dynamic-сцен.
@@ -407,7 +407,7 @@ export interface NovaRenderer {
  */
 export interface Batch<G = unknown, T = unknown> {
   id: number
-  tasks: any[]
+  tasks: Array<any>
   taskIds: Set<string>
   readonly __types?: {
     group: G

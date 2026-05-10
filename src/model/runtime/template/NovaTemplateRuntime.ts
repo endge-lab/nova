@@ -8,12 +8,12 @@ export interface NovaTemplateChildSchema<TProps = Record<string, any>>
   extends NovaComponentSchema<TProps> {
   key?: string | number
   context?: unknown
-  children?: NovaTemplateChildSchema[]
+  children?: Array<NovaTemplateChildSchema>
   events?: Partial<NovaNodeEventHandlers>
 }
 
 export interface NovaTemplateReconcileResult<E extends EventList = Record<string, any>> {
-  nodes: NovaNode<E>[]
+  nodes: Array<NovaNode<E>>
   created: number
   reused: number
   removed: number
@@ -21,7 +21,7 @@ export interface NovaTemplateReconcileResult<E extends EventList = Record<string
 }
 
 interface NovaTemplateEventState {
-  events: Map<string, (...args: any[]) => void>
+  events: Map<string, (...args: Array<any>) => void>
 }
 
 const NODE_EVENT_STATE = new WeakMap<NovaNode<any>, NovaTemplateEventState>()
@@ -30,7 +30,7 @@ const NODE_EVENT_STATE = new WeakMap<NovaNode<any>, NovaTemplateEventState>()
  * Runtime для сгенерированных Nova SFC, который сохраняет identity keyed children.
  */
 export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
-  private managedChildren: NovaNode<E>[] = []
+  private managedChildren: Array<NovaNode<E>> = []
   private stats: NovaTemplateReconcileResult<E> = {
     nodes: [],
     created: 0,
@@ -48,7 +48,7 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
   /**
    * Применяет новый template snapshot к managed children.
    */
-  reconcile(children: NovaTemplateChildSchema[]): NovaTemplateReconcileResult<E> {
+  reconcile(children: Array<NovaTemplateChildSchema>): NovaTemplateReconcileResult<E> {
     if (this.reconciling) {
       return this.stats
     }
@@ -93,12 +93,12 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
  */
 export function reconcileNovaTemplateChildren<E extends EventList>(
   parent: NovaNode<E>,
-  previousNodes: readonly NovaNode<E>[],
-  nextSchemas: readonly NovaTemplateChildSchema[],
+  previousNodes: ReadonlyArray<NovaNode<E>>,
+  nextSchemas: ReadonlyArray<NovaTemplateChildSchema>,
 ): NovaTemplateReconcileResult<E> {
   const available = new Map<string, NovaNode<E>>()
   const used = new Set<NovaNode<E>>()
-  const nextNodes: NovaNode<E>[] = []
+  const nextNodes: Array<NovaNode<E>> = []
   let created = 0
   let reused = 0
   let removed = 0
@@ -171,7 +171,7 @@ export function patchNovaTemplateNode<E extends EventList>(
 
   if (schema.children) {
     const api = typeof (node as NovaComponentNode<any>).getApi === 'function'
-      ? (node as NovaComponentNode<any>).getApi() as { setChildren?: (children: NovaTemplateChildSchema[]) => void }
+      ? (node as NovaComponentNode<any>).getApi() as { setChildren?: (children: Array<NovaTemplateChildSchema>) => void }
       : null
     if (typeof api?.setChildren === 'function') {
       api.setChildren(schema.children)
@@ -207,7 +207,7 @@ function patchNovaTemplateEvents<E extends EventList>(
     if (!handler || state.events.get(key) === handler) continue
     if (state.events.has(key)) node.off(key as keyof NovaNodeEventHandlers)
     node.on(key as keyof NovaNodeEventHandlers, handler as NonNullable<NovaNodeEventHandlers[keyof NovaNodeEventHandlers]>)
-    state.events.set(key, handler as (...args: any[]) => void)
+    state.events.set(key, handler as (...args: Array<any>) => void)
   }
 }
 
@@ -222,10 +222,10 @@ function resolveNodeKey(node: NovaNode<any>, index: number): string {
 
 function reorderManagedChildren<E extends EventList>(
   parent: NovaNode<E>,
-  previousNodes: readonly NovaNode<E>[],
-  nextNodes: readonly NovaNode<E>[],
+  previousNodes: ReadonlyArray<NovaNode<E>>,
+  nextNodes: ReadonlyArray<NovaNode<E>>,
 ): void {
-  const children = parent.children as NovaNode<E>[]
+  const children = parent.children as Array<NovaNode<E>>
   const managed = new Set([...previousNodes, ...nextNodes])
   const unmanaged = children.filter(child => !managed.has(child))
   children.length = 0

@@ -65,7 +65,7 @@ export class NovaMotionEngine {
     const playback = new NovaMotionPlaybackController(this, options)
     const delay = options.delay ?? 0
     const duration = Math.max(0, options.duration ?? 300)
-    const segments: NovaMotionSegment[] = []
+    const segments: Array<NovaMotionSegment> = []
 
     for (const [key, to] of Object.entries(patch)) {
       segments.push({
@@ -112,7 +112,7 @@ export class NovaMotionEngine {
    * Выполняет внутреннюю операцию pattern.
    */
   pattern(
-    targets: NovaMotionTarget[],
+    targets: Array<NovaMotionTarget>,
     name: NovaMotionPatternName,
     options: NovaMotionPatternOptions = {},
   ): NovaMotionPlayback {
@@ -211,7 +211,7 @@ export class NovaMotionEngine {
    */
   private addPlayback(
     playback: NovaMotionPlaybackController,
-    segments: NovaMotionSegment[],
+    segments: Array<NovaMotionSegment>,
     options: NovaMotionOptions,
   ): void {
     playback.setSegments(segments)
@@ -223,7 +223,7 @@ export class NovaMotionEngine {
   /**
    * Выполняет внутреннюю операцию overwrite segments.
    */
-  private overwriteSegments(nextSegments: NovaMotionSegment[]): void {
+  private overwriteSegments(nextSegments: Array<NovaMotionSegment>): void {
     const keys = new Set(nextSegments.map(segment => segmentKey(segment.target, segment.key)))
 
     for (const playback of [...this.playbacks]) {
@@ -299,7 +299,7 @@ export class NovaMotionEngine {
  * Управляет playback state одного motion timeline или tween.
  */
 class NovaMotionPlaybackController implements NovaMotionPlayback {
-  private segments: NovaMotionSegment[] = []
+  private segments: Array<NovaMotionSegment> = []
   private startedAt = 0
   private pausedAt = 0
   private seekOffset = 0
@@ -337,7 +337,7 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
   /**
    * Обновляет segments.
    */
-  setSegments(segments: NovaMotionSegment[]): void {
+  setSegments(segments: Array<NovaMotionSegment>): void {
     this.segments = segments
   }
 

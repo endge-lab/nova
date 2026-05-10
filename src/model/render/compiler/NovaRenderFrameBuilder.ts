@@ -55,11 +55,11 @@ function createEmptyMetrics(): NovaRenderMetrics {
  * Собирает итоговый NovaRenderFrame из layers, groups, commands и metrics.
  */
 export class NovaRenderFrameBuilder {
-  private readonly _groups: NovaRenderGroup[] = []
-  private readonly _items: NovaRenderItem[] = []
-  private readonly _commands: NovaRenderCommand[] = []
-  private readonly _targets: NovaRenderTarget[] = []
-  private readonly _layers: NovaRenderLayer[] = []
+  private readonly _groups: Array<NovaRenderGroup> = []
+  private readonly _items: Array<NovaRenderItem> = []
+  private readonly _commands: Array<NovaRenderCommand> = []
+  private readonly _targets: Array<NovaRenderTarget> = []
+  private readonly _layers: Array<NovaRenderLayer> = []
   private readonly _mainLayer: NovaRenderLayer
   private _order = 0
 

@@ -1,5 +1,9 @@
-import {NovaSurface} from '@/model/runtime/tree/NovaSurface'
-import {NovaRenderer2D} from '@/model/render/backends/canvas2d/NovaRenderer2D'
+import type { EventList } from '@endge/utils'
+import { EventBus } from '@endge/utils'
+import type { RaphApp, RaphLocalPhaseContext , RaphNode } from '@endge/raph'
+import { Raph, RaphLocalPhase, RaphSchedulerType } from '@endge/raph'
+import { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
 import type {
     NovaAppCreateOptions,
     NovaAppOptions,
@@ -9,31 +13,26 @@ import type {
     ResolvedNovaInputOptions,
     NovaSizeOptions,
 } from '@/domain/types/base.types'
-import type {NovaNodeEventHandlers} from '@/domain/types/events.types'
-import {NovaStore} from '@/model/runtime/state/NovaStore'
-import type {EventList} from '@endge/utils'
-import {EventBus} from '@endge/utils'
-import {NovaCanvas} from '@/model/platform/NovaCanvas'
-import {RendererType} from '@/domain/types/renderer.types'
-import type {NovaHitTestMode} from '@/domain/types/renderer.types'
-import type {RaphApp, RaphLocalPhaseContext} from '@endge/raph'
-import {Raph, RaphLocalPhase, RaphSchedulerType} from '@endge/raph'
-import {NovaNode} from '@/model/runtime/tree/NovaNode'
-import {NovaEvents} from '@/model/runtime/interaction/NovaEvents'
-import {NovaCursorManager} from '@/model/runtime/cursor/NovaCursorManager'
-import {NovaDebug} from '@/model/runtime/debug/NovaDebug'
-import {NovaMetrics} from '@/model/runtime/debug/NovaMetrics'
-import {Telemetry} from '@/model/telemetry'
-import type {RaphNode} from '@endge/raph'
-import type {NovaScene} from '@/model/runtime/scene/NovaScene'
-import {NovaSchemaRegistry} from '@/model/runtime/components/NovaSchemaRegistry'
-import {NovaComponentRegistry} from '@/model/runtime/components/NovaComponentRegistry'
-import {NovaMotionEngine} from '@/model/motion/NovaMotionEngine'
-import {NovaSoundEngine} from '@/model/sound/NovaSoundEngine'
-import type {NovaRendererConfig, NovaRendererConfigInput} from '@/domain/types/rendering/index'
-import {resolveNovaRendererConfig} from '@/model/render/policy/NovaRenderPolicy'
-import {NovaPhase} from '@/domain/constants/NovaPhase'
-import {createNovaRaphRuntime} from '@/model/runtime/app/createNovaRaphRuntime'
+import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
+import { NovaStore } from '@/model/runtime/state/NovaStore'
+import { NovaCanvas } from '@/model/platform/NovaCanvas'
+import { RendererType } from '@/domain/types/renderer.types'
+import type { NovaHitTestMode } from '@/domain/types/renderer.types'
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
+import { NovaEvents } from '@/model/runtime/interaction/NovaEvents'
+import { NovaCursorManager } from '@/model/runtime/cursor/NovaCursorManager'
+import { NovaDebug } from '@/model/runtime/debug/NovaDebug'
+import { NovaMetrics } from '@/model/runtime/debug/NovaMetrics'
+import { Telemetry } from '@/model/telemetry'
+import type { NovaScene } from '@/model/runtime/scene/NovaScene'
+import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import { NovaComponentRegistry } from '@/model/runtime/components/NovaComponentRegistry'
+import { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
+import { NovaSoundEngine } from '@/model/sound/NovaSoundEngine'
+import type { NovaRendererConfig, NovaRendererConfigInput } from '@/domain/types/rendering/index'
+import { resolveNovaRendererConfig } from '@/model/render/policy/NovaRenderPolicy'
+import { NovaPhase } from '@/domain/constants/NovaPhase'
+import { createNovaRaphRuntime } from '@/model/runtime/app/createNovaRaphRuntime'
 
 /**
  * Управляет жизненным циклом Nova runtime, canvas, input, surfaces и фазами Raph.
@@ -150,7 +149,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Запускает начало кадра, motion engine и frame-level diagnostics.
      */
-    @RaphLocalPhase({name: NovaPhase.Before, priority: -1, always: true})
+    @RaphLocalPhase({ name: NovaPhase.Before, priority: -1, always: true })
     before(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this.metrics.markFrameStart()
         this._debugger.frameStart()
@@ -160,37 +159,37 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Выполняет preupdate-фазу для dirty nodes.
      */
-    @RaphLocalPhase({name: NovaPhase.PreUpdate, priority: 0})
+    @RaphLocalPhase({ name: NovaPhase.PreUpdate, priority: 0 })
     preupdate(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('preupdate')
-        Raph.processDirtyNodes({payload: p})
+        Raph.processDirtyNodes({ payload: p })
         this._debugger.phaseEnd()
     }
 
     /**
      * Выполняет update-фазу для dirty nodes.
      */
-    @RaphLocalPhase({name: NovaPhase.Update, priority: 1})
+    @RaphLocalPhase({ name: NovaPhase.Update, priority: 1 })
     update(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('update')
-        Raph.processDirtyNodes({payload: p})
+        Raph.processDirtyNodes({ payload: p })
         this._debugger.phaseEnd()
     }
 
     /**
      * Выполняет matrix-фазу и обновляет transform state dirty nodes.
      */
-    @RaphLocalPhase({name: NovaPhase.Matrix, priority: 2})
+    @RaphLocalPhase({ name: NovaPhase.Matrix, priority: 2 })
     matrix(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('matrix')
-        Raph.processDirtyNodes({payload: p})
+        Raph.processDirtyNodes({ payload: p })
         this._debugger.phaseEnd()
     }
 
     /**
      * Собирает dirty surfaces и запускает render от корня каждого surface.
      */
-    @RaphLocalPhase({name: NovaPhase.Render, priority: 3, mode: 'dirty'})
+    @RaphLocalPhase({ name: NovaPhase.Render, priority: 3, mode: 'dirty' })
     render(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('render')
 
@@ -220,7 +219,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Композитит Web2D surfaces в основной canvas и фиксирует факт отрисовки.
      */
-    @RaphLocalPhase({name: NovaPhase.Flush, priority: 4})
+    @RaphLocalPhase({ name: NovaPhase.Flush, priority: 4 })
     flush(): void {
         this._debugger.phaseStart('flush')
 
@@ -245,7 +244,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Завершает кадр и обновляет frame-level metrics.
      */
-    @RaphLocalPhase({name: NovaPhase.After, priority: 10, always: true})
+    @RaphLocalPhase({ name: NovaPhase.After, priority: 10, always: true })
     after(): void {
         this._debugger.frameEnd()
         this.metrics.markFrameEnd()
@@ -340,7 +339,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Создает, монтирует и возвращает сцену, привязанную к этому приложению.
      */
-    createScene<T extends NovaScene<E>>(SceneClass: new (app: NovaApp<E>, ...args: any[]) => T, ...args: any[]): T {
+    createScene<T extends NovaScene<E>>(SceneClass: new (app: NovaApp<E>, ...args: Array<any>) => T, ...args: Array<any>): T {
         const scene = new SceneClass(this, ...args)
         scene.mount()
         return scene
@@ -394,8 +393,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Возвращает surfaces, подключенные к root Raph graph.
      */
-    get surfaces(): NovaSurface<E>[] {
-        return this.raph.root.children as unknown as NovaSurface<E>[]
+    get surfaces(): Array<NovaSurface<E>> {
+        return this.raph.root.children as unknown as Array<NovaSurface<E>>
     }
 
     /**
@@ -466,8 +465,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     createSurface2D<T extends NovaSurface<E>>(
         name: string,
-        SurfaceClass: new (...args: any[]) => T = NovaSurface<E> as any,
-        ...args: any[]
+        SurfaceClass: new (...args: Array<any>) => T = NovaSurface<E> as any,
+        ...args: Array<any>
     ): T {
         const surface = new SurfaceClass(name, this, RendererType.Web2D, ...args)
         return this.addSurface(surface)
@@ -478,8 +477,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     createSurfaceWebGL<T extends NovaSurface<E>>(
         name: string,
-        SurfaceClass: new (...args: any[]) => T = NovaSurface as any,
-        ...args: any[]
+        SurfaceClass: new (...args: Array<any>) => T = NovaSurface as any,
+        ...args: Array<any>
     ): T {
         const surface = new SurfaceClass(name, this, RendererType.WebGL, ...args)
         return this.addSurface(surface)
@@ -597,11 +596,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     /**
      * Строит числовой stamp, который описывает положение node в render order.
      */
-    getRenderOrderStamp(node: NovaNode<E>): number[] {
+    getRenderOrderStamp(node: NovaNode<E>): Array<number> {
         //
         // Stamp начинается с surface, потому что surfaces композитятся независимо от внутренней иерархии.
         const path = this.getRenderPath(node)
-        const stamp: number[] = [node.surface.weight, this.surfaceOrderOf(node.surface)]
+        const stamp: Array<number> = [node.surface.weight, this.surfaceOrderOf(node.surface)]
 
         //
         // Каждый уровень добавляет zIndex текущей node и ее позицию среди детей родителя.
@@ -653,8 +652,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         //
         // Все surfaces получают новый viewport и становятся dirty для пересчета layout, matrix и render.
         for (const surface of this.surfaces) {
-            surface.options({width: newWidth, height: newHeight})
-            surface.dirty({update: true, matrix: true, render: true})
+            surface.options({ width: newWidth, height: newHeight })
+            surface.dirty({ update: true, matrix: true, render: true })
         }
 
         this.raph.invalidate()
@@ -732,7 +731,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
                 }
 
                 this._boundCanvasEvents[domEvent] = handler
-                this._canvas.element.addEventListener(domEvent, handler, domEvent === 'wheel' ? {passive: false} : undefined)
+                this._canvas.element.addEventListener(domEvent, handler, domEvent === 'wheel' ? { passive: false } : undefined)
             }
 
             //

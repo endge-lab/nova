@@ -25,12 +25,12 @@ export class NovaDebug {
   private _displayTick = 0
   private _lastRenderedTick = -1
   private _lastRenderedAt = 0
-  private _displayFrameTimes: number[] = []
+  private _displayFrameTimes: Array<number> = []
   private _displayRafId: number | null = null
 
-  private _framePhases: [string, number][] = []
-  private _frameLogs: string[] = []
-  private _phaseLogs: Record<string, PhaseLog[]> = {}
+  private _framePhases: Array<[string, number]> = []
+  private _frameLogs: Array<string> = []
+  private _phaseLogs: Record<string, Array<PhaseLog>> = {}
   private _timers: TimerMap = new Map()
 
   /**
@@ -176,13 +176,13 @@ export class NovaDebug {
     }
 
     if (!this._enabled || !this._shouldLogFrame || this._phaseStack !== 0)
-      return
+      {return}
 
     let style = ''
     if (this._lastFps < 30)
-      style = 'color:#f00;font-weight:bold;' // красный
+      {style = 'color:#f00;font-weight:bold;'} // красный
     else if (this._lastFps < 60)
-      style = 'color:#f90;font-weight:bold;' // оранжевый
+      {style = 'color:#f90;font-weight:bold;'} // оранжевый
     else style = 'color:#0c0;font-weight:bold;' // зелёный
 
     const empty = this._framePhases.length === 0 && this._frameLogs.length === 0

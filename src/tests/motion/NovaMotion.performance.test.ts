@@ -70,7 +70,7 @@ describe('NovaMotion performance', () => {
     expect(elapsed).toBeLessThan(1_000)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PRESETS) as NovaMotionPresetName[])('ticks preset %s under a local budget', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('ticks preset %s under a local budget', name => {
     const surface = app.createSurface2D(`preset-${name}`)
     const nodes = Array.from({ length: 160 }, (_, index) => {
       const node = surface.createNode(PerfMotionNode)
@@ -95,8 +95,8 @@ describe('NovaMotion performance', () => {
     expect(elapsed).toBeLessThan(1_000)
   })
 
-  it.each([100, 500, 1000])('ticks all motion patterns with %s targets under a local budget', (count) => {
-    for (const name of Object.keys(NOVA_MOTION_PATTERNS) as NovaMotionPatternName[]) {
+  it.each([100, 500, 1000])('ticks all motion patterns with %s targets under a local budget', count => {
+    for (const name of Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>) {
       const surface = app.createSurface2D(`pattern-${name}-${count}`)
       const columns = Math.max(1, Math.ceil(Math.sqrt(count)))
       const nodes = Array.from({ length: count }, (_, index) => {

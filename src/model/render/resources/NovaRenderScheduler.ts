@@ -19,7 +19,7 @@ export interface NovaRenderSchedulerResult {
  * Планирует ограниченные по бюджету render/resource задачи.
  */
 export class NovaRenderScheduler {
-  private readonly _queue: NovaRenderScheduledTask[] = []
+  private readonly _queue: Array<NovaRenderScheduledTask> = []
 
   /**
    * Выполняет внутреннюю операцию enqueue.

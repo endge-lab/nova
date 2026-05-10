@@ -23,7 +23,7 @@ export class NovaStore {
   /**
    * Возвращает by type.
    */
-  getByType<T>(type: ClassConstructor<T>): T[] {
+  getByType<T>(type: ClassConstructor<T>): Array<T> {
     return Array.from(this.dataMap.values()).filter(
       (item): item is T => item instanceof type,
     )
