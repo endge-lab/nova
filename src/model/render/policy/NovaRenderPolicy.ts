@@ -3,6 +3,7 @@ import type {
   NovaRenderPolicyInput,
   NovaRendererConfig,
   NovaRendererConfigInput,
+  NovaRendererTextConfig,
   NovaRenderDirtyFlags,
   NovaRenderVersions,
 } from '@/domain/types/rendering/index'
@@ -88,6 +89,50 @@ export function resolveNovaRendererConfig(
       ...input.diagnostics,
     },
   }
+}
+
+/**
+ * Вычисляет bucket растеризации текста для заданного zoom.
+ */
+export function resolveNovaTextRasterBucket(config: NovaRendererTextConfig, zoom: number): number {
+  const buckets = normalizeTextZoomBuckets(config.zoomBuckets)
+
+  if (config.quality === 'performance' || !config.dynamicBuckets) {
+    return buckets.includes(1) ? 1 : buckets[0]
+  }
+
+  const normalizedZoom = Math.max(0.01, Number.isFinite(zoom) ? zoom : 1)
+  let best = buckets[0]
+  let bestDistance = Math.abs(normalizedZoom - best)
+
+  for (const bucket of buckets) {
+    const distance = Math.abs(normalizedZoom - bucket)
+    if (distance < bestDistance) {
+      best = bucket
+      bestDistance = distance
+    }
+  }
+
+  return best
+}
+
+/**
+ * Вычисляет итоговый scale растеризации текста с учетом DPR canvas.
+ */
+export function resolveNovaTextRasterScale(config: NovaRendererTextConfig, zoom: number, dpr: number): number {
+  const safeDpr = Math.max(0.1, Number.isFinite(dpr) ? dpr : 1)
+  return safeDpr * resolveNovaTextRasterBucket(config, zoom)
+}
+
+/**
+ * Возвращает отсортированный непустой список zoom buckets.
+ */
+function normalizeTextZoomBuckets(buckets: readonly number[]): number[] {
+  const normalized = buckets
+    .filter(bucket => Number.isFinite(bucket) && bucket > 0)
+    .sort((a, b) => a - b)
+
+  return normalized.length > 0 ? normalized : [1]
 }
 
 /**

@@ -171,6 +171,20 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     return this._lastSource
   }
 
+  /**
+   * Возвращает ключ последнего примененного cursor declaration.
+   */
+  get lastCursorKey(): string {
+    return this._lastCursorKey
+  }
+
+  /**
+   * Возвращает последний runtime state cursor.
+   */
+  get lastState(): NovaCursorRuntimeState<E> | null {
+    return this._lastState
+  }
+
   private resolveCursorSource(target: NovaNode<E> | null, x: number, y: number): NovaNode<E> | null {
     const fromTarget = target ? this.findCursorAncestor(target) : null
     if (fromTarget) return fromTarget
@@ -181,18 +195,21 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     let current: NovaNode<E> | null = target
     while (current) {
       if (this.cursorNodes.has(current) && current.active && current.visible) return current
-      const parent = current.parent
+      const parent: unknown = current.parent
       current = isNovaNode(parent) ? parent as NovaNode<E> : null
     }
     return null
   }
 
   private cursorHitTest(x: number, y: number): NovaNode<E> | null {
-    const candidates = this.getCursorCandidates(x, y)
-      .filter(node => node.active && node.visible && node.containsPoint(x, y))
+    let top: NovaNode<E> | null = null
 
-    candidates.sort((a, b) => this.app.compareRenderOrder(a, b))
-    return candidates[candidates.length - 1] ?? null
+    for (const node of this.getCursorCandidates(x, y)) {
+      if (!node.active || !node.visible || !node.containsPoint(x, y)) continue
+      if (!top || this.app.compareRenderOrder(top, node) < 0) top = node
+    }
+
+    return top
   }
 
   private getCursorCandidates(x: number, y: number): NovaNode<E>[] {
@@ -369,7 +386,7 @@ function isCursorValue(value: NovaCursorDeclaration): value is NovaCursorValue {
   if (typeof value === 'string') return true
   if (Array.isArray(value)) return false
   if (!value || typeof value !== 'object') return false
-  return value.type === 'url' || value.type === 'component'
+  return 'type' in value && (value.type === 'url' || value.type === 'component')
 }
 
 function resolveCssCursor(value: NovaCursorValue): string {

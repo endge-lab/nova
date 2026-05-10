@@ -6,6 +6,7 @@ import type { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import type { EventList } from '@endge/utils'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import type { NovaSoundOptions } from '@/domain/types/sound.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
 
 /**
@@ -169,6 +170,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   input?: NovaInputOptions
   renderer?: NovaRendererOptions
   scheduler?: NovaSchedulerOptions
+  sound?: NovaSoundOptions
   debug?: NovaDebugOptions
   raph?: NovaRaphOptions
   predefinedEvents?: (keyof E)[]

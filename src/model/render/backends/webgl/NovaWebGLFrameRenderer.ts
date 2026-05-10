@@ -1,5 +1,11 @@
 import { mat3 } from 'gl-matrix'
-import type { NovaRenderClip, NovaRenderFrame, NovaRenderItem, NovaRenderMetrics } from '@/domain/types/rendering/index'
+import type {
+  NovaRenderClip,
+  NovaRenderFrame,
+  NovaRenderItem,
+  NovaRenderMetrics,
+  NovaRendererTextConfig,
+} from '@/domain/types/rendering/index'
 import type {
   NovaBorder,
   NovaCircle,
@@ -16,6 +22,10 @@ import { NovaGraphics } from '@/model/platform/NovaGraphics'
 import type { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'
 import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
 import { NovaWebGLProgram } from '@/model/render/backends/webgl/NovaWebGLProgram'
+import {
+  DEFAULT_NOVA_RENDERER_CONFIG,
+  resolveNovaTextRasterScale,
+} from '@/model/render/policy/NovaRenderPolicy'
 import type { NovaParsedColor } from '@/model/render/schema/NovaColorParser'
 import {
   compileNovaBorderStyle,
@@ -35,7 +45,7 @@ const PARTICLE_POSITION_STRIDE = 2
 const PARTICLE_CIRCLE_STATIC_STRIDE = 10
 const PARTICLE_SPRITE_STATIC_STRIDE = 2
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
-const TEXT_RASTER_ZOOM_BUCKETS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 8, 16]
+const TEXT_ATLAS_PAGE_SIZE = 2048
 
 /**
  * Описывает контракт RenderStats.
@@ -55,6 +65,11 @@ interface RenderStats {
   gpuBufferCapacityBytes: number
   textRasterMs: number
   textRasterCount: number
+  textCacheHits: number
+  textCacheMisses: number
+  textRasterDeferred: number
+  textAtlasPages: number
+  effectiveTextRasterScale: number
   atlasUploads: number
   atlasMemoryMB: number
 }
@@ -122,6 +137,37 @@ interface TextureEntry {
   texture: WebGLTexture
   width: number
   height: number
+  bytes: number
+  lastUsed: number
+}
+
+/**
+ * Описывает страницу atlas для rasterized text runs.
+ */
+interface TextAtlasPage {
+  key: string
+  texture: TextureEntry
+  width: number
+  height: number
+  cursorX: number
+  cursorY: number
+  rowHeight: number
+  entries: Set<string>
+  lastUsed: number
+}
+
+/**
+ * Описывает entry rasterized text run внутри atlas page.
+ */
+interface TextAtlasEntry {
+  key: string
+  baseKey: string
+  page: TextAtlasPage
+  x: number
+  y: number
+  width: number
+  height: number
+  scale: number
   bytes: number
   lastUsed: number
 }
@@ -259,6 +305,22 @@ interface TextureBatchItem {
   width: number
   height: number
   opacity: number
+  u0: number
+  v0: number
+  u1: number
+  v1: number
+}
+
+/**
+ * Описывает drawable item для text atlas.
+ */
+interface TextAtlasDrawableItem {
+  key: string
+  texture: TextureEntry
+  u0: number
+  v0: number
+  u1: number
+  v1: number
 }
 
 /**
@@ -281,6 +343,9 @@ export class NovaWebGLFrameRenderer {
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _textRasterCanvas = document.createElement('canvas')
   private readonly _textures = new Map<string, TextureEntry>()
+  private readonly _textAtlasPages: TextAtlasPage[] = []
+  private readonly _textAtlasEntries = new Map<string, TextAtlasEntry>()
+  private readonly _textFallbackKeys = new Map<string, string>()
   private readonly _sourceTextureKeys = new WeakMap<object, string>()
   private readonly _plainRectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
   private readonly _rectBatchCache = new WeakMap<NovaSchemaItem<any>[], RectBatchCache>()
@@ -310,11 +375,16 @@ export class NovaWebGLFrameRenderer {
   private _solidTransform = mat3.create()
   private _textureTransform = mat3.create()
   private _time = 0
+  private _viewportWidth = 1
+  private _viewportHeight = 1
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
    */
-  constructor(private readonly _device: NovaWebGLDevice) {
+  constructor(
+    private readonly _device: NovaWebGLDevice,
+    private readonly _textConfig: NovaRendererTextConfig = DEFAULT_NOVA_RENDERER_CONFIG.text,
+  ) {
     this._gl = _device.gl
     this._roundedProgram = NovaWebGLProgram.create(this._gl, ROUNDED_RECT_VERTEX_SHADER, ROUNDED_RECT_FRAGMENT_SHADER)
     this._solidProgram = NovaWebGLProgram.create(this._gl, SOLID_VERTEX_SHADER, SOLID_FRAGMENT_SHADER)
@@ -351,6 +421,11 @@ export class NovaWebGLFrameRenderer {
       gpuBufferCapacityBytes: 0,
       textRasterMs: 0,
       textRasterCount: 0,
+      textCacheHits: 0,
+      textCacheMisses: 0,
+      textRasterDeferred: 0,
+      textAtlasPages: this._textAtlasPages.length,
+      effectiveTextRasterScale: 0,
       atlasUploads: 0,
       atlasMemoryMB: this.textureMemoryMB(),
     }
@@ -361,6 +436,8 @@ export class NovaWebGLFrameRenderer {
     const clipStack: NovaRenderClip[] = []
 
     this._time += 1
+    this._viewportWidth = Math.max(1, frame.viewport.width)
+    this._viewportHeight = Math.max(1, frame.viewport.height)
     this._device.resize()
     this._device.clear()
     this.setScissor(null, currentTransform)
@@ -458,9 +535,15 @@ export class NovaWebGLFrameRenderer {
       uploadMs: stats.uploadMs,
       textRasterMs: stats.textRasterMs,
       textRasterCount: stats.textRasterCount,
+      textCacheHits: stats.textCacheHits,
+      textCacheMisses: stats.textCacheMisses,
+      textRasterDeferred: stats.textRasterDeferred,
+      textAtlasPages: this._textAtlasPages.length,
+      effectiveTextRasterScale: stats.effectiveTextRasterScale,
       atlasUploads: stats.atlasUploads,
       uniformOnlyFrames: stats.uploadBytes === 0 && stats.textRasterMs === 0 ? 1 : 0,
       atlasMemoryMB: this.textureMemoryMB(),
+      cachedTextureMemoryMB: this.textureMemoryMB(),
     }
   }
 
@@ -490,6 +573,7 @@ export class NovaWebGLFrameRenderer {
   destroy(): void {
     for (const texture of this._textures.values()) this._gl.deleteTexture(texture.texture)
     this._textures.clear()
+    this.destroyTextAtlas()
     for (const cache of this._ownedTextureBatchCaches) {
       if (cache.buffer) this._gl.deleteBuffer(cache.buffer)
       if (cache.vao) this._gl.deleteVertexArray(cache.vao)
@@ -651,7 +735,9 @@ export class NovaWebGLFrameRenderer {
 
     if (batch.icons.length > 0 && !this.drawTextureSchemaBatch(batch.icons, transform, stats, contentVersion)) return false
 
-    if (batch.texts.length > 0 && !this.drawTextureSchemaBatch(batch.texts, transform, stats, contentVersion)) return false
+    for (const text of batch.texts) {
+      this.drawPrimitive(text, transform, stats)
+    }
 
     return true
   }
@@ -919,7 +1005,7 @@ export class NovaWebGLFrameRenderer {
       if (item.width <= 0 || item.height <= 0 || item.opacity <= 0) continue
 
       itemOffsets[index] = data.length
-      this.pushTextureQuadVertices(data, item.x, item.y, item.width, item.height, item.opacity)
+      this.pushTextureQuadVertices(data, item.x, item.y, item.width, item.height, item.opacity, item.u0, item.v0, item.u1, item.v1)
       instances += 1
     }
 
@@ -954,7 +1040,7 @@ export class NovaWebGLFrameRenderer {
       if (offset < 0) return null
       if (item.width <= 0 || item.height <= 0 || item.opacity <= 0) return null
 
-      this.writeTextureQuadVertices(batch.data, offset, item.x, item.y, item.width, item.height, item.opacity)
+      this.writeTextureQuadVertices(batch.data, offset, item.x, item.y, item.width, item.height, item.opacity, item.u0, item.v0, item.u1, item.v1)
       batch.signatures[index] = item.signature
       changedItems += 1
       dirtyRanges.push({ start: offset, end: offset + TEXTURE_STRIDE * 6 })
@@ -988,31 +1074,31 @@ export class NovaWebGLFrameRenderer {
         width: item.width,
         height: item.height,
         opacity,
+        u0: 0,
+        v0: 0,
+        u1: 1,
+        v1: 1,
       }
     }
 
     if (item.type === 'text') {
       const style = compileNovaTextStyle(item)
       const scale = rasterScale ?? this._device.canvas.dpr
-      const key = this.createTextKey(item, style, scale)
-      let texture = this._textures.get(key)
-      if (!texture) {
-        const rasterStartedAt = performance.now()
-        const raster = this.rasterizeText(item, style, scale)
-        stats.textRasterMs += performance.now() - rasterStartedAt
-        stats.textRasterCount += 1
-        texture = this.createTextureFromSource(key, raster.canvas, stats)
-      }
+      const atlasItem = this.resolveTextAtlasItem(item, style, scale, stats)
+      if (!atlasItem) return null
 
-      texture.lastUsed = this._time
       return {
-        texture,
-        signature: [key, item.x, item.y, item.width, item.height, style.opacity].join('|'),
+        texture: atlasItem.texture,
+        signature: [atlasItem.key, item.x, item.y, item.width, item.height, style.opacity].join('|'),
         x: item.x,
         y: item.y,
         width: item.width,
         height: item.height,
         opacity: style.opacity,
+        u0: atlasItem.u0,
+        v0: atlasItem.v0,
+        u1: atlasItem.u1,
+        v1: atlasItem.v1,
       }
     }
 
@@ -1154,21 +1240,27 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию draw text.
    */
   private drawText(text: NovaText, transform: mat3, stats: RenderStats): void {
+    if (this.shouldCullTextRuns() && !this.isRectVisible(transform, text.x, text.y, text.width, text.height)) return
+
     const style = compileNovaTextStyle(text)
     const scale = this.resolveTextRasterScale(transform)
-    const key = this.createTextKey(text, style, scale)
-    let texture = this._textures.get(key)
+    const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats)
+    if (!atlasItem) return
 
-    if (!texture) {
-      const rasterStartedAt = performance.now()
-      const raster = this.rasterizeText(text, style, scale)
-      stats.textRasterMs += performance.now() - rasterStartedAt
-      stats.textRasterCount += 1
-      texture = this.createTextureFromSource(key, raster.canvas, stats)
-    }
-
-    texture.lastUsed = this._time
-    this.queueTextureQuad(texture, text.x, text.y, text.width, text.height, transform, style.opacity, stats)
+    this.queueTextureQuad(
+      atlasItem.texture,
+      text.x,
+      text.y,
+      text.width,
+      text.height,
+      transform,
+      style.opacity,
+      stats,
+      atlasItem.u0,
+      atlasItem.v0,
+      atlasItem.u1,
+      atlasItem.v1,
+    )
   }
 
   /**
@@ -1185,18 +1277,245 @@ export class NovaWebGLFrameRenderer {
     const scaleX = Math.hypot(transform[0], transform[1])
     const scaleY = Math.hypot(transform[3], transform[4])
     const zoom = Math.max(0.01, scaleX, scaleY)
-    let best = TEXT_RASTER_ZOOM_BUCKETS[0]
-    let bestDistance = Math.abs(zoom - best)
+    return resolveNovaTextRasterScale(this._textConfig, zoom, this._device.canvas.dpr)
+  }
 
-    for (const bucket of TEXT_RASTER_ZOOM_BUCKETS) {
-      const distance = Math.abs(zoom - bucket)
-      if (distance < bestDistance) {
-        best = bucket
-        bestDistance = distance
-      }
+  /**
+   * Возвращает drawable text atlas item или откладывает растеризацию по frame budget.
+   */
+  private resolveTextAtlasItem(
+    text: NovaText,
+    style: NovaCompiledTextStyle,
+    scale: number,
+    stats: RenderStats,
+  ): TextAtlasDrawableItem | null {
+    stats.effectiveTextRasterScale = scale
+    const key = this.createTextKey(text, style, scale)
+    const current = this._textAtlasEntries.get(key)
+    if (current) {
+      stats.textCacheHits += 1
+      current.lastUsed = this._time
+      current.page.lastUsed = this._time
+      return this.createTextAtlasDrawableItem(current)
     }
 
-    return this._device.canvas.dpr * best
+    const baseKey = this.createTextBaseKey(text, style)
+    const fallback = this.resolveTextFallbackEntry(baseKey, key)
+    const rasterBudgetMs = Math.max(0, this._textConfig.rasterBudgetMs)
+    if (fallback && stats.textRasterMs >= rasterBudgetMs) {
+      stats.textRasterDeferred += 1
+      fallback.lastUsed = this._time
+      fallback.page.lastUsed = this._time
+      return this.createTextAtlasDrawableItem(fallback)
+    }
+
+    if (!fallback && stats.textRasterMs >= rasterBudgetMs) {
+      stats.textRasterDeferred += 1
+      return null
+    }
+
+    stats.textCacheMisses += 1
+    const rasterStartedAt = performance.now()
+    const raster = this.rasterizeText(text, style, scale)
+    stats.textRasterMs += performance.now() - rasterStartedAt
+    stats.textRasterCount += 1
+
+    const entry = this.uploadTextAtlasEntry(key, baseKey, raster, stats)
+    this._textFallbackKeys.set(baseKey, key)
+    stats.textAtlasPages = this._textAtlasPages.length
+    return this.createTextAtlasDrawableItem(entry)
+  }
+
+  /**
+   * Возвращает fallback entry другого scale для того же text run.
+   */
+  private resolveTextFallbackEntry(baseKey: string, currentKey: string): TextAtlasEntry | null {
+    const fallbackKey = this._textFallbackKeys.get(baseKey)
+    if (!fallbackKey || fallbackKey === currentKey) return null
+    return this._textAtlasEntries.get(fallbackKey) ?? null
+  }
+
+  /**
+   * Создает drawable item из text atlas entry.
+   */
+  private createTextAtlasDrawableItem(entry: TextAtlasEntry): TextAtlasDrawableItem {
+    const page = entry.page
+    return {
+      key: entry.key,
+      texture: page.texture,
+      u0: entry.x / page.width,
+      v0: entry.y / page.height,
+      u1: (entry.x + entry.width) / page.width,
+      v1: (entry.y + entry.height) / page.height,
+    }
+  }
+
+  /**
+   * Загружает rasterized text run в atlas page через texSubImage2D.
+   */
+  private uploadTextAtlasEntry(key: string, baseKey: string, raster: RasterizedText, stats: RenderStats): TextAtlasEntry {
+    const page = this.resolveTextAtlasPage(raster.width, raster.height, stats)
+    const x = page.cursorX
+    const y = page.cursorY
+
+    page.cursorX += raster.width
+    page.rowHeight = Math.max(page.rowHeight, raster.height)
+    page.entries.add(key)
+    page.lastUsed = this._time
+
+    const uploadStartedAt = performance.now()
+    this._gl.bindTexture(this._gl.TEXTURE_2D, page.texture.texture)
+    this._gl.pixelStorei(this._gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+    if (typeof this._gl.texSubImage2D === 'function') {
+      this._gl.texSubImage2D(
+        this._gl.TEXTURE_2D,
+        0,
+        x,
+        y,
+        this._gl.RGBA,
+        this._gl.UNSIGNED_BYTE,
+        raster.canvas as TexImageSource,
+      )
+    }
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    const bytes = Math.max(1, raster.width * raster.height * 4)
+    stats.uploadBytes += bytes
+    stats.atlasUploads += 1
+
+    const entry: TextAtlasEntry = {
+      key,
+      baseKey,
+      page,
+      x,
+      y,
+      width: raster.width,
+      height: raster.height,
+      scale: raster.scale,
+      bytes,
+      lastUsed: this._time,
+    }
+    this._textAtlasEntries.set(key, entry)
+    return entry
+  }
+
+  /**
+   * Возвращает atlas page с местом под rasterized text.
+   */
+  private resolveTextAtlasPage(width: number, height: number, stats: RenderStats): TextAtlasPage {
+    const w = Math.max(1, Math.ceil(width))
+    const h = Math.max(1, Math.ceil(height))
+
+    for (const page of this._textAtlasPages) {
+      const region = this.tryFitTextAtlasPage(page, w, h)
+      if (region) return region
+    }
+
+    const pageWidth = Math.max(TEXT_ATLAS_PAGE_SIZE, w)
+    const pageHeight = Math.max(TEXT_ATLAS_PAGE_SIZE, h)
+    const pageBytes = pageWidth * pageHeight * 4
+    this.evictTextAtlasPagesFor(pageBytes)
+
+    const texture = this.createEmptyTextAtlasTexture(pageWidth, pageHeight, stats)
+    const page: TextAtlasPage = {
+      key: texture.key,
+      texture,
+      width: pageWidth,
+      height: pageHeight,
+      cursorX: 0,
+      cursorY: 0,
+      rowHeight: 0,
+      entries: new Set(),
+      lastUsed: this._time,
+    }
+    this._textAtlasPages.push(page)
+    return page
+  }
+
+  /**
+   * Проверяет, поместится ли entry на существующую atlas page.
+   */
+  private tryFitTextAtlasPage(page: TextAtlasPage, width: number, height: number): TextAtlasPage | null {
+    if (width > page.width || height > page.height) return null
+
+    if (page.cursorX + width > page.width) {
+      page.cursorX = 0
+      page.cursorY += page.rowHeight
+      page.rowHeight = 0
+    }
+
+    if (page.cursorY + height > page.height) return null
+    return page
+  }
+
+  /**
+   * Создает пустую WebGL texture для text atlas page.
+   */
+  private createEmptyTextAtlasTexture(width: number, height: number, stats: RenderStats): TextureEntry {
+    const gl = this._gl
+    const texture = gl.createTexture()
+    if (!texture) throw new Error('Failed to create WebGL2 text atlas texture')
+
+    const uploadStartedAt = performance.now()
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    const bytes = Math.max(1, width * height * 4)
+    stats.uploadBytes += bytes
+    stats.atlasUploads += 1
+    return {
+      key: `text-atlas:${this._textAtlasPages.length + 1}:${this._time}`,
+      texture,
+      width,
+      height,
+      bytes,
+      lastUsed: this._time,
+    }
+  }
+
+  /**
+   * Освобождает старые text atlas pages под memory budget.
+   */
+  private evictTextAtlasPagesFor(nextPageBytes: number): void {
+    const budgetBytes = Math.max(1, this._textConfig.maxAtlasMemoryMB) * 1024 * 1024
+    let bytes = this.textAtlasMemoryBytes()
+    if (bytes + nextPageBytes <= budgetBytes || this._textAtlasPages.length === 0) return
+
+    const pages = [...this._textAtlasPages].sort((a, b) => a.lastUsed - b.lastUsed)
+    for (const page of pages) {
+      if (bytes + nextPageBytes <= budgetBytes && this._textAtlasPages.length > 0) break
+
+      this._gl.deleteTexture(page.texture.texture)
+      const index = this._textAtlasPages.indexOf(page)
+      if (index >= 0) this._textAtlasPages.splice(index, 1)
+      for (const key of page.entries) this._textAtlasEntries.delete(key)
+      bytes -= page.texture.bytes
+    }
+  }
+
+  /**
+   * Проверяет screen-space видимость rect.
+   */
+  private isRectVisible(transform: mat3, x: number, y: number, width: number, height: number): boolean {
+    if (width <= 0 || height <= 0) return false
+
+    const bounds = transformRectBounds(transform, x, y, width, height)
+    return bounds.x + bounds.width >= 0
+      && bounds.y + bounds.height >= 0
+      && bounds.x <= this._viewportWidth
+      && bounds.y <= this._viewportHeight
+  }
+
+  /**
+   * Проверяет, включена ли policy-driven culling для text runs.
+   */
+  private shouldCullTextRuns(): boolean {
+    return this._textConfig.mode === 'run-atlas'
   }
 
   /**
@@ -1802,7 +2121,20 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию queue texture quad.
    */
-  private queueTextureQuad(texture: TextureEntry, x: number, y: number, width: number, height: number, transform: mat3, opacity: number, stats: RenderStats): void {
+  private queueTextureQuad(
+    texture: TextureEntry,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    transform: mat3,
+    opacity: number,
+    stats: RenderStats,
+    u0 = 0,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+  ): void {
     if (width <= 0 || height <= 0 || opacity <= 0) return
     this.flushRounded(stats)
     this.flushSolid(stats)
@@ -1812,21 +2144,32 @@ export class NovaWebGLFrameRenderer {
     if (this._textureBatch && this._textureBatch !== texture) this.flushTexture(stats)
     this._textureBatch = texture
 
-    this.pushTextureQuadVertices(this._textureData, x, y, width, height, opacity)
+    this.pushTextureQuadVertices(this._textureData, x, y, width, height, opacity, u0, v0, u1, v1)
     stats.instances += 1
   }
 
   /**
    * Выполняет внутреннюю операцию push texture quad vertices.
    */
-  private pushTextureQuadVertices(target: number[], x: number, y: number, width: number, height: number, opacity: number): void {
+  private pushTextureQuadVertices(
+    target: number[],
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    opacity: number,
+    u0 = 0,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+  ): void {
     const vertices = [
-      [x, y, 0, 0],
-      [x + width, y, 1, 0],
-      [x, y + height, 0, 1],
-      [x, y + height, 0, 1],
-      [x + width, y, 1, 0],
-      [x + width, y + height, 1, 1],
+      [x, y, u0, v0],
+      [x + width, y, u1, v0],
+      [x, y + height, u0, v1],
+      [x, y + height, u0, v1],
+      [x + width, y, u1, v0],
+      [x + width, y + height, u1, v1],
     ]
 
     for (const [px, py, u, v] of vertices) {
@@ -1837,14 +2180,26 @@ export class NovaWebGLFrameRenderer {
   /**
    * Записывает texture quad vertices.
    */
-  private writeTextureQuadVertices(target: Float32Array, offset: number, x: number, y: number, width: number, height: number, opacity: number): void {
+  private writeTextureQuadVertices(
+    target: Float32Array,
+    offset: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    opacity: number,
+    u0 = 0,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+  ): void {
     const vertices = [
-      [x, y, 0, 0],
-      [x + width, y, 1, 0],
-      [x, y + height, 0, 1],
-      [x, y + height, 0, 1],
-      [x + width, y, 1, 0],
-      [x + width, y + height, 1, 1],
+      [x, y, u0, v0],
+      [x + width, y, u1, v0],
+      [x, y + height, u0, v1],
+      [x, y + height, u0, v1],
+      [x + width, y, u1, v0],
+      [x + width, y + height, u1, v1],
     ]
 
     let cursor = offset
@@ -2302,6 +2657,15 @@ export class NovaWebGLFrameRenderer {
     return [
       'text',
       scale,
+      this.createTextBaseKey(text, style),
+    ].join(':')
+  }
+
+  /**
+   * Создает text key без raster scale для fallback между buckets.
+   */
+  private createTextBaseKey(text: NovaText, style: NovaCompiledTextStyle): string {
+    return [
       text.text,
       text.width,
       text.height,
@@ -2373,7 +2737,29 @@ export class NovaWebGLFrameRenderer {
   private textureMemoryMB(): number {
     let bytes = 0
     for (const texture of this._textures.values()) bytes += texture.bytes
+    bytes += this.textAtlasMemoryBytes()
     return bytes / 1024 / 1024
+  }
+
+  /**
+   * Возвращает memory bytes text atlas pages.
+   */
+  private textAtlasMemoryBytes(): number {
+    let bytes = 0
+    for (const page of this._textAtlasPages) bytes += page.texture.bytes
+    return bytes
+  }
+
+  /**
+   * Освобождает все text atlas pages.
+   */
+  private destroyTextAtlas(): void {
+    for (const page of this._textAtlasPages) {
+      this._gl.deleteTexture(page.texture.texture)
+    }
+    this._textAtlasPages.length = 0
+    this._textAtlasEntries.clear()
+    this._textFallbackKeys.clear()
   }
 
   /**

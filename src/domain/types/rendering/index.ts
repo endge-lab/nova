@@ -469,6 +469,11 @@ export interface NovaRenderMetrics {
   updatedHandles?: number
   dirtyStreamRanges?: number
   textRasterCount?: number
+  textCacheHits?: number
+  textCacheMisses?: number
+  textRasterDeferred?: number
+  textAtlasPages?: number
+  effectiveTextRasterScale?: number
   atlasUploads?: number
   uniformOnlyFrames?: number
   commands: number

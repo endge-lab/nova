@@ -11,6 +11,8 @@ import {
   NovaWebGLBatcher,
   RendererType,
   resolveNovaRendererConfig,
+  resolveNovaTextRasterBucket,
+  resolveNovaTextRasterScale,
   type NovaCanvas,
   type NovaRendererConfig,
   type NovaSchema,
@@ -209,6 +211,28 @@ describe('Nova render pipeline contracts', () => {
     expect(first.cacheHit).toBe(false)
     expect(second.cacheHit).toBe(true)
     expect(second.entry).toBe(first.entry)
+  })
+
+  it('resolves text raster policy from renderer config', () => {
+    const quality = resolveNovaRendererConfig({
+      text: {
+        quality: 'quality',
+        dynamicBuckets: true,
+        zoomBuckets: [0.5, 1, 2, 4],
+      },
+    }).text
+    const performance = resolveNovaRendererConfig({
+      text: {
+        quality: 'performance',
+        dynamicBuckets: false,
+        zoomBuckets: [1, 2, 4],
+      },
+    }).text
+
+    expect(resolveNovaTextRasterBucket(quality, 1.8)).toBe(2)
+    expect(resolveNovaTextRasterBucket(quality, 0.2)).toBe(0.5)
+    expect(resolveNovaTextRasterBucket(performance, 4)).toBe(1)
+    expect(resolveNovaTextRasterScale(quality, 1.8, 2)).toBe(4)
   })
 
   it('builds display-order-preserving batches', () => {

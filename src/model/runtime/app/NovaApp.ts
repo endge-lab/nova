@@ -29,6 +29,7 @@ import type {NovaScene} from '@/model/runtime/scene/NovaScene'
 import {NovaSchemaRegistry} from '@/model/runtime/components/NovaSchemaRegistry'
 import {NovaComponentRegistry} from '@/model/runtime/components/NovaComponentRegistry'
 import {NovaMotionEngine} from '@/model/motion/NovaMotionEngine'
+import {NovaSoundEngine} from '@/model/sound/NovaSoundEngine'
 import type {NovaRendererConfig, NovaRendererConfigInput} from '@/domain/types/rendering/index'
 import {resolveNovaRendererConfig} from '@/model/render/policy/NovaRenderPolicy'
 import {NovaPhase} from '@/domain/constants/NovaPhase'
@@ -65,6 +66,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly schema: NovaSchemaRegistry
     readonly components = new NovaComponentRegistry()
     readonly motion = new NovaMotionEngine(this)
+    readonly sound: NovaSoundEngine
     readonly cursors: NovaCursorManager<E>
     readonly bus: EventBus<E>
     readonly metrics: NovaMetrics
@@ -107,6 +109,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             ? new NovaRenderer2D(this._canvas, this.schema)
             : null
         this._events = new NovaEvents(this)
+        this.sound = new NovaSoundEngine(this, options.sound)
         this.cursors = new NovaCursorManager(this)
 
         //
@@ -313,6 +316,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      * Передает DOM-событие в Nova event system.
      */
     handleEvent(type: keyof NovaNodeEventHandlers, event: Event): boolean {
+        if (type === 'mousedown' || type === 'mouseup' || type === 'click' || type === 'keydown') {
+            this.sound.unlockFromInput()
+        }
         return this._events.handle(type, event)
     }
 
@@ -660,6 +666,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     destroy(): void {
         this.cursors.destroy()
         this.motion.destroy()
+        this.sound.destroy()
 
         //
         // Снимаем события с canvas.
@@ -714,6 +721,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
                         this._keyboardActive = true
                     }
 
+                    if (domEvent === 'mousedown' || domEvent === 'mouseup') {
+                        this.sound.unlockFromInput()
+                    }
+
                     const handled = this.handleEvent(domEvent, e)
                     if (domEvent === 'wheel' && handled) {
                         e.preventDefault()
@@ -755,6 +766,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
                 const keyboardEvent = e as KeyboardEvent
                 if (!this.shouldHandleKeyboardEvent(keyboardEvent)) {
                     return
+                }
+
+                if (domEvent === 'keydown') {
+                    this.sound.unlockFromInput()
                 }
 
                 const handled = this.handleEvent(domEvent, keyboardEvent)

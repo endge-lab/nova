@@ -64,7 +64,7 @@ export class NovaRendererWebGL implements NovaRenderer {
     this.targets = new NovaWebGLTargetManager(this.device.gl)
     this.textures = new NovaWebGLTextureManager(this.device.gl)
     this.textRenderer = new NovaWebGLTextRenderer(rendererConfig.text)
-    this._frameRenderer = new NovaWebGLFrameRenderer(this.device)
+    this._frameRenderer = new NovaWebGLFrameRenderer(this.device, rendererConfig.text)
   }
 
   /**

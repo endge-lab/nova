@@ -1,0 +1,315 @@
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  Nova,
+  NovaComponentNode,
+  NovaNode,
+  RaphSchedulerType,
+  RendererType,
+  resolveNovaCursorValue,
+  type NovaApp,
+  type NovaComponentDescriptor,
+  type NovaCursorRuntimeState,
+  type NovaSchema,
+  type NovaSurface,
+} from '@/index'
+import type { EventList } from '@endge/utils'
+
+type TestEvents = EventList
+
+interface TestCursorProps extends Record<string, unknown> {
+  active?: boolean
+}
+
+let componentCreateCount = 0
+
+class TestCursorNode<E extends TestEvents>
+  extends NovaComponentNode<TestCursorProps, Record<string, never>, Record<string, never>, TestCursorProps, E> {
+  constructor(app: NovaApp<E>, surface: NovaSurface<E>, props: TestCursorProps, componentId?: string) {
+    super(app, surface, TEST_CURSOR_DESCRIPTOR, props, { componentId })
+    componentCreateCount += 1
+    this.options({ width: 24, height: 24, interactive: false })
+  }
+
+  override render(): void {
+    const schema: NovaSchema = [
+      {
+        type: 'circle',
+        x: 12,
+        y: 12,
+        radius: this.props.active ? 11 : 9,
+        styles: { background: this.props.active ? '#ef4444' : '#111827' },
+      },
+    ]
+    this.renderer.schema(schema)
+  }
+}
+
+const TEST_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
+  TestCursorProps,
+  Record<string, never>,
+  Record<string, never>,
+  TestCursorProps
+> = {
+  type: 'test.cursor',
+  name: 'TestCursor',
+  version: '0.1.0',
+  kind: 'node-component',
+  dirtyPolicy: { render: ['active'] },
+  createNode: (context, schema) => new TestCursorNode(
+    context.app,
+    context.surface,
+    schema.props ?? {},
+    schema.id,
+  ),
+}
+
+class CursorBoxNode extends NovaNode<TestEvents> {
+  override render(): void {
+    this.renderer.schema([
+      {
+        type: 'rect',
+        x: 0,
+        y: 0,
+        width: this.width,
+        height: this.height,
+        styles: { background: '#ffffff' },
+      },
+    ])
+  }
+}
+
+function create2DContextStub(): CanvasRenderingContext2D {
+  const state: Record<PropertyKey, any> = {
+    measureText: vi.fn((text: string) => ({ width: text.length * 8 })),
+    createPattern: vi.fn(() => ({})),
+  }
+
+  return new Proxy(state, {
+    get(target, prop) {
+      if (!(prop in target)) target[prop] = vi.fn()
+      return target[prop]
+    },
+    set(target, prop, value) {
+      target[prop] = value
+      return true
+    },
+  }) as CanvasRenderingContext2D
+}
+
+function installCanvasMocks(): void {
+  Object.defineProperty(window, 'devicePixelRatio', {
+    value: 1,
+    configurable: true,
+  })
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
+    if (type === RendererType.Web2D) return create2DContextStub()
+    return null
+  })
+  vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLCanvasElement) {
+    const width = this.width || 800
+    const height = this.height || 480
+    return {
+      x: 0,
+      y: 0,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: height,
+      width,
+      height,
+      toJSON: () => ({}),
+    } as DOMRect
+  })
+}
+
+function createApp(input = false): NovaApp<TestEvents> {
+  const canvas = document.createElement('canvas')
+  document.body.appendChild(canvas)
+  return Nova.createApp<TestEvents>({
+    target: canvas,
+    size: { width: 800, height: 480, dpr: 1 },
+    input: {
+      pointer: { enabled: input, capture: true },
+      keyboard: { enabled: false, scope: 'manual' },
+    },
+    renderer: {
+      main: RendererType.Web2D,
+    },
+    scheduler: {
+      type: RaphSchedulerType.Sync,
+      loop: false,
+    },
+  })
+}
+
+function dispatchMouse(canvas: HTMLCanvasElement, type: string, x: number, y: number): void {
+  canvas.dispatchEvent(new MouseEvent(type, {
+    clientX: x,
+    clientY: y,
+    button: 0,
+    bubbles: true,
+  }))
+}
+
+function createRuntimeState(patch: Partial<NovaCursorRuntimeState<TestEvents>> = {}): NovaCursorRuntimeState<TestEvents> {
+  return {
+    x: 12,
+    y: 12,
+    hover: true,
+    pressed: false,
+    dragging: false,
+    disabled: false,
+    target: null,
+    source: {} as NovaNode<TestEvents>,
+    context: {},
+    ...patch,
+  }
+}
+
+describe('Nova cursor system', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    document.body.innerHTML = ''
+    componentCreateCount = 0
+    installCanvasMocks()
+  })
+
+  it('resolves native/url/component state maps by priority', () => {
+    const declaration = {
+      default: 'default',
+      hover: 'pointer',
+      pressed: 'crosshair',
+      dragging: 'grabbing',
+      disabled: 'not-allowed',
+    } as const
+
+    expect(resolveNovaCursorValue(declaration, createRuntimeState())).toBe('pointer')
+    expect(resolveNovaCursorValue(declaration, createRuntimeState({ pressed: true }))).toBe('crosshair')
+    expect(resolveNovaCursorValue(declaration, createRuntimeState({ dragging: true, pressed: true }))).toBe('grabbing')
+    expect(resolveNovaCursorValue(declaration, createRuntimeState({ disabled: true, dragging: true }))).toBe('not-allowed')
+  })
+
+  it('resolves cursor rules with state and cursorContext values', () => {
+    const declaration = [
+      { when: { state: 'dragging', axis: 'x' }, use: { type: 'component', component: 'test.cursor', props: { active: true } } },
+      { when: { state: 'hover', axis: 'x' }, use: 'ew-resize' },
+      { when: { state: 'hover' }, use: 'pointer' },
+    ] as const
+
+    expect(resolveNovaCursorValue(declaration, createRuntimeState({ context: { axis: 'x' }, dragging: true }))).toEqual({
+      type: 'component',
+      component: 'test.cursor',
+      props: { active: true },
+    })
+    expect(resolveNovaCursorValue(declaration, createRuntimeState({ context: { axis: 'x' } }))).toBe('ew-resize')
+    expect(resolveNovaCursorValue(declaration, createRuntimeState({ context: { axis: 'y' } }))).toBe('pointer')
+  })
+
+  it('applies native and url cursors from node declarations and root fallback', () => {
+    const app = createApp()
+    const surface = app.createSurface2D('cursor')
+    const root = surface.createNode(CursorBoxNode)
+    root.options({
+      x: 0,
+      y: 0,
+      width: 320,
+      height: 180,
+      cursor: {
+        default: { type: 'url', src: '/cursors/cursor-pointer.svg', hotspot: { x: 2, y: 2 }, fallback: 'default' },
+      },
+    })
+    const child = surface.createNode(CursorBoxNode)
+    child.options({ x: 20, y: 20, width: 80, height: 60, cursor: 'pointer', interactive: true, zIndex: 10 })
+
+    app.cursors.syncPointer({ x: 40, y: 40, target: child })
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    app.cursors.syncPointer({ x: 150, y: 100, target: null })
+    expect(app.canvas.element.style.cursor).toBe('url("/cursors/cursor-pointer.svg") 2 2, default')
+
+    app.destroy()
+  })
+
+  it('keeps cursor-only nodes out of pointer event dispatch', () => {
+    const app = createApp(true)
+    const surface = app.createSurface2D('cursor')
+    const interactive = surface.createNode(CursorBoxNode)
+    const cursorOnly = surface.createNode(CursorBoxNode)
+    const mouseDown = vi.fn()
+    interactive.options({ x: 20, y: 20, width: 120, height: 80, interactive: true, zIndex: 0 })
+    interactive.on('mousedown', mouseDown)
+    cursorOnly.options({ x: 20, y: 20, width: 120, height: 80, cursor: 'pointer', zIndex: 10 })
+
+    dispatchMouse(app.canvas.element, 'mousedown', 40, 40)
+
+    expect(mouseDown).toHaveBeenCalledTimes(1)
+    expect(app.cursors.lastSource).toBe(cursorOnly)
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    app.destroy()
+  })
+
+  it('reuses component cursor nodes per effective component signature', () => {
+    const app = createApp()
+    const surface = app.createSurface2D('cursor')
+    app.schema.register(TEST_CURSOR_DESCRIPTOR)
+
+    const node = surface.createNode(CursorBoxNode)
+    node.options({
+      x: 20,
+      y: 20,
+      width: 120,
+      height: 80,
+      interactive: true,
+      cursor: {
+        hover: { type: 'component', component: 'test.cursor', props: { active: true }, hotspot: { x: 4, y: 4 } },
+      },
+    })
+
+    app.cursors.syncPointer({ x: 40, y: 40, target: node })
+    app.cursors.syncPointer({ x: 44, y: 44, target: node })
+
+    expect(componentCreateCount).toBe(1)
+    expect(app.canvas.element.style.cursor).toBe('none')
+
+    app.destroy()
+  })
+
+  it('resets cursor on canvas leave and destroys cursor overlay state', () => {
+    const app = createApp(true)
+    const surface = app.createSurface2D('cursor')
+    app.schema.register(TEST_CURSOR_DESCRIPTOR)
+    const node = surface.createNode(CursorBoxNode)
+    node.options({
+      x: 20,
+      y: 20,
+      width: 120,
+      height: 80,
+      interactive: true,
+      cursor: {
+        hover: { type: 'component', component: 'test.cursor', props: { active: true } },
+      },
+    })
+
+    app.cursors.syncPointer({ x: 40, y: 40, target: node })
+    expect(app.canvas.element.style.cursor).toBe('none')
+
+    dispatchMouse(app.canvas.element, 'mouseleave', 900, 900)
+    expect(app.canvas.element.style.cursor).toBe('default')
+
+    app.destroy()
+    expect(app.cursors.cursorNodes.size).toBe(0)
+  })
+
+  it('keeps legacy app.cursor native setter compatible', () => {
+    const app = createApp()
+
+    app.cursor('pointer')
+
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    app.destroy()
+  })
+})

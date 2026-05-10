@@ -15,6 +15,7 @@ import type { NovaEvents } from '@/model/runtime/interaction/NovaEvents'
 import type { NovaDebug } from '@/model/runtime/debug/NovaDebug'
 import type { OneOrMany } from '@endge/utils'
 import type { EventList } from '@endge/utils'
+import type { NovaNodeSoundMap, NovaSoundCueInput, NovaSoundHandle } from '@/domain/types/sound.types'
 import { boundsEquals, boundsIntersects, copyBounds, createEmptyBounds, transformBounds } from '@/domain/utils/bounds'
 import { resolveSchemaBounds } from '@/domain/utils/schemaBounds'
 import type {
@@ -116,6 +117,9 @@ export class NovaNode<
   private _nodeContext?: unknown
   private _hasNodeContext = false
   private readonly _disposers: Array<() => void> = []
+  private readonly _soundHandles = new Set<NovaSoundHandle>()
+  private readonly _soundUserHandlers = new Map<keyof NovaNodeEventHandlers, unknown>()
+  private _soundEventBindings?: Map<keyof NovaNodeEventHandlers, NovaSoundCueInput>
 
   //
   // CTOR
@@ -740,8 +744,29 @@ export class NovaNode<
       type.forEach((t) => this.on(t, handler))
       return
     }
-    this.eventHandlers[type] = handler
+    this.installEventHandler(type, handler)
     this.nova.registerInteractiveNode(this)
+  }
+
+  /**
+   * Привязывает sound cues к событиям node без замены пользовательских handlers.
+   */
+  withSound(map: NovaNodeSoundMap): this {
+    if (!this._soundEventBindings) {
+      this._soundEventBindings = new Map()
+    }
+
+    for (const [eventName, cue] of Object.entries(map) as Array<[keyof NovaNodeEventHandlers, NovaSoundCueInput | undefined]>) {
+      if (!cue) continue
+      this._soundEventBindings.set(eventName, cue)
+      const handler = this._soundUserHandlers.has(eventName)
+        ? this._soundUserHandlers.get(eventName)
+        : this.eventHandlers[eventName]
+      this.installEventHandler(eventName, handler as any)
+      this.nova.registerInteractiveNode(this)
+    }
+
+    return this
   }
 
   /**
@@ -764,6 +789,8 @@ export class NovaNode<
    */
   off<K extends keyof NovaNodeEventHandlers>(type: K): void {
     delete this.eventHandlers[type]
+    this._soundUserHandlers.delete(type)
+    this._soundEventBindings?.delete(type)
     if (Object.keys(this.eventHandlers).length === 0 && Object.keys(this.captureEventHandlers).length === 0) {
       this.nova.unregisterInteractiveNode(this)
     }
@@ -789,7 +816,53 @@ export class NovaNode<
     for (const key in this.captureEventHandlers) {
       delete this.captureEventHandlers[key as keyof NovaNodeEventHandlers]
     }
+    this._soundUserHandlers.clear()
+    this._soundEventBindings?.clear()
     this.nova.unregisterInteractiveNode(this)
+  }
+
+  /**
+   * Устанавливает event handler с optional sound wrapper.
+   */
+  private installEventHandler<K extends keyof NovaNodeEventHandlers>(
+    type: K,
+    handler: NonNullable<NovaNodeEventHandlers[K]> | undefined,
+  ): void {
+    const cue = this._soundEventBindings?.get(type)
+    if (!cue) {
+      if (handler) this.eventHandlers[type] = handler
+      this._soundUserHandlers.delete(type)
+      return
+    }
+
+    this._soundUserHandlers.set(type, handler)
+    this.eventHandlers[type] = ((event: Event, ...args: unknown[]) => {
+      const handle = this.nova.sound.playCue(cue)
+      if (handle) this.trackSoundHandle(handle)
+      const userHandler = this._soundUserHandlers.get(type)
+      if (typeof userHandler === 'function') {
+        return (userHandler as (...handlerArgs: unknown[]) => unknown)(event, ...args)
+      }
+      return undefined
+    }) as NonNullable<NovaNodeEventHandlers[K]>
+  }
+
+  /**
+   * Отслеживает node-scoped sound handle.
+   */
+  private trackSoundHandle(handle: NovaSoundHandle): void {
+    this._soundHandles.add(handle)
+    void handle.ended.finally(() => this._soundHandles.delete(handle))
+  }
+
+  /**
+   * Останавливает node-scoped sounds.
+   */
+  private stopSoundHandles(): void {
+    for (const handle of [...this._soundHandles]) {
+      handle.stop()
+    }
+    this._soundHandles.clear()
   }
 
   /**
@@ -1219,6 +1292,7 @@ export class NovaNode<
     if (this._lifecycleState === 'destroyed') return
 
     this.nova.motion.cancel(this)
+    this.stopSoundHandles()
     this.unmountSubtree()
     this.runDisposers()
     super.dispose()

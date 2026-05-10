@@ -5,6 +5,7 @@ import {
   RendererType,
   type NovaApp,
   type NovaRaphOptions,
+  type NovaSoundOptions,
 } from '@/index'
 import type { EventList } from '@endge/utils'
 
@@ -84,6 +85,7 @@ export function createTestApp<E extends EventList = Record<string, any>>(
     width?: number
     height?: number
     raph?: NovaRaphOptions
+    sound?: NovaSoundOptions
   } = {},
 ): NovaApp<E> {
   return Nova.createApp<E>({
@@ -105,5 +107,6 @@ export function createTestApp<E extends EventList = Record<string, any>>(
       loop: false,
     },
     raph: options.raph,
+    sound: options.sound,
   })
 }
