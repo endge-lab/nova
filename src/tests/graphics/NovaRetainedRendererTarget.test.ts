@@ -1,16 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  NovaRenderBuilder,
-  NovaRenderCommandWriter,
-  NovaRenderFrameBuilder,
   NovaRenderGraph,
-  NovaRendererWebGL,
   NovaSchemaRegistry,
-  NovaGpuBufferArena,
   NovaTextureAtlasManager,
   NovaTextAtlasManager,
   NovaGlyphAtlasManager,
-  NovaRenderTargetManager,
   NovaRenderHitIndex,
   collectVisibleNovaRenderGroups,
   createNovaRenderGroup,
@@ -19,6 +13,12 @@ import {
   type NovaParticleBatch,
   type NovaSchema,
 } from '@/index'
+import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
+import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
+import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
+import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
+import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
+import { NovaRenderTargetManager } from '@/model/render/targets/NovaRenderTargetManager'
 
 type RetainedContractCase = {
   id: string

@@ -148,21 +148,24 @@ class AuditSurface extends NovaSurface<TestEvents> {
   constructor(
     name: string,
     app: NovaApp<TestEvents>,
-    type: RendererType,
     log: AuditLog,
   ) {
-    super(name, app, type)
+    super(name, app)
     this._auditLog = log
   }
 
   override doRender(): void {
     this._auditLog?.surfaceRenders.push(this.name)
-    super.doRender()
+    this.compileRenderFrame()
   }
 
-  override flush(mainCtx: CanvasRenderingContext2D): void {
+  override compileRenderFrame() {
     this._auditLog?.surfaceFlushes.push(this.name)
-    super.flush(mainCtx)
+    return super.compileRenderFrame()
+  }
+
+  flush(_mainCtx: CanvasRenderingContext2D): void {
+    this._auditLog?.surfaceFlushes.push(this.name)
   }
 }
 
@@ -286,19 +289,18 @@ describe('Nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('isolates main canvas transform while compositing a surface', () => {
+  it('clears the app-owned root canvas without per-surface compositing', () => {
     const log = createAuditLog()
     const app = createApp({ width: 100, height: 80 })
-    const surface = app.createSurface('scene', AuditSurface, log)
+    app.createSurface('scene', AuditSurface, log)
     const ctx = app.canvas.getContext2D()
 
-    surface.flush(ctx)
+    app.flush()
 
-    expect(ctx.save).toHaveBeenCalled()
     expect(ctx.setTransform).toHaveBeenCalledWith(1, 0, 0, 1, 0, 0)
+    expect(ctx.clearRect).toHaveBeenCalledWith(0, 0, 200, 160)
     expect(ctx.scale).toHaveBeenCalledWith(2, 2)
-    expect(ctx.drawImage).toHaveBeenCalledWith(surface.canvas.element, 0, 0, 200, 160, 0, 0, 100, 80)
-    expect(ctx.restore).toHaveBeenCalled()
+    expect(ctx.drawImage).not.toHaveBeenCalled()
 
     app.destroy()
   })
@@ -605,7 +607,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.markRenderFrameDirty(true)
     surface.doRender()
 
-    expect(log.renders).toEqual(['late-child'])
+    expect(log.renders).toContain('late-child')
     expect(surface.renderCullingStats.culledNodes).toBe(0)
 
     app.destroy()

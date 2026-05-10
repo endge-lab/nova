@@ -212,12 +212,25 @@ export class NovaNode<
    * Подписывает ноду на business data path и dirty-ит указанную Nova phase.
    */
   observeData(path: DataPathDef, options: NovaObserveDataOptions = {}): () => void {
+    const phase = options.phase ?? NovaPhase.Update
     const dispose = this.raph.observeData(this, path, {
       ...options,
-      phase: options.phase ?? NovaPhase.Update,
+      phase,
     })
 
-    return this.addDisposer(dispose)
+    if (phase !== NovaPhase.Render) {
+      return this.addDisposer(dispose)
+    }
+
+    const disposeFlush = this.raph.observeData(this.surface, path, {
+      ...options,
+      phase: NovaPhase.Flush,
+    })
+
+    return this.addDisposer(() => {
+      dispose()
+      disposeFlush()
+    })
   }
 
   //

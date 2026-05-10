@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type {
-  NovaNode ,
+import {
   Nova,
   RaphSchedulerType,
   RendererType,
-  NovaRendererWebGL,
-  type NovaApp,
-  type NovaSurface,
+} from '@/index'
+import type {
+  NovaNode,
+  NovaApp,
+  NovaSurface,
 } from '@/index'
 
 type TestEvents = Record<string, any>
@@ -391,11 +392,12 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
-  it('creates the new WebGL surface through the render compiler renderer', () => {
+  it('creates a logical surface without exposing a backend renderer', () => {
     const app = createApp()
-    const surface = app.createSurface('new-webgl')
+    const surface = app.createSurface('logical')
 
-    expect(surface.renderer).toBeInstanceOf(NovaRendererWebGL)
+    expect(app.mainRendererType).toBe(RendererType.Web2D)
+    expect(() => surface.renderer).toThrow(/only during render/)
 
     app.destroy()
   })

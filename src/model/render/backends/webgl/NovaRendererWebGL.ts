@@ -12,8 +12,8 @@ import type {
   NovaRendererCapabilities,
   NovaSchema,
   NovaText,
-  RendererType,
 } from '@/domain/types/renderer.types'
+import { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'

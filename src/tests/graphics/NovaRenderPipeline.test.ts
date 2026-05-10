@@ -1,14 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mat3 } from 'gl-matrix'
 import {
-  NovaRenderBuilder,
-  NovaRenderCommandWriter,
-  NovaRenderCompiler,
-  NovaRenderFrameBuilder,
-  NovaRendererWebGL,
   NovaSchemaRegistry,
   NovaTextAtlasManager,
-  NovaWebGLBatcher,
   RendererType,
   resolveNovaRendererConfig,
   resolveNovaTextRasterBucket,
@@ -17,6 +11,12 @@ import {
   type NovaRendererConfig,
   type NovaSchema,
 } from '@/index'
+import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
+import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
+import { NovaRenderCompiler } from '@/model/render/compiler/NovaRenderCompiler'
+import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
+import { NovaWebGLBatcher } from '@/model/render/backends/webgl/NovaWebGLBatcher'
+import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
 
 function noop(): void {}
 

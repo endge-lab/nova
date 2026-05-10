@@ -2,14 +2,14 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  NovaRenderCommandWriter,
   NovaRenderContext,
-  NovaRenderFrameBuilder,
   NovaSchemaRegistry,
   compileNovaRectStyle,
   compileNovaTextStyle,
   parseNovaColor,
 } from '@/index'
+import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
+import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
 
 function createFrameBuilder(): NovaRenderFrameBuilder {
   return new NovaRenderFrameBuilder('target-webgl', {
