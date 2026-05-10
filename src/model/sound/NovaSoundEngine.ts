@@ -170,7 +170,7 @@ export class NovaSoundEngine {
    * Создает instance и выбирает audio backend.
    */
   constructor(
-    private readonly app: NovaApp<any>,
+    _app: NovaApp<any>,
     options: NovaSoundOptions = {},
   ) {
     this.enabled = options.enabled ?? true

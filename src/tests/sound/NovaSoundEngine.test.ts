@@ -105,6 +105,7 @@ describe('NovaSoundEngine', () => {
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 4, clientY: 4, button: 0 }))
     app.handleEvent('mouseup', new MouseEvent('mouseup', { clientX: 4, clientY: 4, button: 0 }))
     vi.advanceTimersByTime(260)
+    await Promise.resolve()
 
     expect(app.sound.stats().unlocked).toBe(true)
     expect(app.sound.stats().played).toBe(1)
