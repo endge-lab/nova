@@ -6,6 +6,7 @@ import type { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import type { EventList } from '@endge/utils'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
 
 /**
  * Описывает контракт NovaNodeProperties.
@@ -18,6 +19,8 @@ export interface NovaNodeProperties extends RaphProperties {
   // Фаза - preupdate
   interactive: boolean
   propagateUpdate: boolean
+  cursor: NovaCursorDeclaration | null
+  cursorContext: NovaCursorContext | null
 
   // Фаза - update. Вычисляется из localActive и active родителя.
   active: boolean

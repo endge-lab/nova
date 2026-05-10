@@ -217,7 +217,7 @@ export class NovaRenderBuilder implements NovaRenderer {
   /**
    * Выполняет внутреннюю операцию cursor.
    */
-  cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): void {
+  cursor(type: string): void {
     this._writer.cursor(type)
   }
 

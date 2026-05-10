@@ -383,7 +383,7 @@ export interface NovaRenderCommand {
   particleBatch?: NovaParticleBatch
   transform?: mat3
   clip?: NovaRenderClip
-  cursor?: 'default' | 'pointer' | 'col-resize' | 'row-resize'
+  cursor?: string
 }
 
 /**

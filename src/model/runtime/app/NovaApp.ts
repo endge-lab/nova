@@ -20,6 +20,7 @@ import type {RaphApp, RaphLocalPhaseContext} from '@endge/raph'
 import {Raph, RaphLocalPhase, RaphSchedulerType} from '@endge/raph'
 import {NovaNode} from '@/model/runtime/tree/NovaNode'
 import {NovaEvents} from '@/model/runtime/interaction/NovaEvents'
+import {NovaCursorManager} from '@/model/runtime/cursor/NovaCursorManager'
 import {NovaDebug} from '@/model/runtime/debug/NovaDebug'
 import {NovaMetrics} from '@/model/runtime/debug/NovaMetrics'
 import {Telemetry} from '@/model/telemetry'
@@ -64,6 +65,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly schema: NovaSchemaRegistry
     readonly components = new NovaComponentRegistry()
     readonly motion = new NovaMotionEngine(this)
+    readonly cursors: NovaCursorManager<E>
     readonly bus: EventBus<E>
     readonly metrics: NovaMetrics
 
@@ -105,6 +107,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             ? new NovaRenderer2D(this._canvas, this.schema)
             : null
         this._events = new NovaEvents(this)
+        this.cursors = new NovaCursorManager(this)
 
         //
         // Поднимаем app-level bus, debug и telemetry до запуска Raph-фаз.
@@ -372,7 +375,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      * Обновляет CSS cursor основного canvas независимо от active renderer backend.
      */
     cursor(value: string): void {
-        this._canvas.element.style.cursor = value
+        this.cursors.setNativeCursor(value)
     }
 
     /**
@@ -655,6 +658,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      * Освобождает runtime, события, metrics, surfaces и canvas.
      */
     destroy(): void {
+        this.cursors.destroy()
         this.motion.destroy()
 
         //

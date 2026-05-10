@@ -3,6 +3,7 @@ import { RaphNode } from '@endge/raph'
 import { RaphPropagation } from '@endge/raph'
 import type { DataPathDef } from '@endge/raph'
 import type { NovaNodeProperties } from '@/domain/types/base.types'
+import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
@@ -78,6 +79,7 @@ function hasSpatialOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number
     || opts.visible !== undefined
     || opts.opacity !== undefined
     || opts.interactive !== undefined
+    || opts.cursor !== undefined
     || opts.zIndex !== undefined
   )
 }
@@ -444,6 +446,38 @@ export class NovaNode<
   }
 
   /**
+   * Возвращает cursor declaration.
+   */
+  @RaphProperty({ phase: 'preupdate', default: null })
+  get cursor(): NovaCursorDeclaration | null {
+    return this.get('cursor')
+  }
+  /**
+   * Обновляет cursor declaration.
+   */
+  set cursor(v: NovaCursorDeclaration | null) {
+    if (this.cursor === v) return
+    this.set('cursor', v)
+    this.syncCursorRegistration()
+  }
+
+  /**
+   * Возвращает cursor context.
+   */
+  @RaphProperty({ phase: 'preupdate', default: null })
+  get cursorContext(): NovaCursorContext | null {
+    return this.get('cursorContext')
+  }
+  /**
+   * Обновляет cursor context.
+   */
+  set cursorContext(v: NovaCursorContext | null) {
+    if (this.cursorContext === v) return
+    this.set('cursorContext', v)
+    this.nova.cursors.markSpatialDirty(this)
+  }
+
+  /**
    * Возвращает propagate update.
    */
   @RaphProperty({ phase: 'preupdate', default: false })
@@ -529,17 +563,23 @@ export class NovaNode<
   ): this {
     const { zIndex, ...rest } = opts
     const spatialDirty = hasSpatialOptions(opts)
+    const hasCursorOption = Object.prototype.hasOwnProperty.call(opts, 'cursor')
+    const hasCursorContextOption = Object.prototype.hasOwnProperty.call(opts, 'cursorContext')
 
     if (zIndex !== undefined) {
       super.options({
         ...rest,
         weight: zIndex,
       })
+      if (hasCursorOption) this.syncCursorRegistration()
+      if (hasCursorContextOption) this.nova.cursors.markSpatialDirty(this)
       if (spatialDirty) this.markSpatialDirtyForOptions(opts)
       return this
     }
 
     super.options(opts)
+    if (hasCursorOption) this.syncCursorRegistration()
+    if (hasCursorContextOption) this.nova.cursors.markSpatialDirty(this)
     if (spatialDirty) this.markSpatialDirtyForOptions(opts)
     return this
   }
@@ -629,6 +669,7 @@ export class NovaNode<
     copyBounds(this._localRenderBounds, bounds)
     this._hasLocalRenderBounds = true
     this.nova.events.markSpatialDirty(this)
+    this.nova.cursors.markSpatialDirty(this)
     return this
   }
 
@@ -648,6 +689,7 @@ export class NovaNode<
     this._hasLocalRenderBounds = false
     copyBounds(this._localRenderBounds, createEmptyBounds())
     this.nova.events.markSpatialDirty(this)
+    this.nova.cursors.markSpatialDirty(this)
     return this
   }
 
@@ -1190,6 +1232,7 @@ export class NovaNode<
     this._renderSubtreeDirty = true
     this._lifecycleState = 'destroyed'
     this.nova.events.markSpatialDirty(this, true)
+    this.nova.cursors.unregister(this)
   }
 
   /**
@@ -1222,6 +1265,19 @@ export class NovaNode<
       || opts.visible !== undefined
     )
     this.nova.events.markSpatialDirty(this, includeChildren)
+    this.nova.cursors.markSpatialDirty(this, includeChildren)
+  }
+
+  /**
+   * Синхронизирует регистрацию node в cursor index.
+   */
+  private syncCursorRegistration(): void {
+    if (this.cursor) {
+      this.nova.cursors.register(this)
+      return
+    }
+
+    this.nova.cursors.unregister(this)
   }
 
   /**

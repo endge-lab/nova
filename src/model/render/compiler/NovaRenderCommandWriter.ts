@@ -213,7 +213,7 @@ export class NovaRenderCommandWriter {
   /**
    * Выполняет внутреннюю операцию cursor.
    */
-  cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): NovaRenderCommand {
+  cursor(type: string): NovaRenderCommand {
     return this.command({
       type: 'cursor',
       cursor: type,

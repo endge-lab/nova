@@ -151,7 +151,12 @@ export class NovaEvents<E extends EventList> {
    * Выполняет внутреннюю операцию handle.
    */
   handle(type: keyof NovaNodeEventHandlers, event: Event): boolean {
-    if (this.interactiveNodes.size === 0 && !this.focusedNode && this._pointerCaptureNodes.size === 0) return false
+    if (
+      this.interactiveNodes.size === 0
+      && this.app.cursors.cursorNodes.size === 0
+      && !this.focusedNode
+      && this._pointerCaptureNodes.size === 0
+    ) return false
 
     switch (type) {
       case 'mousedown':
@@ -566,6 +571,7 @@ export class NovaEvents<E extends EventList> {
       this.blur(undefined, event)
       this.clearSelection(event)
     }
+    this.app.cursors.syncPointer({ x, y, target, pressed: true })
     return true
   }
 
@@ -630,6 +636,13 @@ export class NovaEvents<E extends EventList> {
       if (capturedTarget && !event.cancelBubble) {
         this.dispatchPointer('mousemove', event, capturedTarget)
       }
+      this.app.cursors.syncPointer({
+        x,
+        y,
+        target: capturedTarget ?? firstSetItem(state.draggedNodes) ?? null,
+        pressed: !state.isDraggingEmitted,
+        dragging: state.isDraggingEmitted,
+      })
       return true
     }
 
@@ -654,6 +667,7 @@ export class NovaEvents<E extends EventList> {
     }
 
     this.hoveredNodes = newHovered
+    this.app.cursors.syncPointer({ x, y, target })
     return true
   }
 
@@ -685,6 +699,13 @@ export class NovaEvents<E extends EventList> {
 
     const mouseUpTarget = capturedTarget ?? this.hitTest(this.mouseX, this.mouseY)
     this.dispatchPointer('mouseup', event, mouseUpTarget)
+    this.app.cursors.syncPointer({
+      x: this.mouseX,
+      y: this.mouseY,
+      target: mouseUpTarget,
+      pressed: false,
+      dragging: false,
+    })
 
     if (
       Math.abs(this.startMouseX - this.mouseX) <= 2 &&
@@ -798,6 +819,7 @@ export class NovaEvents<E extends EventList> {
     this.mouseY = y
     this.lastMouseX = x
     this.lastMouseY = y
+    this.app.cursors.syncPointer({ x, y, target: this.hitTest(x, y) })
 
     if (event.cancelBubble) return false
 
@@ -836,6 +858,7 @@ export class NovaEvents<E extends EventList> {
     this.hoveredNodes.clear()
     this.draggedNodes.clear()
     this.releasePointerCapture(undefined, event)
+    this.app.cursors.reset()
 
     if (event.cancelBubble) return false
 
@@ -865,4 +888,9 @@ export class NovaEvents<E extends EventList> {
     }
     return false
   }
+}
+
+function firstSetItem<T>(items: Set<T>): T | undefined {
+  for (const item of items) return item
+  return undefined
 }

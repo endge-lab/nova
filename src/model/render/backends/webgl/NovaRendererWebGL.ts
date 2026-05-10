@@ -191,7 +191,7 @@ export class NovaRendererWebGL implements NovaRenderer {
   /**
    * Выполняет внутреннюю операцию cursor.
    */
-  cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): void {
+  cursor(type: string): void {
     this.novaCanvas.element.style.cursor = type
   }
 

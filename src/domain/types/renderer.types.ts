@@ -397,7 +397,7 @@ export interface NovaRenderer {
 
   measureText(params: NovaText): { width: number; height: number }
 
-  cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): void
+  cursor(type: string): void
 
   destroy(): void
 }
