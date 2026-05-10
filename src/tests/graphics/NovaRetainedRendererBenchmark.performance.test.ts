@@ -14,9 +14,10 @@ type BenchmarkTarget = {
 
 type RetainedBenchmarkCase = {
   id: string
-  area: 'rect' | 'rounded' | 'text' | 'mixed' | 'timeline' | 'input' | 'resources'
-  workload: 'static' | 'pan-only' | 'paint-5%' | 'shader-animation' | 'scroll' | 'eviction' | 'zoom-inside-bucket' | 'zoom-bucket-crossing'
+  area: 'rect' | 'rounded' | 'text' | 'mixed' | 'timeline' | 'input' | 'resources' | 'motion'
+  workload: 'static' | 'pan-only' | 'paint-5%' | 'paint-30%' | 'shader-animation' | 'slaylines' | 'scroll' | 'eviction' | 'zoom-inside-bucket' | 'zoom-bucket-crossing'
   count: number
+  profile?: 'quality' | 'performance'
   pixiBaseline: 'required' | 'optional' | 'not-applicable'
   target: BenchmarkTarget
 }
@@ -227,6 +228,24 @@ const RETAINED_BENCHMARKS: RetainedBenchmarkCase[] = [
     },
   },
   {
+    id: 'mixed-all-toggles-paint-30p-50k',
+    area: 'mixed',
+    workload: 'paint-30%',
+    count: 50_000,
+    profile: 'quality',
+    pixiBaseline: 'required',
+    target: {
+      minFps: 45,
+      maxFrameMs: 22.25,
+      maxUploadMBPerFrame: 10,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 20,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+    },
+  },
+  {
     id: 'mixed-all-toggles-zoom-inside-bucket-50k',
     area: 'mixed',
     workload: 'zoom-inside-bucket',
@@ -294,6 +313,38 @@ const RETAINED_BENCHMARKS: RetainedBenchmarkCase[] = [
     },
   },
   {
+    id: 'shader-animation-uniform-50k',
+    area: 'motion',
+    workload: 'shader-animation',
+    count: 50_000,
+    profile: 'quality',
+    pixiBaseline: 'required',
+    target: {
+      minFps: 60,
+      maxFrameMs: 16.67,
+      maxUploadMBPerFrame: 0.05,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 20,
+    },
+  },
+  {
+    id: 'slaylines-shader-motion-256k',
+    area: 'motion',
+    workload: 'slaylines',
+    count: 256_000,
+    profile: 'performance',
+    pixiBaseline: 'required',
+    target: {
+      minFps: 60,
+      maxFrameMs: 16.67,
+      maxUploadMBPerFrame: 0.05,
+      maxNodeRenderCallsPerFrame: 0,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 4,
+    },
+  },
+  {
     id: 'timeline-visible-scroll',
     area: 'timeline',
     workload: 'scroll',
@@ -335,7 +386,9 @@ const REQUIRED_WORKLOADS = new Set<RetainedBenchmarkCase['workload']>([
   'static',
   'pan-only',
   'paint-5%',
+  'paint-30%',
   'shader-animation',
+  'slaylines',
   'scroll',
   'eviction',
   'zoom-inside-bucket',
@@ -350,6 +403,7 @@ const REQUIRED_AREAS = new Set<RetainedBenchmarkCase['area']>([
   'timeline',
   'input',
   'resources',
+  'motion',
 ])
 
 function byId(testCase: RetainedBenchmarkCase): string {

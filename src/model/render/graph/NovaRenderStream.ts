@@ -231,6 +231,8 @@ export function resolveNovaRenderStreamStride(kind: NovaRenderStreamKind): numbe
       return 10
     case 'rounded-rect':
       return 16
+    case 'motion-rect':
+      return 18
     case 'border':
     case 'line':
       return 8
@@ -256,6 +258,7 @@ export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): Nova
   switch (kind) {
     case 'plain-rect':
     case 'rounded-rect':
+    case 'motion-rect':
     case 'circle':
     case 'polygon':
       return 'background'

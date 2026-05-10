@@ -528,6 +528,73 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(dirty.updatedHandles).toBe(5)
   })
 
+  it('renders shader-animation frames through uniforms without stream uploads after warmup', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schema = createRectSchema(100)
+
+    for (let index = 0; index < schema.length; index += 1) {
+      const item = schema[index]
+      if (item.type === 'rect') {
+        item.meta = {
+          animation: {
+            type: 'pulse-color',
+            phase: index * 0.1,
+            speed: 0.08,
+            amplitude: 0.25,
+          },
+        }
+      }
+    }
+    schema.contentVersion = 1
+
+    const first = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const warm = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.uploadBytes).toBe(0)
+    expect(warm.bufferDataCalls).toBe(0)
+    expect(warm.bufferSubDataCalls).toBe(0)
+    expect(warm.uniformOnlyFrames).toBe(1)
+    expect(warm.nodeRenderCalls).toBe(0)
+  })
+
+  it('keeps SlayLines motion data stable and moves via shader metadata', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schema = createRectSchema(100)
+
+    for (let index = 0; index < schema.length; index += 1) {
+      const item = schema[index]
+      if (item.type === 'rect') {
+        item.styles = {
+          ...item.styles,
+          border: { radius: 0, width: 1, color: '#000000' },
+        }
+        item.meta = {
+          motion: {
+            type: 'slayline',
+            speed: 1 + (index % 7) * 0.1,
+            wrapWidth: 900,
+          },
+        }
+      }
+    }
+    schema.contentVersion = 1
+
+    const first = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const warm = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.uploadBytes).toBe(0)
+    expect(warm.bufferDataCalls).toBe(0)
+    expect(warm.bufferSubDataCalls).toBe(0)
+    expect(warm.uniformOnlyFrames).toBe(1)
+    expect(warm.drawCalls).toBeLessThanOrEqual(1)
+  })
+
   it('semantic-batches non-overlapping mixed rect/icon/text grids into layered draws', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()

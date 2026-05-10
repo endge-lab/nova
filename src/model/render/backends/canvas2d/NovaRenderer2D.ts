@@ -147,6 +147,9 @@ export class NovaRenderer2D implements NovaRenderer {
       dirtyRangeCount: 0,
       gpuBufferCapacityBytes: 0,
       textRasterMs: 0,
+      textRasterCount: 0,
+      atlasUploads: 0,
+      uniformOnlyFrames: 0,
       atlasMemoryMB: 0,
       cachedTextureMemoryMB: 0,
     }

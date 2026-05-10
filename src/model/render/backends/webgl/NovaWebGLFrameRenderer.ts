@@ -27,8 +27,8 @@ import {
 } from '@/model/render/schema/NovaStyleCompiler'
 
 const FLOAT_BYTES = 4
-const RECT_STRIDE = 16
-const SOLID_STRIDE = 6
+const RECT_STRIDE = 21
+const SOLID_STRIDE = 9
 const TEXTURE_STRIDE = 8
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
 const TEXT_RASTER_ZOOM_BUCKETS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 8, 16]
@@ -50,8 +50,65 @@ interface RenderStats {
   dirtyStreamRanges: number
   gpuBufferCapacityBytes: number
   textRasterMs: number
+  textRasterCount: number
+  atlasUploads: number
   atlasMemoryMB: number
 }
+
+/**
+ * Описывает metadata для shader-driven animation на schema item.
+ */
+interface NovaShaderAnimationMeta {
+  type?: 'pulse-color'
+  phase?: number
+  speed?: number
+  amplitude?: number
+}
+
+/**
+ * Описывает metadata для shader-driven movement на schema item.
+ */
+interface NovaShaderMotionMeta {
+  type?: 'wrap-x' | 'slayline'
+  speed?: number
+  wrapWidth?: number
+}
+
+/**
+ * Описывает metadata, которую renderer читает без расширения публичного NovaSchema.
+ */
+interface NovaShaderRenderMeta {
+  animation?: NovaShaderAnimationMeta
+  motion?: NovaShaderMotionMeta
+}
+
+/**
+ * Описывает нормализованные shader animation attributes.
+ */
+interface ResolvedShaderAnimation {
+  phase: number
+  speed: number
+  amplitude: number
+}
+
+/**
+ * Описывает нормализованные shader movement attributes.
+ */
+interface ResolvedShaderMotion {
+  speed: number
+  wrapWidth: number
+}
+
+const EMPTY_SHADER_ANIMATION: ResolvedShaderAnimation = Object.freeze({
+  phase: 0,
+  speed: 0,
+  amplitude: 0,
+})
+
+const EMPTY_SHADER_MOTION: ResolvedShaderMotion = Object.freeze({
+  speed: 0,
+  wrapWidth: 0,
+})
 
 /**
  * Описывает контракт TextureEntry.
@@ -245,6 +302,8 @@ export class NovaWebGLFrameRenderer {
       dirtyStreamRanges: 0,
       gpuBufferCapacityBytes: 0,
       textRasterMs: 0,
+      textRasterCount: 0,
+      atlasUploads: 0,
       atlasMemoryMB: this.textureMemoryMB(),
     }
     const itemMap = frame.items.length > 0 ? new Map(frame.items.map(item => [item.id, item])) : null
@@ -347,6 +406,9 @@ export class NovaWebGLFrameRenderer {
       dirtyStreamRanges: stats.dirtyStreamRanges,
       uploadMs: stats.uploadMs,
       textRasterMs: stats.textRasterMs,
+      textRasterCount: stats.textRasterCount,
+      atlasUploads: stats.atlasUploads,
+      uniformOnlyFrames: stats.uploadBytes === 0 && stats.textRasterMs === 0 ? 1 : 0,
       atlasMemoryMB: this.textureMemoryMB(),
     }
   }
@@ -596,6 +658,7 @@ export class NovaWebGLFrameRenderer {
         style.opacity,
         style.borderColor,
         style.borderWidth,
+        this.resolveShaderRenderMeta(rect),
       )
       instances += 1
     }
@@ -624,7 +687,7 @@ export class NovaWebGLFrameRenderer {
       if (rect.width <= 0 || rect.height <= 0 || style.fill.a <= 0) continue
 
       itemOffsets[index] = data.length
-      this.pushSolidRectVertices(data, rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity)
+      this.pushSolidRectVertices(data, rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity, this.resolveShaderRenderMeta(rect))
       instances += 1
     }
 
@@ -670,6 +733,7 @@ export class NovaWebGLFrameRenderer {
         style.opacity,
         style.borderColor,
         style.borderWidth,
+        this.resolveShaderRenderMeta(rect),
       )
       batch.signatures[index] = signature
       changedItems += 1
@@ -703,7 +767,7 @@ export class NovaWebGLFrameRenderer {
 
       const style = compileNovaRectStyle(rect)
       if (rect.width <= 0 || rect.height <= 0 || style.fill.a <= 0) return null
-      this.writeSolidRectVertices(batch.data, offset, rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity)
+      this.writeSolidRectVertices(batch.data, offset, rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity, this.resolveShaderRenderMeta(rect))
       batch.signatures[index] = signature
       changedItems += 1
       dirtyRanges.push({ start: offset, end: offset + SOLID_STRIDE * 6 })
@@ -870,6 +934,7 @@ export class NovaWebGLFrameRenderer {
         const rasterStartedAt = performance.now()
         const raster = this.rasterizeText(item, style, scale)
         stats.textRasterMs += performance.now() - rasterStartedAt
+        stats.textRasterCount += 1
         texture = this.createTextureFromSource(key, raster.canvas, stats)
       }
 
@@ -905,7 +970,35 @@ export class NovaWebGLFrameRenderer {
       border?.width ?? 0,
       border?.radius ?? 0,
       border?.dashPattern?.join(',') ?? '',
+      this.createShaderMetaSignature(rect),
     ].join('|')
+  }
+
+  /**
+   * Возвращает shader metadata schema item.
+   */
+  private resolveShaderRenderMeta(item?: { meta?: any }): NovaShaderRenderMeta | null {
+    const meta = item?.meta as NovaShaderRenderMeta | undefined
+    if (!meta || typeof meta !== 'object') return null
+    if (!meta.animation && !meta.motion) return null
+    return meta
+  }
+
+  /**
+   * Создает signature для shader metadata, которая меняется только при смене конфигурации.
+   */
+  private createShaderMetaSignature(item: { meta?: any }): string {
+    const meta = this.resolveShaderRenderMeta(item)
+    if (!meta) return ''
+    const animation = resolveAnimationVector(meta)
+    const motion = resolveMotionVector(meta)
+    return [
+      animation.phase,
+      animation.speed,
+      animation.amplitude,
+      motion.speed,
+      motion.wrapWidth,
+    ].join(',')
   }
 
   /**
@@ -963,10 +1056,10 @@ export class NovaWebGLFrameRenderer {
 
     if (!background || typeof background === 'string' || style.borderWidth > 0) {
       if (background !== undefined && typeof background === 'string' && style.borderRadius <= 0 && style.borderWidth <= 0) {
-        this.queuePlainRect(rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity, transform, stats)
+        this.queuePlainRect(rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity, transform, stats, rect)
         return
       }
-      this.queueRoundedRect(rect.x, rect.y, rect.width, rect.height, style.borderRadius, style.fill, style.opacity, style.borderColor, style.borderWidth, transform, stats)
+      this.queueRoundedRect(rect.x, rect.y, rect.width, rect.height, style.borderRadius, style.fill, style.opacity, style.borderColor, style.borderWidth, transform, stats, rect)
     }
   }
 
@@ -1004,6 +1097,7 @@ export class NovaWebGLFrameRenderer {
       const rasterStartedAt = performance.now()
       const raster = this.rasterizeText(text, style, scale)
       stats.textRasterMs += performance.now() - rasterStartedAt
+      stats.textRasterCount += 1
       texture = this.createTextureFromSource(key, raster.canvas, stats)
     }
 
@@ -1124,6 +1218,7 @@ export class NovaWebGLFrameRenderer {
     borderWidth: number,
     transform: mat3,
     stats: RenderStats,
+    source?: NovaSchemaItem<any>,
   ): void {
     if (width <= 0 || height <= 0) return
     if (fill.a <= 0 && (border.a <= 0 || borderWidth <= 0)) return
@@ -1131,7 +1226,7 @@ export class NovaWebGLFrameRenderer {
     this.flushSolid(stats)
     this.prepareRoundedTransform(transform, stats)
 
-    this.pushRoundedRectVertices(this._rectData, x, y, width, height, radius, fill, opacity, border, borderWidth)
+    this.pushRoundedRectVertices(this._rectData, x, y, width, height, radius, fill, opacity, border, borderWidth, this.resolveShaderRenderMeta(source))
     stats.instances += 1
   }
 
@@ -1147,13 +1242,14 @@ export class NovaWebGLFrameRenderer {
     opacity: number,
     transform: mat3,
     stats: RenderStats,
+    source?: NovaSchemaItem<any>,
   ): void {
     if (width <= 0 || height <= 0 || fill.a <= 0) return
     this.flushTexture(stats)
     this.flushRounded(stats)
     this.prepareSolidTransform(transform, stats)
 
-    this.pushSolidRectVertices(this._solidData, x, y, width, height, fill, opacity)
+    this.pushSolidRectVertices(this._solidData, x, y, width, height, fill, opacity, this.resolveShaderRenderMeta(source))
     stats.instances += 1
   }
 
@@ -1171,8 +1267,11 @@ export class NovaWebGLFrameRenderer {
     opacity: number,
     border: NovaParsedColor,
     borderWidth: number,
+    meta?: NovaShaderRenderMeta | null,
   ): void {
     const clampedRadius = Math.max(0, Math.min(radius, width / 2, height / 2))
+    const animation = resolveAnimationVector(meta)
+    const motion = resolveMotionVector(meta)
     const vertices = [
       [x, y, 0, 0],
       [x + width, y, width, 0],
@@ -1200,6 +1299,11 @@ export class NovaWebGLFrameRenderer {
         border.b,
         border.a * opacity,
         borderWidth,
+        animation.phase,
+        animation.speed,
+        animation.amplitude,
+        motion.speed,
+        motion.wrapWidth,
       )
     }
   }
@@ -1219,8 +1323,11 @@ export class NovaWebGLFrameRenderer {
     opacity: number,
     border: NovaParsedColor,
     borderWidth: number,
+    meta?: NovaShaderRenderMeta | null,
   ): void {
     const clampedRadius = Math.max(0, Math.min(radius, width / 2, height / 2))
+    const animation = resolveAnimationVector(meta)
+    const motion = resolveMotionVector(meta)
     const vertices = [
       [x, y, 0, 0],
       [x + width, y, width, 0],
@@ -1248,25 +1355,32 @@ export class NovaWebGLFrameRenderer {
       target[cursor++] = border.b
       target[cursor++] = border.a * opacity
       target[cursor++] = borderWidth
+      target[cursor++] = animation.phase
+      target[cursor++] = animation.speed
+      target[cursor++] = animation.amplitude
+      target[cursor++] = motion.speed
+      target[cursor++] = motion.wrapWidth
     }
   }
 
   /**
    * Выполняет внутреннюю операцию push solid rect vertices.
    */
-  private pushSolidRectVertices(target: number[], x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number): void {
-    this.pushSolidVertexTo(target, x, y, fill, opacity)
-    this.pushSolidVertexTo(target, x + width, y, fill, opacity)
-    this.pushSolidVertexTo(target, x, y + height, fill, opacity)
-    this.pushSolidVertexTo(target, x, y + height, fill, opacity)
-    this.pushSolidVertexTo(target, x + width, y, fill, opacity)
-    this.pushSolidVertexTo(target, x + width, y + height, fill, opacity)
+  private pushSolidRectVertices(target: number[], x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number, meta?: NovaShaderRenderMeta | null): void {
+    const animation = resolveAnimationVector(meta)
+    this.pushSolidVertexTo(target, x, y, fill, opacity, animation)
+    this.pushSolidVertexTo(target, x + width, y, fill, opacity, animation)
+    this.pushSolidVertexTo(target, x, y + height, fill, opacity, animation)
+    this.pushSolidVertexTo(target, x, y + height, fill, opacity, animation)
+    this.pushSolidVertexTo(target, x + width, y, fill, opacity, animation)
+    this.pushSolidVertexTo(target, x + width, y + height, fill, opacity, animation)
   }
 
   /**
    * Записывает solid rect vertices.
    */
-  private writeSolidRectVertices(target: Float32Array, offset: number, x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number): void {
+  private writeSolidRectVertices(target: Float32Array, offset: number, x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number, meta?: NovaShaderRenderMeta | null): void {
+    const animation = resolveAnimationVector(meta)
     const vertices = [
       [x, y],
       [x + width, y],
@@ -1284,6 +1398,9 @@ export class NovaWebGLFrameRenderer {
       target[cursor++] = fill.g
       target[cursor++] = fill.b
       target[cursor++] = fill.a * opacity
+      target[cursor++] = animation.phase
+      target[cursor++] = animation.speed
+      target[cursor++] = animation.amplitude
     }
   }
 
@@ -1459,14 +1576,14 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию push solid vertex.
    */
   private pushSolidVertex(x: number, y: number, color: NovaParsedColor, opacity: number): void {
-    this._solidData.push(x, y, color.r, color.g, color.b, color.a * opacity)
+    this._solidData.push(x, y, color.r, color.g, color.b, color.a * opacity, 0, 0, 0)
   }
 
   /**
    * Выполняет внутреннюю операцию push solid vertex to.
    */
-  private pushSolidVertexTo(target: number[], x: number, y: number, color: NovaParsedColor, opacity: number): void {
-    target.push(x, y, color.r, color.g, color.b, color.a * opacity)
+  private pushSolidVertexTo(target: number[], x: number, y: number, color: NovaParsedColor, opacity: number, animation = EMPTY_SHADER_ANIMATION): void {
+    target.push(x, y, color.r, color.g, color.b, color.a * opacity, animation.phase, animation.speed, animation.amplitude)
   }
 
   /**
@@ -1522,6 +1639,7 @@ export class NovaWebGLFrameRenderer {
     this._roundedProgram.use()
     gl.uniform2f(this._roundedProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
     gl.uniformMatrix3fv(this._roundedProgram.uniformLocation('u_transform'), false, this._roundedTransform)
+    gl.uniform1f(this._roundedProgram.uniformLocation('u_time'), this._time)
     gl.drawArrays(gl.TRIANGLES, 0, data.length / RECT_STRIDE)
 
     stats.drawCalls += 1
@@ -1548,6 +1666,7 @@ export class NovaWebGLFrameRenderer {
     this._solidProgram.use()
     gl.uniform2f(this._solidProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
     gl.uniformMatrix3fv(this._solidProgram.uniformLocation('u_transform'), false, this._solidTransform)
+    gl.uniform1f(this._solidProgram.uniformLocation('u_time'), this._time)
     gl.drawArrays(gl.TRIANGLES, 0, data.length / SOLID_STRIDE)
 
     stats.drawCalls += 1
@@ -1674,6 +1793,8 @@ export class NovaWebGLFrameRenderer {
     this.bindAttrib(this._roundedProgram, 'a_fill', 4, stride, 7)
     this.bindAttrib(this._roundedProgram, 'a_border', 4, stride, 11)
     this.bindAttrib(this._roundedProgram, 'a_borderWidth', 1, stride, 15)
+    this.bindAttrib(this._roundedProgram, 'a_animation', 3, stride, 16)
+    this.bindAttrib(this._roundedProgram, 'a_motion', 2, stride, 19)
     gl.bindVertexArray(null)
     return vao
   }
@@ -1689,6 +1810,7 @@ export class NovaWebGLFrameRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this._solidBuffer)
     this.bindAttrib(this._solidProgram, 'a_position', 2, stride, 0)
     this.bindAttrib(this._solidProgram, 'a_color', 4, stride, 2)
+    this.bindAttrib(this._solidProgram, 'a_animation', 3, stride, 6)
     gl.bindVertexArray(null)
     return vao
   }
@@ -1767,6 +1889,7 @@ export class NovaWebGLFrameRenderer {
 
     const bytes = Math.max(1, width * height * 4)
     stats.uploadBytes += bytes
+    stats.atlasUploads += 1
     const entry: TextureEntry = { key, texture, width, height, bytes, lastUsed: this._time }
     this._textures.set(key, entry)
     this.evictTexturesIfNeeded()
@@ -1973,6 +2096,35 @@ function transformRectBounds(matrix: mat3, x: number, y: number, width: number, 
 /**
  * Выполняет внутреннюю операцию color to css.
  */
+function resolveAnimationVector(meta?: NovaShaderRenderMeta | null): ResolvedShaderAnimation {
+  const animation = meta?.animation
+  if (!animation) return EMPTY_SHADER_ANIMATION
+
+  return {
+    phase: Number.isFinite(animation.phase) ? animation.phase! : 0,
+    speed: Number.isFinite(animation.speed) ? animation.speed! : 0.08,
+    amplitude: Math.max(0, Math.min(1, Number.isFinite(animation.amplitude) ? animation.amplitude! : 0.18)),
+  }
+}
+
+/**
+ * Нормализует metadata shader movement.
+ */
+function resolveMotionVector(meta?: NovaShaderRenderMeta | null): ResolvedShaderMotion {
+  const motion = meta?.motion
+  if (!motion) return EMPTY_SHADER_MOTION
+  const speed = Number.isFinite(motion.speed) ? motion.speed! : 0
+  const wrapWidth = Number.isFinite(motion.wrapWidth) ? motion.wrapWidth! : 0
+
+  return {
+    speed,
+    wrapWidth: Math.max(0, wrapWidth),
+  }
+}
+
+/**
+ * Выполняет внутреннюю операцию color to css.
+ */
 function colorToCss(color: NovaParsedColor): string {
   return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${color.a})`
 }
@@ -2012,6 +2164,7 @@ function resolveSourceHeight(source: CanvasImageSource): number {
 }
 
 const ROUNDED_RECT_VERTEX_SHADER = `#version 300 es
+precision mediump float;
 in vec2 a_position;
 in vec2 a_local;
 in vec2 a_size;
@@ -2019,16 +2172,26 @@ in float a_radius;
 in vec4 a_fill;
 in vec4 a_border;
 in float a_borderWidth;
+in vec3 a_animation;
+in vec2 a_motion;
 uniform vec2 u_resolution;
 uniform mat3 u_transform;
+uniform float u_time;
 out vec2 v_local;
 out vec2 v_size;
 out float v_radius;
 out vec4 v_fill;
 out vec4 v_border;
 out float v_borderWidth;
+out vec3 v_animation;
 void main() {
-  vec3 world = u_transform * vec3(a_position, 1.0);
+  vec2 position = a_position;
+  if (a_motion.y > 0.0 && a_motion.x != 0.0) {
+    float left = a_position.x - a_local.x;
+    float movedLeft = mod(left - u_time * a_motion.x + a_motion.y, a_motion.y) - a_size.x;
+    position.x = movedLeft + a_local.x;
+  }
+  vec3 world = u_transform * vec3(position, 1.0);
   vec2 zeroToOne = world.xy / u_resolution;
   vec2 clipSpace = zeroToOne * 2.0 - 1.0;
   gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
@@ -2038,6 +2201,7 @@ void main() {
   v_fill = a_fill;
   v_border = a_border;
   v_borderWidth = a_borderWidth;
+  v_animation = a_animation;
 }
 `
 
@@ -2049,6 +2213,8 @@ in float v_radius;
 in vec4 v_fill;
 in vec4 v_border;
 in float v_borderWidth;
+in vec3 v_animation;
+uniform float u_time;
 out vec4 outColor;
 float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
   vec2 q = abs(p - halfSize) - (halfSize - vec2(radius));
@@ -2066,31 +2232,47 @@ void main() {
     borderMask = smoothstep(-v_borderWidth - aa, -v_borderWidth + aa, dist);
   }
   vec4 color = mix(v_fill, v_border, borderMask);
+  if (v_animation.z > 0.0) {
+    float pulse = 0.5 + 0.5 * sin(u_time * v_animation.y + v_animation.x);
+    color.rgb = mix(color.rgb, min(color.rgb * 1.35 + vec3(0.08), vec3(1.0)), pulse * v_animation.z);
+  }
   outColor = vec4(color.rgb, color.a * shapeAlpha);
 }
 `
 
 const SOLID_VERTEX_SHADER = `#version 300 es
+precision mediump float;
 in vec2 a_position;
 in vec4 a_color;
+in vec3 a_animation;
 uniform vec2 u_resolution;
 uniform mat3 u_transform;
+uniform float u_time;
 out vec4 v_color;
+out vec3 v_animation;
 void main() {
   vec3 world = u_transform * vec3(a_position, 1.0);
   vec2 zeroToOne = world.xy / u_resolution;
   vec2 clipSpace = zeroToOne * 2.0 - 1.0;
   gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
   v_color = a_color;
+  v_animation = a_animation;
 }
 `
 
 const SOLID_FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 in vec4 v_color;
+in vec3 v_animation;
+uniform float u_time;
 out vec4 outColor;
 void main() {
-  outColor = v_color;
+  vec4 color = v_color;
+  if (v_animation.z > 0.0) {
+    float pulse = 0.5 + 0.5 * sin(u_time * v_animation.y + v_animation.x);
+    color.rgb = mix(color.rgb, min(color.rgb * 1.35 + vec3(0.08), vec3(1.0)), pulse * v_animation.z);
+  }
+  outColor = color;
 }
 `
 

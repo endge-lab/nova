@@ -247,6 +247,7 @@ export interface NovaRenderItem {
 export type NovaRenderStreamKind =
   | 'plain-rect'
   | 'rounded-rect'
+  | 'motion-rect'
   | 'border'
   | 'line'
   | 'circle'
@@ -460,6 +461,9 @@ export interface NovaRenderMetrics {
   reusedGroups?: number
   updatedHandles?: number
   dirtyStreamRanges?: number
+  textRasterCount?: number
+  atlasUploads?: number
+  uniformOnlyFrames?: number
   commands: number
   items: number
   groups: number
