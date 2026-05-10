@@ -6,6 +6,9 @@ import type {
   NovaMotionPlayback,
 } from '@/domain/types/motion-types'
 
+/**
+ * Компилирует nova motion timeline.
+ */
 export function compileNovaMotionTimeline(
   playback: NovaMotionPlayback,
   options: NovaMotionTimelineOptions,
@@ -95,6 +98,9 @@ export function compileNovaMotionTimeline(
   return segments.sort((a, b) => a.startAt - b.startAt)
 }
 
+/**
+ * Выполняет внутреннюю операцию strip keyframe meta.
+ */
 function stripKeyframeMeta(keyframe: Record<string, any>): NovaMotionPatch {
   const { at: _at, easing: _easing, ...patch } = keyframe
   return patch

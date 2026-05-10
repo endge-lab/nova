@@ -42,12 +42,21 @@ const TRANSFORM_KEYS = new Set(['x', 'y', 'scaleX', 'scaleY', 'rotation'])
 const SIZE_KEYS = new Set(['width', 'height'])
 const VISUAL_KEYS = new Set(['opacity', 'visible'])
 
+/**
+ * Управляет motion segments, timelines и playback в Nova runtime.
+ */
 export class NovaMotionEngine {
   private readonly playbacks = new Set<NovaMotionPlaybackController>()
   private lease: RaphLoopLease | null = null
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(private readonly app: NovaApp<any>) {}
 
+  /**
+   * Выполняет внутреннюю операцию to.
+   */
   to(
     target: NovaMotionTarget,
     patch: NovaMotionPatch,
@@ -77,6 +86,9 @@ export class NovaMotionEngine {
     return playback
   }
 
+  /**
+   * Выполняет внутреннюю операцию timeline.
+   */
   timeline(options: NovaMotionTimelineOptions): NovaMotionPlayback {
     const playback = new NovaMotionPlaybackController(this, options)
     const segments = compileNovaMotionTimeline(playback, options, (target, key) => this.readValue(target, key))
@@ -85,6 +97,9 @@ export class NovaMotionEngine {
     return playback
   }
 
+  /**
+   * Выполняет внутреннюю операцию preset.
+   */
   preset(
     target: NovaMotionTarget,
     name: NovaMotionPresetName,
@@ -93,6 +108,9 @@ export class NovaMotionEngine {
     return runNovaMotionPreset(this, target, name, options)
   }
 
+  /**
+   * Выполняет внутреннюю операцию pattern.
+   */
   pattern(
     targets: NovaMotionTarget[],
     name: NovaMotionPatternName,
@@ -101,6 +119,9 @@ export class NovaMotionEngine {
     return runNovaMotionPattern(this, targets, name, options)
   }
 
+  /**
+   * Выполняет внутреннюю операцию cancel.
+   */
   cancel(target?: NovaMotionTarget): void {
     for (const playback of [...this.playbacks]) {
       if (!target || playback.hasTarget(target)) {
@@ -110,6 +131,9 @@ export class NovaMotionEngine {
     this.syncLoopLease()
   }
 
+  /**
+   * Выполняет внутреннюю операцию pause all.
+   */
   pauseAll(): void {
     for (const playback of this.playbacks) {
       playback.pause()
@@ -117,6 +141,9 @@ export class NovaMotionEngine {
     this.syncLoopLease()
   }
 
+  /**
+   * Выполняет внутреннюю операцию resume all.
+   */
   resumeAll(): void {
     for (const playback of this.playbacks) {
       playback.resume()
@@ -124,6 +151,9 @@ export class NovaMotionEngine {
     this.syncLoopLease()
   }
 
+  /**
+   * Выполняет один tick runtime-обработки.
+   */
   tick(frame: NovaMotionTickContext): void {
     if (this.playbacks.size === 0) {
       this.syncLoopLease()
@@ -146,6 +176,9 @@ export class NovaMotionEngine {
     this.syncLoopLease()
   }
 
+  /**
+   * Освобождает runtime resources и снимает связанные ссылки.
+   */
   destroy(): void {
     for (const playback of [...this.playbacks]) {
       playback.cancel()
@@ -157,16 +190,25 @@ export class NovaMotionEngine {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию activate.
+   */
   _activate(playback: NovaMotionPlaybackController): void {
     this.playbacks.add(playback)
     this.syncLoopLease()
   }
 
+  /**
+   * Выполняет внутреннюю операцию deactivate.
+   */
   _deactivate(playback: NovaMotionPlaybackController): void {
     this.playbacks.delete(playback)
     this.syncLoopLease()
   }
 
+  /**
+   * Добавляет playback.
+   */
   private addPlayback(
     playback: NovaMotionPlaybackController,
     segments: NovaMotionSegment[],
@@ -178,6 +220,9 @@ export class NovaMotionEngine {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию overwrite segments.
+   */
   private overwriteSegments(nextSegments: NovaMotionSegment[]): void {
     const keys = new Set(nextSegments.map(segment => segmentKey(segment.target, segment.key)))
 
@@ -187,6 +232,9 @@ export class NovaMotionEngine {
     }
   }
 
+  /**
+   * Читает value.
+   */
   private readValue(target: NovaMotionTarget, key: string): NovaMotionValue {
     if (target instanceof NovaComponentNode && !NODE_MOTION_KEYS.has(key)) {
       return target.getProps()[key]
@@ -202,6 +250,9 @@ export class NovaMotionEngine {
     return undefined
   }
 
+  /**
+   * Выполняет внутреннюю операцию apply patch.
+   */
   private applyPatch(target: NovaMotionTarget, patch: NovaMotionPatch): void {
     const nodePatch: NovaMotionPatch = {}
     const componentPatch: NovaMotionPatch = {}
@@ -230,6 +281,9 @@ export class NovaMotionEngine {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию sync loop lease.
+   */
   private syncLoopLease(): void {
     const hasRunning = [...this.playbacks].some(playback => playback.state === 'running')
     if (hasRunning && !this.lease) {
@@ -241,6 +295,9 @@ export class NovaMotionEngine {
   }
 }
 
+/**
+ * Управляет playback state одного motion timeline или tween.
+ */
 class NovaMotionPlaybackController implements NovaMotionPlayback {
   private segments: NovaMotionSegment[] = []
   private startedAt = 0
@@ -248,35 +305,59 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
   private seekOffset = 0
   private _state: NovaMotionPlaybackState = 'idle'
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(
     private readonly engine: NovaMotionEngine,
     private readonly options: NovaMotionOptions,
   ) {}
 
+  /**
+   * Возвращает id.
+   */
   get id(): string | undefined {
     return this.options.id
   }
 
+  /**
+   * Возвращает state.
+   */
   get state(): NovaMotionPlaybackState {
     return this._state
   }
 
+  /**
+   * Возвращает empty.
+   */
   get empty(): boolean {
     return this.segments.length === 0
   }
 
+  /**
+   * Обновляет segments.
+   */
   setSegments(segments: NovaMotionSegment[]): void {
     this.segments = segments
   }
 
+  /**
+   * Проверяет наличие target.
+   */
   hasTarget(target: NovaMotionTarget): boolean {
     return this.segments.some(segment => segment.target === target)
   }
 
+  /**
+   * Удаляет segments.
+   */
   removeSegments(predicate: (segment: NovaMotionSegment) => boolean): void {
     this.segments = this.segments.filter(segment => !predicate(segment))
   }
 
+  /**
+   * Выполняет внутреннюю операцию play.
+   */
   play(): void {
     this.startedAt = performance.now()
     this.pausedAt = 0
@@ -285,12 +366,18 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     this.engine._activate(this)
   }
 
+  /**
+   * Выполняет внутреннюю операцию pause.
+   */
   pause(): void {
     if (this._state !== 'running') return
     this.pausedAt = performance.now()
     this._state = 'paused'
   }
 
+  /**
+   * Выполняет внутреннюю операцию resume.
+   */
   resume(): void {
     if (this._state !== 'paused') return
     this.startedAt += performance.now() - this.pausedAt
@@ -299,12 +386,18 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     this.engine._activate(this)
   }
 
+  /**
+   * Выполняет внутреннюю операцию cancel.
+   */
   cancel(): void {
     if (this._state === 'cancelled') return
     this._state = 'cancelled'
     this.engine._deactivate(this)
   }
 
+  /**
+   * Выполняет внутреннюю операцию seek.
+   */
   seek(time: number): void {
     this.seekOffset = Math.max(0, time)
     if (this._state === 'idle') {
@@ -312,6 +405,9 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     }
   }
 
+  /**
+   * Выполняет один tick runtime-обработки.
+   */
   tick(now: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
     if (this._state !== 'running') return
     if (this.segments.length === 0) {
@@ -339,6 +435,9 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     this.applyAt(localTime, patches)
   }
 
+  /**
+   * Выполняет внутреннюю операцию apply at.
+   */
   private applyAt(time: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
     for (const segment of this.segments) {
       const segmentEnd = segment.startAt + segment.duration
@@ -359,11 +458,17 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     }
   }
 
+  /**
+   * Возвращает duration.
+   */
   private get duration(): number {
     return Math.max(0, ...this.segments.map(segment => segment.startAt + segment.duration))
   }
 }
 
+/**
+ * Добавляет patch.
+ */
 function appendPatch(
   patches: Map<NovaMotionTarget, NovaMotionPatch>,
   target: NovaMotionTarget,
@@ -378,6 +483,9 @@ function appendPatch(
   patch[key] = value
 }
 
+/**
+ * Вычисляет node dirty.
+ */
 function resolveNodeDirty(patch: NovaMotionPatch): { matrix?: boolean; update?: boolean; render?: boolean } {
   const keys = Object.keys(patch)
   return {
@@ -386,6 +494,9 @@ function resolveNodeDirty(patch: NovaMotionPatch): { matrix?: boolean; update?: 
   }
 }
 
+/**
+ * Выполняет внутреннюю операцию segment key.
+ */
 function segmentKey(target: NovaMotionTarget, key: string): string {
   return `${(target as any).id ?? 'target'}:${key}`
 }

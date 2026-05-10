@@ -19,6 +19,9 @@ import type { NovaNode } from '@/model/core/NovaNode'
 
 const FAST_SCHEMA_BATCH_THRESHOLD = 64
 
+/**
+ * Собирает render commands из вызовов Nova render context.
+ */
 export class NovaRenderBuilder implements NovaRenderer {
   readonly id = 'render-builder'
   readonly capabilities: NovaRendererCapabilities = {
@@ -38,12 +41,18 @@ export class NovaRenderBuilder implements NovaRenderer {
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _nodeStack: string[] = []
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(
     readonly novaCanvas: NovaCanvas,
     private readonly _schemaRegistry: NovaSchemaRegistry,
     private readonly _writer: NovaRenderCommandWriter,
   ) {}
 
+  /**
+   * Выполняет внутреннюю операцию schema.
+   */
   schema(schema: NovaSchema<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
 
@@ -54,68 +63,116 @@ export class NovaRenderBuilder implements NovaRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию schema batched.
+   */
   schemaBatched(schema: NovaSchema<any>): void {
     if (this.schemaBatch(schema, 'batched')) return
     this.schema(schema)
   }
 
+  /**
+   * Выполняет внутреннюю операцию schema ordered.
+   */
   schemaOrdered(schema: NovaSchema<any>): void {
     if (this.schemaBatch(schema, 'ordered')) return
     this.schema(schema)
   }
 
+  /**
+   * Выполняет внутреннюю операцию save.
+   */
   save(): void {
     this._writer.save()
   }
 
+  /**
+   * Выполняет внутреннюю операцию restore.
+   */
   restore(): void {
     this._writer.restore()
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): void {
     this._writer.clear()
   }
 
+  /**
+   * Выполняет внутреннюю операцию clip.
+   */
   clip(x: number, y: number, width: number, height: number): void {
     this._writer.clip(x, y, width, height)
   }
 
+  /**
+   * Очищает clip.
+   */
   clearClip(): void {
     this._writer.clearClip()
   }
 
+  /**
+   * Обновляет transform.
+   */
   setTransform(matrix: mat3): void {
     this._writer.setTransform(matrix)
   }
 
+  /**
+   * Выполняет внутреннюю операцию text.
+   */
   text(params: NovaText): void {
     this.schemaItem({ ...params, type: 'text' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию rect.
+   */
   rect(params: NovaRect): void {
     this.schemaItem({ ...params, type: 'rect' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию border.
+   */
   border(params: NovaBorder): void {
     this.schemaItem({ ...params, type: 'border' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию line.
+   */
   line(params: NovaLine): void {
     this.schemaItem({ ...params, type: 'line' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию circle.
+   */
   circle(params: NovaCircle): void {
     this.schemaItem({ ...params, type: 'circle' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию polygon.
+   */
   polygon(params: NovaPolygon): void {
     this.schemaItem({ ...params, type: 'polygon' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию icon.
+   */
   icon(params: NovaIcon): void {
     this.schemaItem({ ...params, type: 'icon' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию measure text.
+   */
   measureText(params: NovaText): { width: number; height: number } {
     const context = this.getMeasureContext()
     const font = params.styles?.font
@@ -132,6 +189,9 @@ export class NovaRenderBuilder implements NovaRenderer {
     }
   }
 
+  /**
+   * Возвращает measure context.
+   */
   private getMeasureContext(): CanvasRenderingContext2D | null {
     if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) {
       return null
@@ -144,23 +204,38 @@ export class NovaRenderBuilder implements NovaRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию cursor.
+   */
   cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): void {
     this._writer.cursor(type)
   }
 
+  /**
+   * Освобождает runtime resources и снимает связанные ссылки.
+   */
   destroy(): void {
     /* builder does not own GPU resources */
   }
 
+  /**
+   * Выполняет внутреннюю операцию begin node.
+   */
   beginNode(node: NovaNode<any>): void {
     this._nodeStack.push(this._writer.currentNodeId)
     this._writer.setCurrentNode(node.renderNodeId)
   }
 
+  /**
+   * Выполняет внутреннюю операцию end node.
+   */
   endNode(): void {
     this._writer.setCurrentNode(this._nodeStack.pop() ?? 'surface')
   }
 
+  /**
+   * Выполняет внутреннюю операцию schema item.
+   */
   private schemaItem(item: NovaSchemaItem<any>): void {
     if (item.active === false) return
 
@@ -188,6 +263,9 @@ export class NovaRenderBuilder implements NovaRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию schema batch.
+   */
   private schemaBatch(schema: NovaSchema<any>, mode: 'batched' | 'ordered'): boolean {
     const items = Array.isArray(schema) ? schema : [schema]
     if (items.length < FAST_SCHEMA_BATCH_THRESHOLD) return false

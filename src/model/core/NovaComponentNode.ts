@@ -5,6 +5,9 @@ import type { NovaComponentDescriptor } from '@/domain/types/component-types'
 import type { EventList } from '@endge/utils'
 import type { NovaMotionOptions, NovaMotionPlayback } from '@/domain/types/motion-types'
 
+/**
+ * Описывает runtime-сущность NovaComponentNode.
+ */
 export abstract class NovaComponentNode<
   TProps extends Record<string, any> = Record<string, any>,
   TApi = unknown,
@@ -12,11 +15,16 @@ export abstract class NovaComponentNode<
   TSchema = TProps,
   E extends EventList = Record<string, any>,
 > extends NovaNode<E> {
+  //
+  // Внутреннее состояние graph runtime и lifecycle.
   readonly descriptor: NovaComponentDescriptor<TProps, TApi, TEvents, TSchema>
   readonly componentId: string
 
   protected props: TProps
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(
     app: NovaApp<E>,
     surface: NovaSurface<E>,
@@ -33,6 +41,9 @@ export abstract class NovaComponentNode<
     this.nova.components.register(this)
   }
 
+  /**
+   * Обновляет props.
+   */
   setProps(patch: Partial<TProps>): this {
     const changedKeys: (keyof TProps)[] = []
 
@@ -50,25 +61,43 @@ export abstract class NovaComponentNode<
     return this
   }
 
+  /**
+   * Возвращает props.
+   */
   getProps(): Readonly<TProps> {
     return this.props
   }
 
+  /**
+   * Возвращает api.
+   */
   getApi(): TApi {
     return this as unknown as TApi
   }
 
+  /**
+   * Выполняет внутреннюю операцию dispose.
+   */
   override dispose(): void {
     this.nova.components.unregister(this)
     super.dispose()
   }
 
+  /**
+   * Обрабатывает событие props changed.
+   */
   protected onPropsChanged(_changedKeys: (keyof TProps)[]): void {}
 
+  /**
+   * Выполняет внутреннюю операцию transition to.
+   */
   protected transitionTo(patch: Partial<TProps>, options?: NovaMotionOptions): NovaMotionPlayback {
     return this.nova.motion.to(this, patch as Record<string, any>, options)
   }
 
+  /**
+   * Вычисляет dirty.
+   */
   private resolveDirty(changedKeys: (keyof TProps)[]): { matrix?: boolean; update?: boolean; render?: boolean } {
     const policy = this.descriptor.dirtyPolicy
     if (!policy) return { update: true, render: true }
@@ -86,6 +115,9 @@ export abstract class NovaComponentNode<
   }
 }
 
+/**
+ * Выполняет внутреннюю операцию intersects.
+ */
 function intersects<T>(changedKeys: readonly T[], policyKeys?: readonly T[]): boolean {
   if (!policyKeys?.length) return false
   return changedKeys.some(key => policyKeys.includes(key))

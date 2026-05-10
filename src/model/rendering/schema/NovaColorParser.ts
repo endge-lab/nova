@@ -7,6 +7,9 @@ const NAMED_COLORS: Record<string, number> = {
   transparent: 0x00000000,
 }
 
+/**
+ * Описывает контракт NovaParsedColor.
+ */
 export interface NovaParsedColor {
   r: number
   g: number
@@ -15,6 +18,9 @@ export interface NovaParsedColor {
   packed: number
 }
 
+/**
+ * Парсит nova color.
+ */
 export function parseNovaColor(input: string | undefined, fallback = 0x00000000): NovaParsedColor {
   const packed = parseNovaColorPacked(input, fallback)
   return {
@@ -26,6 +32,9 @@ export function parseNovaColor(input: string | undefined, fallback = 0x00000000)
   }
 }
 
+/**
+ * Парсит nova color packed.
+ */
 export function parseNovaColorPacked(input: string | undefined, fallback = 0x00000000): number {
   if (!input) return fallback >>> 0
 
@@ -37,6 +46,9 @@ export function parseNovaColorPacked(input: string | undefined, fallback = 0x000
   return fallback >>> 0
 }
 
+/**
+ * Парсит hex color.
+ */
 function parseHexColor(color: string, fallback: number): number {
   const hex = color.slice(1)
 
@@ -60,6 +72,9 @@ function parseHexColor(color: string, fallback: number): number {
   return fallback >>> 0
 }
 
+/**
+ * Парсит rgb color.
+ */
 function parseRgbColor(color: string, fallback: number): number {
   const start = color.indexOf('(')
   const end = color.lastIndexOf(')')
@@ -77,20 +92,32 @@ function parseRgbColor(color: string, fallback: number): number {
   return packRgba(r, g, b, a)
 }
 
+/**
+ * Парсит channel.
+ */
 function parseChannel(value: string): number {
   if (value.endsWith('%')) return clampByte((Number.parseFloat(value) / 100) * 255)
   return clampByte(Number.parseFloat(value))
 }
 
+/**
+ * Парсит alpha.
+ */
 function parseAlpha(value: string): number {
   if (value.endsWith('%')) return clampByte((Number.parseFloat(value) / 100) * 255)
   return clampByte(Number.parseFloat(value) * 255)
 }
 
+/**
+ * Выполняет внутреннюю операцию clamp byte.
+ */
 function clampByte(value: number): number {
   return Math.max(0, Math.min(255, Math.round(value)))
 }
 
+/**
+ * Выполняет внутреннюю операцию pack rgba.
+ */
 function packRgba(r: number, g: number, b: number, a: number): number {
   return (((r & 0xff) << 24) | ((g & 0xff) << 16) | ((b & 0xff) << 8) | (a & 0xff)) >>> 0
 }

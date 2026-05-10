@@ -1,8 +1,14 @@
 import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
 
+/**
+ * Инкапсулирует WebGL2 context и базовые операции frame lifecycle.
+ */
 export class NovaWebGLDevice {
   readonly gl: WebGL2RenderingContext
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(
     readonly canvas: NovaCanvas,
     attributes: WebGLContextAttributes = canvas.webglAttributes ?? {
@@ -22,15 +28,24 @@ export class NovaWebGLDevice {
     this.configure()
   }
 
+  /**
+   * Выполняет внутреннюю операцию resize.
+   */
   resize(): void {
     this.gl.viewport(0, 0, this.canvas.pixelWidth, this.canvas.pixelHeight)
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): void {
     this.gl.clearColor(0, 0, 0, 0)
     this.gl.clear(this.gl.COLOR_BUFFER_BIT)
   }
 
+  /**
+   * Выполняет внутреннюю операцию configure.
+   */
   private configure(): void {
     const gl = this.gl
     gl.disable(gl.DEPTH_TEST)

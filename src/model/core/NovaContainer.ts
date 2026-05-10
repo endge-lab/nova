@@ -5,7 +5,13 @@ import type { EventList } from '@endge/utils'
 import type { NovaBounds } from '@/domain/types/renderer-types'
 import { createEmptyBounds, unionBounds } from '@/domain/utils/bounds'
 
+/**
+ * Описывает контейнерный node для группировки дочерних Nova nodes.
+ */
 export class NovaContainer<E extends EventList> extends NovaNode<E> {
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(app: NovaApp<E>, surface?: NovaSurface<E>) {
     super(app, surface)
   }
@@ -36,7 +42,13 @@ export class NovaContainer<E extends EventList> extends NovaNode<E> {
    * Удаляет дочернюю Nova-ноду из контейнера и уничтожает ее.
    */
   remove(): void
+  /**
+   * Выполняет внутреннюю операцию remove.
+   */
   remove(node: NovaNode<E>): boolean
+  /**
+   * Выполняет внутреннюю операцию remove.
+   */
   remove(node?: NovaNode<E>): boolean | void {
     if (!node) {
       super.remove()
@@ -72,10 +84,16 @@ export class NovaContainer<E extends EventList> extends NovaNode<E> {
     return this
   }
 
+  /**
+   * Выполняет внутреннюю операцию show.
+   */
   show(): this {
     return this.setGroupVisible(true)
   }
 
+  /**
+   * Выполняет внутреннюю операцию hide.
+   */
   hide(): this {
     return this.setGroupVisible(false)
   }
@@ -88,10 +106,16 @@ export class NovaContainer<E extends EventList> extends NovaNode<E> {
     return this
   }
 
+  /**
+   * Выполняет внутреннюю операцию activate.
+   */
   activate(): this {
     return this.setGroupActive(true)
   }
 
+  /**
+   * Выполняет внутреннюю операцию deactivate.
+   */
   deactivate(): this {
     return this.setGroupActive(false)
   }
@@ -119,10 +143,16 @@ export class NovaContainer<E extends EventList> extends NovaNode<E> {
     return this
   }
 
+  /**
+   * Возвращает child count.
+   */
   get childCount(): number {
     return this.novaChildren.length
   }
 
+  /**
+   * Возвращает local bounds.
+   */
   override getLocalBounds(): NovaBounds {
     let bounds = createEmptyBounds()
 
@@ -139,6 +169,9 @@ export class NovaContainer<E extends EventList> extends NovaNode<E> {
     return bounds
   }
 
+  /**
+   * Возвращает nova children.
+   */
   get novaChildren(): Array<NovaNode<E>> {
     return this.children.filter((child): child is NovaNode<E> => child instanceof NovaNode)
   }

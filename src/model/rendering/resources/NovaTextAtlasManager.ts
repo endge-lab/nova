@@ -7,6 +7,9 @@ import {
   type NovaTextureAtlasPage,
 } from '@/model/rendering/resources/NovaTextureAtlasManager'
 
+/**
+ * Описывает контракт NovaTextAtlasResolveResult.
+ */
 export interface NovaTextAtlasResolveResult {
   entry: NovaTextureAtlasEntry<NovaText>
   cacheHit: boolean
@@ -14,24 +17,39 @@ export interface NovaTextAtlasResolveResult {
   rasterized: boolean
 }
 
+/**
+ * Кэширует rasterized text runs и управляет их memory budget.
+ */
 export class NovaTextAtlasManager {
   private readonly _atlas: NovaTextureAtlasManager<NovaText>
   private readonly _layout = new NovaTextLayoutEngine()
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(private readonly _config: NovaRendererTextConfig) {
     this._atlas = new NovaTextureAtlasManager<NovaText>({
       maxMemoryMB: _config.maxAtlasMemoryMB,
     })
   }
 
+  /**
+   * Возвращает memory mb.
+   */
   get memoryMB(): number {
     return this._atlas.memoryMB
   }
 
+  /**
+   * Возвращает pages.
+   */
   get pages(): NovaTextureAtlasPage[] {
     return this._atlas.pages
   }
 
+  /**
+   * Выполняет внутреннюю операцию resolve.
+   */
   resolve(text: NovaText, zoom = 1): NovaTextAtlasResolveResult {
     const bucket = this.resolveZoomBucket(zoom)
     const layout = this._layout.measure(text, bucket)
@@ -63,6 +81,9 @@ export class NovaTextAtlasManager {
     }
   }
 
+  /**
+   * Вычисляет zoom bucket.
+   */
   resolveZoomBucket(zoom: number): number {
     const buckets = this._config.zoomBuckets.length > 0 ? this._config.zoomBuckets : [1]
     let best = buckets[0]
@@ -79,6 +100,9 @@ export class NovaTextAtlasManager {
     return best
   }
 
+  /**
+   * Выполняет внутреннюю операцию evict to budget.
+   */
   evictToBudget(): void {
     this._atlas.evictToBudget()
   }

@@ -22,6 +22,9 @@ export function resolveSchemaBounds(schema: NovaSchema<any>, registry?: NovaSche
   return bounds
 }
 
+/**
+ * Вычисляет schema item bounds.
+ */
 function resolveSchemaItemBounds(item: NovaSchema<any>[number], registry?: NovaSchemaRegistry): NovaBounds | null {
   switch (item.type) {
     case 'rect':
@@ -40,6 +43,9 @@ function resolveSchemaItemBounds(item: NovaSchema<any>[number], registry?: NovaS
   }
 }
 
+/**
+ * Вычисляет line bounds.
+ */
 function resolveLineBounds(x1: number, y1: number, x2: number, y2: number, width: number): NovaBounds {
   const pad = width / 2
   const minX = Math.min(x1, x2) - pad
@@ -50,6 +56,9 @@ function resolveLineBounds(x1: number, y1: number, x2: number, y2: number, width
   return setBounds(createEmptyBounds(), minX, minY, maxX - minX, maxY - minY)
 }
 
+/**
+ * Вычисляет polygon bounds.
+ */
 function resolvePolygonBounds(points: Array<{ x: number; y: number }>, lineWidth: number): NovaBounds | null {
   if (points.length === 0) return null
 

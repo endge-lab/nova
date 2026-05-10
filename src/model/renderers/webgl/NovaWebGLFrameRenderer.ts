@@ -33,6 +33,9 @@ const TEXTURE_STRIDE = 8
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
 const TEXT_RASTER_ZOOM_BUCKETS = [0.5, 0.75, 1, 1.5, 2, 3, 4, 8, 16]
 
+/**
+ * Описывает контракт RenderStats.
+ */
 interface RenderStats {
   drawCalls: number
   batches: number
@@ -50,6 +53,9 @@ interface RenderStats {
   atlasMemoryMB: number
 }
 
+/**
+ * Описывает контракт TextureEntry.
+ */
 interface TextureEntry {
   key: string
   texture: WebGLTexture
@@ -59,6 +65,9 @@ interface TextureEntry {
   lastUsed: number
 }
 
+/**
+ * Описывает контракт RasterizedText.
+ */
 interface RasterizedText {
   canvas: HTMLCanvasElement
   width: number
@@ -66,6 +75,9 @@ interface RasterizedText {
   scale: number
 }
 
+/**
+ * Описывает контракт RectBatchCache.
+ */
 interface RectBatchCache {
   data: Float32Array
   instances: number
@@ -74,6 +86,9 @@ interface RectBatchCache {
   contentVersion?: number
 }
 
+/**
+ * Описывает контракт TextureBatchCache.
+ */
 interface TextureBatchCache {
   data: Float32Array
   instances: number
@@ -87,23 +102,35 @@ interface TextureBatchCache {
   vao?: WebGLVertexArrayObject
 }
 
+/**
+ * Описывает контракт NonOverlapLayeredBatchCache.
+ */
 interface NonOverlapLayeredBatchCache {
   rects: NovaSchemaItem<any>[]
   icons: NovaSchemaItem<any>[]
   texts: NovaSchemaItem<any>[]
 }
 
+/**
+ * Описывает контракт WebGLUploadState.
+ */
 interface WebGLUploadState {
   capacityBytes: number
   lastData?: Float32Array
   arena: NovaGpuBufferArena
 }
 
+/**
+ * Описывает контракт FloatDirtyRange.
+ */
 interface FloatDirtyRange {
   start: number
   end: number
 }
 
+/**
+ * Создает web glupload state.
+ */
 function createWebGLUploadState(): WebGLUploadState {
   return {
     capacityBytes: 0,
@@ -111,16 +138,25 @@ function createWebGLUploadState(): WebGLUploadState {
   }
 }
 
+/**
+ * Описывает контракт RectBatchUpdate.
+ */
 interface RectBatchUpdate {
   dirtyRanges: FloatDirtyRange[]
   changedItems: number
 }
 
+/**
+ * Описывает контракт TextureBatchUpdate.
+ */
 interface TextureBatchUpdate {
   dirtyRanges: FloatDirtyRange[]
   changedItems: number
 }
 
+/**
+ * Описывает контракт TextureBatchItem.
+ */
 interface TextureBatchItem {
   texture: TextureEntry
   signature: string
@@ -131,6 +167,9 @@ interface TextureBatchItem {
   opacity: number
 }
 
+/**
+ * Преобразует Nova render frame в WebGL draw calls и GPU uploads.
+ */
 export class NovaWebGLFrameRenderer {
   private readonly _gl: WebGL2RenderingContext
   private readonly _roundedProgram: NovaWebGLProgram
@@ -171,6 +210,9 @@ export class NovaWebGLFrameRenderer {
   private _textureTransform = mat3.create()
   private _time = 0
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(private readonly _device: NovaWebGLDevice) {
     this._gl = _device.gl
     this._roundedProgram = NovaWebGLProgram.create(this._gl, ROUNDED_RECT_VERTEX_SHADER, ROUNDED_RECT_FRAGMENT_SHADER)
@@ -184,6 +226,9 @@ export class NovaWebGLFrameRenderer {
     this._textureVao = this.createTextureVao()
   }
 
+  /**
+   * Выполняет render-операцию .
+   */
   render(frame: NovaRenderFrame): NovaRenderMetrics {
     const startedAt = performance.now()
     const stats: RenderStats = {
@@ -306,6 +351,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию measure text.
+   */
   measureText(params: NovaText): { width: number; height: number } {
     const context = this._measureCanvas.getContext('2d')
     const style = compileNovaTextStyle(params)
@@ -323,6 +371,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Освобождает runtime resources и снимает связанные ссылки.
+   */
   destroy(): void {
     for (const texture of this._textures.values()) this._gl.deleteTexture(texture.texture)
     this._textures.clear()
@@ -342,15 +393,24 @@ export class NovaWebGLFrameRenderer {
     this._textureProgram.destroy()
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw render item.
+   */
   private drawRenderItem(item: NovaRenderItem, stats: RenderStats): void {
     if (!item.schemaItem) return
     this.drawPrimitive(item.schemaItem, item.transform ?? mat3.create(), stats)
   }
 
+  /**
+   * Вычисляет schema content version.
+   */
   private resolveSchemaContentVersion(items: NovaSchemaItem<any>[] | undefined, fallback: number | undefined): number | undefined {
     return (items as { contentVersion?: number } | undefined)?.contentVersion ?? fallback
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw schema batch.
+   */
   private drawSchemaBatch(
     items: NovaSchemaItem<any>[],
     transform: mat3,
@@ -409,6 +469,9 @@ export class NovaWebGLFrameRenderer {
     return true
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw plain rect schema batch.
+   */
   private drawPlainRectSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
     let batch = this._plainRectBatchCache.get(items)
     let dirtyRanges: FloatDirtyRange[] | null = null
@@ -447,6 +510,9 @@ export class NovaWebGLFrameRenderer {
     return true
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw non overlap layered schema batch.
+   */
   private drawNonOverlapLayeredSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
     if (items.length === 0) return true
 
@@ -462,6 +528,9 @@ export class NovaWebGLFrameRenderer {
     return true
   }
 
+  /**
+   * Вычисляет non overlap layered batch.
+   */
   private resolveNonOverlapLayeredBatch(items: NovaSchemaItem<any>[]): NonOverlapLayeredBatchCache | null {
     const cached = this._semanticBatchCache.get(items)
     if (cached) return cached
@@ -497,6 +566,9 @@ export class NovaWebGLFrameRenderer {
     return batch
   }
 
+  /**
+   * Выполняет внутреннюю операцию build rect batch.
+   */
   private buildRectBatch(items: NovaSchemaItem<any>[]): RectBatchCache | null {
     const data: number[] = []
     const itemOffsets: number[] = new Array(items.length).fill(-1)
@@ -536,6 +608,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию build plain rect batch.
+   */
   private buildPlainRectBatch(items: NovaSchemaItem<any>[]): RectBatchCache {
     const data: number[] = []
     const itemOffsets: number[] = new Array(items.length).fill(-1)
@@ -561,6 +636,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Обновляет rect batch.
+   */
   private updateRectBatch(items: NovaSchemaItem<any>[], batch: RectBatchCache): RectBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
 
@@ -604,6 +682,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Обновляет plain rect batch.
+   */
   private updatePlainRectBatch(items: NovaSchemaItem<any>[], batch: RectBatchCache): RectBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) {
       return null
@@ -634,6 +715,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw texture schema batch.
+   */
   private drawTextureSchemaBatch(items: NovaSchemaItem<any>[], transform: mat3, stats: RenderStats, contentVersion?: number): boolean {
     if (items.length === 0) return true
 
@@ -685,6 +769,9 @@ export class NovaWebGLFrameRenderer {
     return true
   }
 
+  /**
+   * Выполняет внутреннюю операцию build texture batch.
+   */
   private buildTextureBatch(items: NovaSchemaItem<any>[], stats: RenderStats, rasterScale?: number): TextureBatchCache | null {
     const data: number[] = []
     const itemOffsets: number[] = new Array(items.length).fill(-1)
@@ -719,6 +806,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Обновляет texture batch.
+   */
   private updateTextureBatch(items: NovaSchemaItem<any>[], batch: TextureBatchCache, stats: RenderStats, rasterScale?: number): TextureBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
 
@@ -746,6 +836,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Вычисляет texture batch item.
+   */
   private resolveTextureBatchItem(item: NovaSchemaItem<any>, stats: RenderStats, rasterScale?: number): TextureBatchItem | null {
     if (item.active === false) return null
 
@@ -795,6 +888,9 @@ export class NovaWebGLFrameRenderer {
     return null
   }
 
+  /**
+   * Создает rect signature.
+   */
   private createRectSignature(rect: NovaRect): string {
     const border = rect.styles?.border
     return [
@@ -812,6 +908,9 @@ export class NovaWebGLFrameRenderer {
     ].join('|')
   }
 
+  /**
+   * Проверяет plain rect.
+   */
   private isPlainRect(rect: NovaRect): boolean {
     const background = rect.styles?.background
     const border = rect.styles?.border
@@ -820,6 +919,9 @@ export class NovaWebGLFrameRenderer {
       && (border?.radius ?? 0) <= 0
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw primitive.
+   */
   private drawPrimitive(item: NovaSchemaItem<any>, transform: mat3, stats: RenderStats): void {
     switch (item.type) {
       case 'rect':
@@ -848,6 +950,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw rect.
+   */
   private drawRect(rect: NovaRect, transform: mat3, stats: RenderStats): void {
     const style = compileNovaRectStyle(rect)
     const background = rect.styles?.background
@@ -865,6 +970,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw border.
+   */
   private drawBorder(border: NovaBorder, transform: mat3, stats: RenderStats): void {
     const style = compileNovaBorderStyle(border)
     const position = border.position ?? 'all'
@@ -883,6 +991,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw text.
+   */
   private drawText(text: NovaText, transform: mat3, stats: RenderStats): void {
     const style = compileNovaTextStyle(text)
     const scale = this.resolveTextRasterScale(transform)
@@ -900,10 +1011,16 @@ export class NovaWebGLFrameRenderer {
     this.queueTextureQuad(texture, text.x, text.y, text.width, text.height, transform, style.opacity, stats)
   }
 
+  /**
+   * Вычисляет texture raster scale.
+   */
   private resolveTextureRasterScale(items: NovaSchemaItem<any>[], transform: mat3): number | undefined {
     return items.some(item => item.type === 'text') ? this.resolveTextRasterScale(transform) : undefined
   }
 
+  /**
+   * Вычисляет text raster scale.
+   */
   private resolveTextRasterScale(transform: mat3): number {
     const scaleX = Math.hypot(transform[0], transform[1])
     const scaleY = Math.hypot(transform[3], transform[4])
@@ -922,17 +1039,26 @@ export class NovaWebGLFrameRenderer {
     return this._device.canvas.dpr * best
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw line.
+   */
   private drawLine(line: NovaLine, transform: mat3, stats: RenderStats): void {
     const style = compileNovaLineStyle(line)
     this.queueSolidLine(line.x1, line.y1, line.x2, line.y2, style.width, style.color, style.opacity, transform, stats, style.dashPattern)
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw circle.
+   */
   private drawCircle(circle: NovaCircle, transform: mat3, stats: RenderStats): void {
     const style = compileNovaCircleStyle(circle)
     const diameter = circle.radius * 2
     this.queueRoundedRect(circle.x - circle.radius, circle.y - circle.radius, diameter, diameter, circle.radius, style.fill, style.opacity, style.borderColor, style.borderWidth, transform, stats)
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw polygon.
+   */
   private drawPolygon(polygon: NovaPolygon, transform: mat3, stats: RenderStats): void {
     if (polygon.points.length < 3) return
 
@@ -953,6 +1079,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw icon.
+   */
   private drawIcon(icon: NovaIcon, transform: mat3, stats: RenderStats): void {
     const source = typeof icon.icon === 'string' ? NovaGraphics.getAsset(icon.icon) : icon.icon
     if (!source) return
@@ -960,6 +1089,9 @@ export class NovaWebGLFrameRenderer {
     this.drawTextureSource(key, source, icon.x, icon.y, icon.width, icon.height, transform, icon.styles?.opacity ?? 1, stats)
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw texture source.
+   */
   private drawTextureSource(
     key: string,
     source: CanvasImageSource,
@@ -977,6 +1109,9 @@ export class NovaWebGLFrameRenderer {
     this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats)
   }
 
+  /**
+   * Выполняет внутреннюю операцию queue rounded rect.
+   */
   private queueRoundedRect(
     x: number,
     y: number,
@@ -1000,6 +1135,9 @@ export class NovaWebGLFrameRenderer {
     stats.instances += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию queue plain rect.
+   */
   private queuePlainRect(
     x: number,
     y: number,
@@ -1019,6 +1157,9 @@ export class NovaWebGLFrameRenderer {
     stats.instances += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию push rounded rect vertices.
+   */
   private pushRoundedRectVertices(
     target: number[],
     x: number,
@@ -1063,6 +1204,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Записывает rounded rect vertices.
+   */
   private writeRoundedRectVertices(
     target: Float32Array,
     offset: number,
@@ -1107,6 +1251,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию push solid rect vertices.
+   */
   private pushSolidRectVertices(target: number[], x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number): void {
     this.pushSolidVertexTo(target, x, y, fill, opacity)
     this.pushSolidVertexTo(target, x + width, y, fill, opacity)
@@ -1116,6 +1263,9 @@ export class NovaWebGLFrameRenderer {
     this.pushSolidVertexTo(target, x + width, y + height, fill, opacity)
   }
 
+  /**
+   * Записывает solid rect vertices.
+   */
   private writeSolidRectVertices(target: Float32Array, offset: number, x: number, y: number, width: number, height: number, fill: NovaParsedColor, opacity: number): void {
     const vertices = [
       [x, y],
@@ -1137,6 +1287,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию queue solid triangle.
+   */
   private queueSolidTriangle(
     x1: number,
     y1: number,
@@ -1158,6 +1311,9 @@ export class NovaWebGLFrameRenderer {
     stats.instances += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию queue solid line.
+   */
   private queueSolidLine(
     x1: number,
     y1: number,
@@ -1196,6 +1352,9 @@ export class NovaWebGLFrameRenderer {
     stats.instances += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию queue dashed line.
+   */
   private queueDashedLine(
     x1: number,
     y1: number,
@@ -1235,6 +1394,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию queue texture quad.
+   */
   private queueTextureQuad(texture: TextureEntry, x: number, y: number, width: number, height: number, transform: mat3, opacity: number, stats: RenderStats): void {
     if (width <= 0 || height <= 0 || opacity <= 0) return
     this.flushRounded(stats)
@@ -1249,6 +1411,9 @@ export class NovaWebGLFrameRenderer {
     stats.instances += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию push texture quad vertices.
+   */
   private pushTextureQuadVertices(target: number[], x: number, y: number, width: number, height: number, opacity: number): void {
     const vertices = [
       [x, y, 0, 0],
@@ -1264,6 +1429,9 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Записывает texture quad vertices.
+   */
   private writeTextureQuadVertices(target: Float32Array, offset: number, x: number, y: number, width: number, height: number, opacity: number): void {
     const vertices = [
       [x, y, 0, 0],
@@ -1287,38 +1455,59 @@ export class NovaWebGLFrameRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию push solid vertex.
+   */
   private pushSolidVertex(x: number, y: number, color: NovaParsedColor, opacity: number): void {
     this._solidData.push(x, y, color.r, color.g, color.b, color.a * opacity)
   }
 
+  /**
+   * Выполняет внутреннюю операцию push solid vertex to.
+   */
   private pushSolidVertexTo(target: number[], x: number, y: number, color: NovaParsedColor, opacity: number): void {
     target.push(x, y, color.r, color.g, color.b, color.a * opacity)
   }
 
+  /**
+   * Сбрасывает накопленные операции в следующий слой runtime.
+   */
   private flush(stats: RenderStats): void {
     this.flushRounded(stats)
     this.flushSolid(stats)
     this.flushTexture(stats)
   }
 
+  /**
+   * Выполняет внутреннюю операцию prepare rounded transform.
+   */
   private prepareRoundedTransform(transform: mat3, stats: RenderStats): void {
     if (mat3Equals(this._roundedTransform, transform)) return
     this.flushRounded(stats)
     mat3.copy(this._roundedTransform, transform)
   }
 
+  /**
+   * Выполняет внутреннюю операцию prepare solid transform.
+   */
   private prepareSolidTransform(transform: mat3, stats: RenderStats): void {
     if (mat3Equals(this._solidTransform, transform)) return
     this.flushSolid(stats)
     mat3.copy(this._solidTransform, transform)
   }
 
+  /**
+   * Выполняет внутреннюю операцию prepare texture transform.
+   */
   private prepareTextureTransform(transform: mat3, stats: RenderStats): void {
     if (mat3Equals(this._textureTransform, transform)) return
     this.flushTexture(stats)
     mat3.copy(this._textureTransform, transform)
   }
 
+  /**
+   * Сбрасывает накопленные операции в следующий слой runtime.
+   */
   private flushRounded(stats: RenderStats): void {
     if (this._rectData.length === 0 && !this._rectCachedData) return
     const gl = this._gl
@@ -1342,6 +1531,9 @@ export class NovaWebGLFrameRenderer {
     this._rectCachedDirtyRanges = null
   }
 
+  /**
+   * Сбрасывает накопленные операции в следующий слой runtime.
+   */
   private flushSolid(stats: RenderStats): void {
     if (this._solidData.length === 0 && !this._solidCachedData) return
     const gl = this._gl
@@ -1365,6 +1557,9 @@ export class NovaWebGLFrameRenderer {
     this._solidCachedDirtyRanges = null
   }
 
+  /**
+   * Сбрасывает накопленные операции в следующий слой runtime.
+   */
   private flushTexture(stats: RenderStats): void {
     if (this._textureData.length === 0 && !this._textureCachedData) return
     const texture = this._textureCachedBatch?.texture ?? this._textureBatch
@@ -1397,6 +1592,9 @@ export class NovaWebGLFrameRenderer {
     this._textureCachedBatch = null
   }
 
+  /**
+   * Выполняет внутреннюю операцию upload array buffer.
+   */
   private uploadArrayBuffer(data: Float32Array, state: WebGLUploadState, stats: RenderStats, dirtyRanges: FloatDirtyRange[] | null = null): void {
     const gl = this._gl
     stats.gpuBufferCapacityBytes += Math.max(state.capacityBytes, data.byteLength)
@@ -1451,12 +1649,18 @@ export class NovaWebGLFrameRenderer {
     stats.uploadBytes += data.byteLength
   }
 
+  /**
+   * Создает buffer.
+   */
   private createBuffer(): WebGLBuffer {
     const buffer = this._gl.createBuffer()
     if (!buffer) throw new Error('Failed to create WebGL2 buffer')
     return buffer
   }
 
+  /**
+   * Создает rounded vao.
+   */
   private createRoundedVao(): WebGLVertexArrayObject {
     const gl = this._gl
     const vao = this.createVao()
@@ -1474,6 +1678,9 @@ export class NovaWebGLFrameRenderer {
     return vao
   }
 
+  /**
+   * Создает solid vao.
+   */
   private createSolidVao(): WebGLVertexArrayObject {
     const gl = this._gl
     const vao = this.createVao()
@@ -1486,6 +1693,9 @@ export class NovaWebGLFrameRenderer {
     return vao
   }
 
+  /**
+   * Создает texture vao.
+   */
   private createTextureVao(buffer: WebGLBuffer = this._textureBuffer): WebGLVertexArrayObject {
     const gl = this._gl
     const vao = this.createVao()
@@ -1499,30 +1709,45 @@ export class NovaWebGLFrameRenderer {
     return vao
   }
 
+  /**
+   * Создает vao.
+   */
   private createVao(): WebGLVertexArrayObject {
     const vao = this._gl.createVertexArray()
     if (!vao) throw new Error('Failed to create WebGL2 vertex array')
     return vao
   }
 
+  /**
+   * Выполняет внутреннюю операцию bind attrib.
+   */
   private bindAttrib(program: NovaWebGLProgram, name: string, size: number, stride: number, offsetFloats: number): void {
     const location = program.attribLocation(name)
     this._gl.enableVertexAttribArray(location)
     this._gl.vertexAttribPointer(location, size, this._gl.FLOAT, false, stride, offsetFloats * FLOAT_BYTES)
   }
 
+  /**
+   * Вычисляет texture buffer.
+   */
   private resolveTextureBuffer(batch: TextureBatchCache | null): WebGLBuffer {
     if (!batch) return this._textureBuffer
     if (!batch.buffer) batch.buffer = this.createBuffer()
     return batch.buffer
   }
 
+  /**
+   * Вычисляет texture vao.
+   */
   private resolveTextureVao(batch: TextureBatchCache | null): WebGLVertexArrayObject {
     if (!batch) return this._textureVao
     if (!batch.vao) batch.vao = this.createTextureVao(this.resolveTextureBuffer(batch))
     return batch.vao
   }
 
+  /**
+   * Создает texture from source.
+   */
   private createTextureFromSource(key: string, source: CanvasImageSource, stats: RenderStats): TextureEntry {
     const gl = this._gl
     const texture = gl.createTexture()
@@ -1548,6 +1773,9 @@ export class NovaWebGLFrameRenderer {
     return entry
   }
 
+  /**
+   * Выполняет внутреннюю операцию rasterize text.
+   */
   private rasterizeText(text: NovaText, style: NovaCompiledTextStyle, scale: number): RasterizedText {
     const canvas = this._textRasterCanvas
     const width = Math.max(1, Math.ceil(text.width * scale))
@@ -1582,6 +1810,9 @@ export class NovaWebGLFrameRenderer {
     return { canvas, width, height, scale }
   }
 
+  /**
+   * Создает text key.
+   */
   private createTextKey(text: NovaText, style: NovaCompiledTextStyle, scale: number): string {
     return [
       'text',
@@ -1602,6 +1833,9 @@ export class NovaWebGLFrameRenderer {
     ].join(':')
   }
 
+  /**
+   * Вычисляет source key.
+   */
   private resolveSourceKey(source: CanvasImageSource): string {
     if (typeof source !== 'object' || source === null) return 'source'
     const existing = this._sourceTextureKeys.get(source)
@@ -1611,10 +1845,16 @@ export class NovaWebGLFrameRenderer {
     return next
   }
 
+  /**
+   * Выполняет внутреннюю операцию source texture keys size.
+   */
   private _sourceTextureKeysSize(): number {
     return this._textures.size + 1
   }
 
+  /**
+   * Вычисляет border sides.
+   */
   private resolveBorderSides(position: NovaBorder['position']): Array<'left' | 'right' | 'top' | 'bottom'> {
     if (position === 'vertical') return ['left', 'right']
     if (position === 'horizontal') return ['top', 'bottom']
@@ -1622,6 +1862,9 @@ export class NovaWebGLFrameRenderer {
     return ['left', 'right', 'top', 'bottom']
   }
 
+  /**
+   * Обновляет scissor.
+   */
   private setScissor(clip: NovaRenderClip | null, transform: mat3): void {
     const gl = this._gl
     if (!clip) {
@@ -1639,12 +1882,18 @@ export class NovaWebGLFrameRenderer {
     gl.scissor(x, y, width, height)
   }
 
+  /**
+   * Выполняет внутреннюю операцию texture memory mb.
+   */
   private textureMemoryMB(): number {
     let bytes = 0
     for (const texture of this._textures.values()) bytes += texture.bytes
     return bytes / 1024 / 1024
   }
 
+  /**
+   * Выполняет внутреннюю операцию evict textures if needed.
+   */
   private evictTexturesIfNeeded(): void {
     const maxBytes = 128 * 1024 * 1024
     let bytes = 0
@@ -1661,6 +1910,9 @@ export class NovaWebGLFrameRenderer {
   }
 }
 
+/**
+ * Выполняет внутреннюю операцию transform point.
+ */
 function transformPoint(matrix: mat3, x: number, y: number): { x: number; y: number } {
   return {
     x: matrix[0] * x + matrix[3] * y + matrix[6],
@@ -1668,6 +1920,9 @@ function transformPoint(matrix: mat3, x: number, y: number): { x: number; y: num
   }
 }
 
+/**
+ * Выполняет внутреннюю операцию mat3 equals.
+ */
 function mat3Equals(a: mat3, b: mat3): boolean {
   for (let i = 0; i < 9; i += 1) {
     if (Math.abs(a[i] - b[i]) > 0.0001) return false
@@ -1675,6 +1930,9 @@ function mat3Equals(a: mat3, b: mat3): boolean {
   return true
 }
 
+/**
+ * Объединяет float dirty ranges.
+ */
 function mergeFloatDirtyRanges(ranges: FloatDirtyRange[]): FloatDirtyRange[] {
   if (ranges.length <= 1) return ranges
 
@@ -1697,6 +1955,9 @@ function mergeFloatDirtyRanges(ranges: FloatDirtyRange[]): FloatDirtyRange[] {
   return merged
 }
 
+/**
+ * Выполняет внутреннюю операцию transform rect bounds.
+ */
 function transformRectBounds(matrix: mat3, x: number, y: number, width: number, height: number): NovaRenderClip {
   const p1 = transformPoint(matrix, x, y)
   const p2 = transformPoint(matrix, x + width, y)
@@ -1709,10 +1970,16 @@ function transformRectBounds(matrix: mat3, x: number, y: number, width: number, 
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
 }
 
+/**
+ * Выполняет внутреннюю операцию color to css.
+ */
 function colorToCss(color: NovaParsedColor): string {
   return `rgba(${Math.round(color.r * 255)}, ${Math.round(color.g * 255)}, ${Math.round(color.b * 255)}, ${color.a})`
 }
 
+/**
+ * Выполняет внутреннюю операцию ellipsize text.
+ */
 function ellipsizeText(ctx: CanvasRenderingContext2D, text: string, width: number): string {
   if (ctx.measureText(text).width <= width) return text
   const suffix = '...'
@@ -1726,12 +1993,18 @@ function ellipsizeText(ctx: CanvasRenderingContext2D, text: string, width: numbe
   return `${text.slice(0, lo)}${suffix}`
 }
 
+/**
+ * Вычисляет source width.
+ */
 function resolveSourceWidth(source: CanvasImageSource): number {
   if ('naturalWidth' in source && typeof source.naturalWidth === 'number') return source.naturalWidth
   if ('videoWidth' in source && typeof source.videoWidth === 'number') return source.videoWidth
   return 'width' in source && typeof source.width === 'number' ? source.width : 1
 }
 
+/**
+ * Вычисляет source height.
+ */
 function resolveSourceHeight(source: CanvasImageSource): number {
   if ('naturalHeight' in source && typeof source.naturalHeight === 'number') return source.naturalHeight
   if ('videoHeight' in source && typeof source.videoHeight === 'number') return source.videoHeight

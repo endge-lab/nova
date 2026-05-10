@@ -10,6 +10,9 @@ import type {
 } from '@/domain/types/rendering/index'
 import type { NovaBounds, NovaSemanticScopeKind } from '@/domain/types/renderer-types'
 
+/**
+ * Описывает контракт CreateNovaTypedRenderStreamOptions.
+ */
 export interface CreateNovaTypedRenderStreamOptions {
   id: NovaRenderStreamId
   groupId: NovaRenderGroupId
@@ -18,17 +21,26 @@ export interface CreateNovaTypedRenderStreamOptions {
   initialCapacity?: number
 }
 
+/**
+ * Описывает контракт NovaRenderStreamAllocation.
+ */
 export interface NovaRenderStreamAllocation {
   slotIndex: number
   offset: number
   count: number
 }
 
+/**
+ * Описывает контракт NovaRenderStreamDirtyRange.
+ */
 export interface NovaRenderStreamDirtyRange {
   startSlot: number
   endSlot: number
 }
 
+/**
+ * Хранит typed render stream, slots и dirty ranges для одного primitive kind.
+ */
 export class NovaTypedRenderStream implements NovaRenderStream {
   readonly id: NovaRenderStreamId
   readonly groupId: NovaRenderGroupId
@@ -43,6 +55,9 @@ export class NovaTypedRenderStream implements NovaRenderStream {
   private _slotCount = 0
   private _version = 0
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(options: CreateNovaTypedRenderStreamOptions) {
     this.id = options.id
     this.groupId = options.groupId
@@ -51,26 +66,44 @@ export class NovaTypedRenderStream implements NovaRenderStream {
     this._data = new Float32Array(Math.max(0, options.initialCapacity ?? 0) * this.strideFloats)
   }
 
+  /**
+   * Возвращает slot capacity.
+   */
   get slotCapacity(): number {
     return this._data.length / this.strideFloats
   }
 
+  /**
+   * Возвращает slot count.
+   */
   get slotCount(): number {
     return this._slotCount
   }
 
+  /**
+   * Возвращает version.
+   */
   get version(): number {
     return this._version
   }
 
+  /**
+   * Возвращает data.
+   */
   get data(): Float32Array {
     return this._data
   }
 
+  /**
+   * Возвращает slots by item id.
+   */
   get slotsByItemId(): ReadonlyMap<string, NovaRenderStreamSlot> {
     return this._slotsByItemId
   }
 
+  /**
+   * Выполняет внутреннюю операцию allocate slot.
+   */
   allocateSlot(options: {
     itemId: string
     count?: number
@@ -113,6 +146,9 @@ export class NovaTypedRenderStream implements NovaRenderStream {
     }
   }
 
+  /**
+   * Записывает slot.
+   */
   writeSlot(itemId: string, values: readonly number[]): boolean {
     const slot = this._slotsByItemId.get(itemId)
     if (!slot || values.length > this.strideFloats) return false
@@ -123,6 +159,9 @@ export class NovaTypedRenderStream implements NovaRenderStream {
     return true
   }
 
+  /**
+   * Удаляет slot.
+   */
   removeSlot(itemId: string): boolean {
     const slot = this._slotsByItemId.get(itemId)
     if (!slot) return false
@@ -134,17 +173,26 @@ export class NovaTypedRenderStream implements NovaRenderStream {
     return true
   }
 
+  /**
+   * Помечает slot dirty.
+   */
   markSlotDirty(slotIndex: number): void {
     this._dirtyRanges.push({ startSlot: slotIndex, endSlot: slotIndex + 1 })
     this._version += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию consume dirty ranges.
+   */
   consumeDirtyRanges(): NovaRenderStreamDirtyRange[] {
     const merged = mergeSlotDirtyRanges(this._dirtyRanges)
     this._dirtyRanges.length = 0
     return merged
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): void {
     this.slots.length = 0
     this._slotsByItemId.clear()
@@ -154,6 +202,9 @@ export class NovaTypedRenderStream implements NovaRenderStream {
     this._version += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию ensure slot capacity.
+   */
   private ensureSlotCapacity(requiredSlots: number): void {
     if (requiredSlots <= this.slotCapacity) return
 
@@ -164,10 +215,16 @@ export class NovaTypedRenderStream implements NovaRenderStream {
   }
 }
 
+/**
+ * Создает nova render stream id.
+ */
 export function createNovaRenderStreamId(groupId: NovaRenderGroupId, kind: NovaRenderStreamKind): NovaRenderStreamId {
   return `${groupId}:${kind}`
 }
 
+/**
+ * Вычисляет nova render stream stride.
+ */
 export function resolveNovaRenderStreamStride(kind: NovaRenderStreamKind): number {
   switch (kind) {
     case 'plain-rect':
@@ -192,6 +249,9 @@ export function resolveNovaRenderStreamStride(kind: NovaRenderStreamKind): numbe
   }
 }
 
+/**
+ * Вычисляет nova render semantic layer.
+ */
 export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): NovaRenderSemanticLayer {
   switch (kind) {
     case 'plain-rect':
@@ -213,6 +273,9 @@ export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): Nova
   }
 }
 
+/**
+ * Создает nova batch plan.
+ */
 export function createNovaBatchPlan(
   groupId: NovaRenderGroupId,
   streams: Iterable<NovaTypedRenderStream>,
@@ -288,6 +351,9 @@ export function createNovaBatchPlan(
   }
 }
 
+/**
+ * Объединяет slot dirty ranges.
+ */
 function mergeSlotDirtyRanges(ranges: NovaRenderStreamDirtyRange[]): NovaRenderStreamDirtyRange[] {
   if (ranges.length <= 1) return [...ranges]
 

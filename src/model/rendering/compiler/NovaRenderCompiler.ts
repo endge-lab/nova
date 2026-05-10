@@ -11,28 +11,43 @@ import { NovaRenderFrameBuilder } from '@/model/rendering/compiler/NovaRenderFra
 import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/rendering/policy/NovaRenderPolicy'
 import { collectVisibleNovaRenderGroups } from '@/model/rendering/NovaRenderCulling'
 
+/**
+ * Описывает контракт NovaRenderCompilerOptions.
+ */
 export interface NovaRenderCompilerOptions {
   schemaRegistry: NovaSchemaRegistry
   rendererConfig?: NovaRendererConfig
   rendererType?: RendererType
 }
 
+/**
+ * Описывает контракт NovaRenderCompileResult.
+ */
 export interface NovaRenderCompileResult {
   frame: NovaRenderFrame
 }
 
+/**
+ * Компилирует Nova surfaces в retained render frame и обновляет render graph.
+ */
 export class NovaRenderCompiler<E extends EventList = EventList> {
   private readonly _schemaRegistry: NovaSchemaRegistry
   private readonly _rendererConfig: NovaRendererConfig
   private readonly _rendererType: RendererType
   private _lastFrame?: NovaRenderFrame
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(options: NovaRenderCompilerOptions) {
     this._schemaRegistry = options.schemaRegistry
     this._rendererConfig = options.rendererConfig ?? DEFAULT_NOVA_RENDERER_CONFIG
     this._rendererType = options.rendererType ?? RendererType.WebGL
   }
 
+  /**
+   * Компилирует surface.
+   */
   compileSurface(surface: NovaSurface<E>): NovaRenderCompileResult {
     const startedAt = performance.now()
 
@@ -94,10 +109,16 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
     return { frame }
   }
 
+  /**
+   * Выполняет внутреннюю операцию estimate batches.
+   */
   private estimateBatches(drawItems: number): number {
     return Math.ceil(drawItems / this._rendererConfig.batching.maxBatchSize)
   }
 
+  /**
+   * Обновляет retained transforms.
+   */
   private updateRetainedTransforms(surface: NovaSurface<E>, frame: NovaRenderFrame): number {
     const graph = surface.renderGraph
     if (!graph || graph.transformDirtyNodeIds.size === 0) return 0
@@ -120,6 +141,9 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
     return updated
   }
 
+  /**
+   * Выполняет внутреннюю операцию collect dirty node matrices.
+   */
   private collectDirtyNodeMatrices(node: NovaNode<any>, dirtyNodeIds: Set<string>, matrices: Map<string, mat3>): void {
     if (dirtyNodeIds.has(node.renderNodeId)) {
       matrices.set(node.renderNodeId, mat3.clone(node.matrix))

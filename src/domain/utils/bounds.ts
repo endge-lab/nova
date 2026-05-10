@@ -1,10 +1,16 @@
 import type { NovaBounds } from '@/domain/types/renderer-types'
 import type { mat3 } from 'gl-matrix'
 
+/**
+ * Создает empty bounds.
+ */
 export function createEmptyBounds(): NovaBounds {
   return { x: 0, y: 0, width: 0, height: 0 }
 }
 
+/**
+ * Выполняет публичную операцию transform bounds.
+ */
 export function transformBounds(bounds: NovaBounds, matrix: mat3): NovaBounds {
   const x1 = bounds.x
   const y1 = bounds.y
@@ -32,6 +38,9 @@ export function transformBounds(bounds: NovaBounds, matrix: mat3): NovaBounds {
   }
 }
 
+/**
+ * Выполняет публичную операцию union bounds.
+ */
 export function unionBounds(a: NovaBounds, b: NovaBounds): NovaBounds {
   if (a.width <= 0 && a.height <= 0) return { ...b }
   if (b.width <= 0 && b.height <= 0) return { ...a }
@@ -49,6 +58,9 @@ export function unionBounds(a: NovaBounds, b: NovaBounds): NovaBounds {
   }
 }
 
+/**
+ * Обновляет bounds.
+ */
 export function setBounds(target: NovaBounds, x: number, y: number, width: number, height: number): NovaBounds {
   target.x = x
   target.y = y
@@ -57,6 +69,9 @@ export function setBounds(target: NovaBounds, x: number, y: number, width: numbe
   return target
 }
 
+/**
+ * Копирует bounds.
+ */
 export function copyBounds(target: NovaBounds, source: NovaBounds): NovaBounds {
   target.x = source.x
   target.y = source.y
@@ -65,10 +80,16 @@ export function copyBounds(target: NovaBounds, source: NovaBounds): NovaBounds {
   return target
 }
 
+/**
+ * Выполняет публичную операцию bounds equals.
+ */
 export function boundsEquals(a: NovaBounds, b: NovaBounds): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
 }
 
+/**
+ * Выполняет публичную операцию bounds intersects.
+ */
 export function boundsIntersects(a: NovaBounds, b: NovaBounds): boolean {
   if (a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0) return false
 
@@ -80,6 +101,9 @@ export function boundsIntersects(a: NovaBounds, b: NovaBounds): boolean {
   )
 }
 
+/**
+ * Выполняет публичную операцию bounds contains point.
+ */
 export function boundsContainsPoint(bounds: NovaBounds, x: number, y: number): boolean {
   return (
     x >= bounds.x

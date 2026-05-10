@@ -1,14 +1,23 @@
 import type { NovaText } from '@/domain/types/renderer-types'
 
+/**
+ * Описывает контракт NovaTextLayoutMeasure.
+ */
 export interface NovaTextLayoutMeasure {
   width: number
   height: number
   fontKey: string
 }
 
+/**
+ * Выполняет layout text runs перед rasterization и batching.
+ */
 export class NovaTextLayoutEngine {
   private readonly _canvas = document.createElement('canvas')
 
+  /**
+   * Выполняет внутреннюю операцию measure.
+   */
   measure(text: NovaText, scale = 1): NovaTextLayoutMeasure {
     const context = this.getContext2D()
     const font = text.styles?.font
@@ -27,6 +36,9 @@ export class NovaTextLayoutEngine {
     }
   }
 
+  /**
+   * Возвращает context2 d.
+   */
   private getContext2D(): CanvasRenderingContext2D | null {
     if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) {
       return null

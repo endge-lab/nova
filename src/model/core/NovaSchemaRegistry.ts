@@ -7,15 +7,24 @@ import type { EventList } from '@endge/utils'
 
 const MAX_SCHEMA_COMPONENT_DEPTH = 32
 
+/**
+ * Хранит schema components и отвечает за их expansion и bounds resolution.
+ */
 export class NovaSchemaRegistry {
   private readonly _descriptors = new Map<string, NovaComponentDescriptor<any, any, any, any>>()
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(options: { defaults?: boolean } = {}) {
     if (options.defaults ?? true) {
       this.registerDefaults()
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию register.
+   */
   register<TProps extends Record<string, any>, TApi, TEvents extends Record<string, unknown>, TSchema>(
     descriptor: NovaComponentDescriptor<TProps, TApi, TEvents, TSchema>,
     options: { override?: boolean } = {},
@@ -28,16 +37,25 @@ export class NovaSchemaRegistry {
     this._descriptors.set(descriptor.type, descriptor)
   }
 
+  /**
+   * Выполняет внутреннюю операцию has.
+   */
   has(type: string): boolean {
     return this._descriptors.has(type)
   }
 
+  /**
+   * Выполняет внутреннюю операцию resolve.
+   */
   resolve<T extends NovaComponentDescriptor<any, any, any, any> = NovaComponentDescriptor<any, any, any, any>>(
     type: string,
   ): T | undefined {
     return this._descriptors.get(type) as T | undefined
   }
 
+  /**
+   * Выполняет render-операцию schema component.
+   */
   renderSchemaComponent(
     renderer: NovaRenderer,
     item: NovaComponentSchema<any>,
@@ -58,6 +76,9 @@ export class NovaSchemaRegistry {
     return true
   }
 
+  /**
+   * Создает node.
+   */
   createNode<E extends EventList>(
     surface: NovaSurface<E>,
     schema: NovaComponentSchema<any>,
@@ -67,6 +88,9 @@ export class NovaSchemaRegistry {
     return node
   }
 
+  /**
+   * Создает child.
+   */
   createChild<E extends EventList>(
     parent: NovaNode<E>,
     schema: NovaComponentSchema<any>,
@@ -76,6 +100,9 @@ export class NovaSchemaRegistry {
     return node
   }
 
+  /**
+   * Создает detached node.
+   */
   private createDetachedNode<E extends EventList>(
     surface: NovaSurface<E>,
     schema: NovaComponentSchema<any>,
@@ -99,6 +126,9 @@ export class NovaSchemaRegistry {
     return node
   }
 
+  /**
+   * Регистрирует defaults.
+   */
   private registerDefaults(): void {
     for (const type of ['rect', 'border', 'text', 'line', 'circle', 'polygon', 'icon']) {
       this.register({

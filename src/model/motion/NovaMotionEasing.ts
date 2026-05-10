@@ -1,5 +1,8 @@
 import type { NovaMotionEasingName, NovaMotionOptions } from '@/domain/types/motion-types'
 
+/**
+ * Хранит значение NOVA_MOTION_EASING, используемое runtime-кодом пакета.
+ */
 export const NOVA_MOTION_EASING: Record<NovaMotionEasingName, (t: number) => number> = {
   linear: t => t,
   inQuad: t => t * t,
@@ -10,11 +13,17 @@ export const NOVA_MOTION_EASING: Record<NovaMotionEasingName, (t: number) => num
   inOutCubic: t => t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2,
 }
 
+/**
+ * Вычисляет nova motion easing.
+ */
 export function resolveNovaMotionEasing(easing: NovaMotionOptions['easing']): (t: number) => number {
   if (typeof easing === 'function') return easing
   return NOVA_MOTION_EASING[easing ?? 'linear'] ?? NOVA_MOTION_EASING.linear
 }
 
+/**
+ * Выполняет публичную операцию clamp motion progress.
+ */
 export function clampMotionProgress(value: number): number {
   if (value <= 0) return 0
   if (value >= 1) return 1

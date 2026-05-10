@@ -6,8 +6,14 @@ import { NovaSpatialIndex } from '@/model/core/NovaSpatialIndex'
 import type { NovaHitTestMode } from '@/domain/types/renderer-types'
 import type { NovaDragEventMeta } from '@/domain/types/events-types'
 
+/**
+ * Описывает тип NovaPointerDomEvent.
+ */
 type NovaPointerDomEvent = MouseEvent & { pointerId?: number }
 
+/**
+ * Описывает тип NovaPointerState.
+ */
 type NovaPointerState<E extends EventList> = {
   pointerId: number
   startX: number
@@ -24,6 +30,9 @@ type NovaPointerState<E extends EventList> = {
 const DEFAULT_POINTER_ID = 1
 const DEFAULT_SCOPE = 'default'
 
+/**
+ * Управляет DOM-событиями, hit-test и маршрутизацией событий к Nova nodes.
+ */
 export class NovaEvents<E extends EventList> {
   interactiveNodes: Set<NovaNode<E>> = new Set()
   hoveredNodes: Set<NovaNode<E>> = new Set()
@@ -60,8 +69,14 @@ export class NovaEvents<E extends EventList> {
   private _spatialFullDirty = true
   private _activePointerId = DEFAULT_POINTER_ID
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(public readonly app: NovaApp<E>) {}
 
+  /**
+   * Сбрасывает внутреннее состояние к начальному виду.
+   */
   reset(): void {
     if (this.clickTimeout) {
       clearTimeout(this.clickTimeout)
@@ -88,6 +103,9 @@ export class NovaEvents<E extends EventList> {
     this.lastHitTestCandidates = 0
   }
 
+  /**
+   * Помечает spatial dirty.
+   */
   markSpatialDirty(node?: NovaNode<E>, includeChildren = false): void {
     if (!node) {
       this._spatialFullDirty = true
@@ -106,6 +124,9 @@ export class NovaEvents<E extends EventList> {
     }
   }
 
+  /**
+   * Удаляет node references.
+   */
   removeNodeReferences(node: NovaNode<E>): void {
     this.interactiveNodes.delete(node)
     this._spatialDirtyNodes.delete(node)
@@ -126,6 +147,9 @@ export class NovaEvents<E extends EventList> {
     if (this.pointerCaptureNode === node) this.pointerCaptureNode = this._firstCapturedNode()
   }
 
+  /**
+   * Выполняет внутреннюю операцию handle.
+   */
   handle(type: keyof NovaNodeEventHandlers, event: Event): boolean {
     if (this.interactiveNodes.size === 0 && !this.focusedNode && this._pointerCaptureNodes.size === 0) return false
 
@@ -154,6 +178,9 @@ export class NovaEvents<E extends EventList> {
   }
 
   // Css координаты
+  /**
+   * Возвращает canvas mouse position.
+   */
   getCanvasMousePosition(event: MouseEvent): { x: number; y: number } {
     const rect = this.app.canvas.element.getBoundingClientRect()
     const cssX = event.clientX - rect.left
@@ -165,6 +192,9 @@ export class NovaEvents<E extends EventList> {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию hit test.
+   */
   hitTest(x: number, y: number): NovaNode<E> | null {
     const candidates = this.getHitCandidates(x, y)
       .filter(node => node.active && node.visible && node.containsPoint(x, y))
@@ -173,6 +203,9 @@ export class NovaEvents<E extends EventList> {
     return candidates[candidates.length - 1] ?? null
   }
 
+  /**
+   * Обновляет pointer capture.
+   */
   setPointerCapture(node: NovaNode<E>, event?: MouseEvent): void {
     const pointerId = this.getPointerId(event)
     const previous = this._pointerCaptureNodes.get(pointerId) ?? null
@@ -184,6 +217,9 @@ export class NovaEvents<E extends EventList> {
     this.callHandler(node.eventHandlers.gotpointercapture, event ?? new Event('gotpointercapture'))
   }
 
+  /**
+   * Выполняет внутреннюю операцию release pointer capture.
+   */
   releasePointerCapture(node?: NovaNode<E>, event?: MouseEvent): void {
     const pointerId = event ? this.getPointerId(event) : undefined
     const entries = pointerId !== undefined
@@ -200,6 +236,9 @@ export class NovaEvents<E extends EventList> {
     this.pointerCaptureNode = this._firstCapturedNode()
   }
 
+  /**
+   * Проверяет наличие pointer capture.
+   */
   hasPointerCapture(node: NovaNode<E>, event?: MouseEvent): boolean {
     if (event) return this._pointerCaptureNodes.get(this.getPointerId(event)) === node
     for (const captured of this._pointerCaptureNodes.values()) {
@@ -208,6 +247,9 @@ export class NovaEvents<E extends EventList> {
     return false
   }
 
+  /**
+   * Выполняет внутреннюю операцию focus.
+   */
   focus(node: NovaNode<E> | null, event: Event = new Event('focus'), scope = DEFAULT_SCOPE): void {
     const previous = this.getFocusedScope(scope)
     if (previous === node) return
@@ -218,6 +260,9 @@ export class NovaEvents<E extends EventList> {
     if (node) this.callHandler(node.eventHandlers.focus, event)
   }
 
+  /**
+   * Выполняет внутреннюю операцию blur.
+   */
   blur(node?: NovaNode<E>, event: Event = new Event('blur'), scope = DEFAULT_SCOPE): void {
     const previous = this.getFocusedScope(scope)
     if (!previous || (node && previous !== node)) return
@@ -227,10 +272,16 @@ export class NovaEvents<E extends EventList> {
     this.callHandler(previous.eventHandlers.blur, event)
   }
 
+  /**
+   * Проверяет focused.
+   */
   isFocused(node: NovaNode<E>, scope = DEFAULT_SCOPE): boolean {
     return this.getFocusedScope(scope) === node
   }
 
+  /**
+   * Выполняет внутреннюю операцию select.
+   */
   select(node: NovaNode<E>, options: { append?: boolean; toggle?: boolean; scope?: string } = {}, event: Event = new Event('select')): void {
     const scope = options.scope ?? DEFAULT_SCOPE
     const selectedNodes = this.getSelectionScope(scope)
@@ -248,6 +299,9 @@ export class NovaEvents<E extends EventList> {
     this.callHandler(node.eventHandlers.select, event)
   }
 
+  /**
+   * Выполняет внутреннюю операцию deselect.
+   */
   deselect(node: NovaNode<E>, event: Event = new Event('deselect'), scope = DEFAULT_SCOPE): void {
     const selectedNodes = this.getSelectionScope(scope)
     if (!selectedNodes.delete(node)) return
@@ -255,16 +309,25 @@ export class NovaEvents<E extends EventList> {
     this.callHandler(node.eventHandlers.deselect, event)
   }
 
+  /**
+   * Очищает selection.
+   */
   clearSelection(event: Event = new Event('deselect'), scope = DEFAULT_SCOPE): void {
     for (const node of [...this.getSelectionScope(scope)]) {
       this.deselect(node, event, scope)
     }
   }
 
+  /**
+   * Проверяет selected.
+   */
   isSelected(node: NovaNode<E>, scope = DEFAULT_SCOPE): boolean {
     return this.getSelectionScope(scope).has(node)
   }
 
+  /**
+   * Возвращает selection scope.
+   */
   private getSelectionScope(scope: string): Set<NovaNode<E>> {
     if (scope === DEFAULT_SCOPE) {
       if (!this.selectedNodesByScope.has(scope)) {
@@ -281,11 +344,17 @@ export class NovaEvents<E extends EventList> {
     return selectedNodes
   }
 
+  /**
+   * Возвращает focused scope.
+   */
   private getFocusedScope(scope: string): NovaNode<E> | null {
     if (scope === DEFAULT_SCOPE) return this.focusedNode
     return this.focusedNodesByScope.get(scope) ?? null
   }
 
+  /**
+   * Возвращает hit candidates.
+   */
   private getHitCandidates(x: number, y: number): Array<NovaNode<E>> {
     this.lastHitTestMode = this.hitTestMode
 
@@ -314,11 +383,17 @@ export class NovaEvents<E extends EventList> {
     return candidates
   }
 
+  /**
+   * Возвращает pointer id.
+   */
   private getPointerId(event?: MouseEvent): number {
     const pointerId = (event as NovaPointerDomEvent | undefined)?.pointerId
     return typeof pointerId === 'number' && Number.isFinite(pointerId) ? pointerId : DEFAULT_POINTER_ID
   }
 
+  /**
+   * Возвращает pointer state.
+   */
   private getPointerState(pointerId: number): NovaPointerState<E> {
     let state = this._pointerStates.get(pointerId)
     if (!state) {
@@ -339,6 +414,9 @@ export class NovaEvents<E extends EventList> {
     return state
   }
 
+  /**
+   * Выполняет внутреннюю операцию sync pointer state.
+   */
   private syncPointerState(state: NovaPointerState<E>): void {
     this._activePointerId = state.pointerId
     this.startMouseX = state.startX
@@ -352,14 +430,23 @@ export class NovaEvents<E extends EventList> {
     this.draggedNodes = state.draggedNodes
   }
 
+  /**
+   * Возвращает captured node.
+   */
   private getCapturedNode(event?: MouseEvent): NovaNode<E> | null {
     return this._pointerCaptureNodes.get(this.getPointerId(event)) ?? null
   }
 
+  /**
+   * Выполняет внутреннюю операцию first captured node.
+   */
   private _firstCapturedNode(): NovaNode<E> | null {
     return this._pointerCaptureNodes.values().next().value ?? null
   }
 
+  /**
+   * Выполняет внутреннюю операцию dispatch pointer.
+   */
   private dispatchPointer<K extends keyof NovaNodeEventHandlers>(
     type: K,
     event: MouseEvent | WheelEvent,
@@ -387,6 +474,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Выполняет внутреннюю операцию build event path.
+   */
   private buildEventPath(target: NovaNode<E>): Array<NovaNode<E>> {
     const path: Array<NovaNode<E>> = []
     let current: unknown = target
@@ -399,11 +489,17 @@ export class NovaEvents<E extends EventList> {
     return path
   }
 
+  /**
+   * Выполняет внутреннюю операцию call handler.
+   */
   private callHandler(handler: unknown, event: MouseEvent | WheelEvent | KeyboardEvent | Event): void {
     if (typeof handler !== 'function') return
     ;(handler as (e: typeof event) => void)(event)
   }
 
+  /**
+   * Выполняет внутреннюю операцию call drag handler.
+   */
   private callDragHandler(
     node: NovaNode<E>,
     type: 'dragstart' | 'dragmove' | 'dragend' | 'dragcancel',
@@ -421,6 +517,9 @@ export class NovaEvents<E extends EventList> {
     ;(handler as NonNullable<NovaNodeEventHandlers['dragstart']>)(event, meta)
   }
 
+  /**
+   * Создает drag meta.
+   */
   private createDragMeta(dx = 0, dy = 0): NovaDragEventMeta {
     const state = this.getPointerState(this._activePointerId)
     return {
@@ -436,6 +535,9 @@ export class NovaEvents<E extends EventList> {
     }
   }
 
+  /**
+   * Обрабатывает событие mouse down.
+   */
   private onMouseDown(event: MouseEvent): boolean {
     if (event.cancelBubble) return false
 
@@ -467,6 +569,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Обрабатывает событие mouse move.
+   */
   private onMouseMove(event: MouseEvent): boolean {
     if (event.cancelBubble) return false
 
@@ -485,6 +590,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Выполняет внутреннюю операцию handle mouse move.
+   */
   private _handleMouseMove(event: NovaPointerDomEvent): boolean {
     if (event.cancelBubble) return false
 
@@ -549,6 +657,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Обрабатывает событие mouse up.
+   */
   private onMouseUp(event: MouseEvent): boolean {
     if (event.cancelBubble) return false
 
@@ -606,6 +717,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Обрабатывает событие wheel.
+   */
   private onWheel(event: WheelEvent): boolean {
     if (event.cancelBubble) return false
 
@@ -620,6 +734,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Обрабатывает событие context menu.
+   */
   private onContextMenu(event: MouseEvent): boolean {
     if (event.cancelBubble) return false
 
@@ -628,6 +745,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Обрабатывает событие key down.
+   */
   private onKeyDown(event: KeyboardEvent): boolean {
     if (event.cancelBubble || event.repeat) return false
 
@@ -644,6 +764,9 @@ export class NovaEvents<E extends EventList> {
     return false
   }
 
+  /**
+   * Обрабатывает событие key up.
+   */
   private onKeyUp(event: KeyboardEvent): boolean {
     if (event.cancelBubble) return false
 
@@ -660,6 +783,9 @@ export class NovaEvents<E extends EventList> {
     return false
   }
 
+  /**
+   * Обрабатывает событие canvas enter.
+   */
   private onCanvasEnter(event: MouseEvent): boolean {
     this.isDragging = false
     this.isDraggingEmitted = false
@@ -684,6 +810,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Обрабатывает событие canvas leave.
+   */
   private onCanvasLeave(event: MouseEvent): boolean {
     if (this._pointerCaptureNodes.size > 0) {
       return true
@@ -719,6 +848,9 @@ export class NovaEvents<E extends EventList> {
     return true
   }
 
+  /**
+   * Выполняет внутреннюю операцию dispatch keyboard.
+   */
   private dispatchKeyboard(type: 'keydown' | 'keyup', event: KeyboardEvent, target: NovaNode<E>): boolean {
     const path = this.buildEventPath(target)
     for (const node of path.slice(0, -1)) {

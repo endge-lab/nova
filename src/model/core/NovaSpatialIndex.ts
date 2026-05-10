@@ -4,15 +4,24 @@ import type { EventList } from '@endge/utils'
 
 const DEFAULT_CELL_SIZE = 128
 
+/**
+ * Хранит spatial index интерактивных nodes для ускоренного hit-test.
+ */
 export class NovaSpatialIndex<E extends EventList> {
   private readonly _cells = new Map<string, Set<NovaNode<E>>>()
   private readonly _nodeKeys = new Map<NovaNode<E>, Set<string>>()
   private readonly _cellSize: number
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(cellSize = DEFAULT_CELL_SIZE) {
     this._cellSize = cellSize
   }
 
+  /**
+   * Выполняет внутреннюю операцию rebuild.
+   */
   rebuild(nodes: Iterable<NovaNode<E>>): void {
     this.clear()
 
@@ -21,6 +30,9 @@ export class NovaSpatialIndex<E extends EventList> {
     }
   }
 
+  /**
+   * Выполняет query point.
+   */
   queryPoint(x: number, y: number): Array<NovaNode<E>> {
     const key = this.keyForPoint(x, y)
     const nodes = this._cells.get(key)
@@ -29,6 +41,9 @@ export class NovaSpatialIndex<E extends EventList> {
     return [...nodes]
   }
 
+  /**
+   * Выполняет query bounds.
+   */
   queryBounds(bounds: NovaBounds): Array<NovaNode<E>> {
     if (bounds.width <= 0 || bounds.height <= 0) return []
 
@@ -52,17 +67,26 @@ export class NovaSpatialIndex<E extends EventList> {
     return [...result]
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): void {
     this._cells.clear()
     this._nodeKeys.clear()
   }
 
+  /**
+   * Выполняет внутреннюю операцию update.
+   */
   update(node: NovaNode<E>): void {
     this.remove(node)
     if (!node.active || !node.visible) return
     this.insert(node, node.getRenderBounds())
   }
 
+  /**
+   * Выполняет внутреннюю операцию remove.
+   */
   remove(node: NovaNode<E>): void {
     const keys = this._nodeKeys.get(node)
     if (!keys) return
@@ -78,6 +102,9 @@ export class NovaSpatialIndex<E extends EventList> {
     this._nodeKeys.delete(node)
   }
 
+  /**
+   * Выполняет внутреннюю операцию insert.
+   */
   private insert(node: NovaNode<E>, bounds: NovaBounds): void {
     if (bounds.width <= 0 || bounds.height <= 0) return
 
@@ -103,14 +130,23 @@ export class NovaSpatialIndex<E extends EventList> {
     if (nodeKeys.size > 0) this._nodeKeys.set(node, nodeKeys)
   }
 
+  /**
+   * Выполняет внутреннюю операцию key for point.
+   */
   private keyForPoint(x: number, y: number): string {
     return `${Math.floor(x / this._cellSize)}:${Math.floor(y / this._cellSize)}`
   }
 
+  /**
+   * Возвращает cell count.
+   */
   get cellCount(): number {
     return this._cells.size
   }
 
+  /**
+   * Возвращает indexed node count.
+   */
   get indexedNodeCount(): number {
     return this._nodeKeys.size
   }

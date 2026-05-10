@@ -9,6 +9,9 @@ import {
   createRenderVersions,
 } from '@/model/rendering/policy/NovaRenderPolicy'
 
+/**
+ * Описывает контракт CreateNovaRenderGroupOptions.
+ */
 export interface CreateNovaRenderGroupOptions {
   id: NovaRenderGroupId
   layerId: NovaRenderLayerId
@@ -16,6 +19,9 @@ export interface CreateNovaRenderGroupOptions {
   parentGroupId?: NovaRenderGroupId
 }
 
+/**
+ * Создает nova instruction buffer.
+ */
 export function createNovaInstructionBuffer(id: string, version = 0): NovaInstructionBuffer {
   return {
     id,
@@ -26,6 +32,9 @@ export function createNovaInstructionBuffer(id: string, version = 0): NovaInstru
   }
 }
 
+/**
+ * Создает nova render group.
+ */
 export function createNovaRenderGroup(options: CreateNovaRenderGroupOptions): NovaRenderGroup {
   return {
     id: options.id,

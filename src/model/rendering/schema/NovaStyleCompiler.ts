@@ -9,6 +9,9 @@ import type {
 } from '@/domain/types/renderer-types'
 import { parseNovaColor, type NovaParsedColor } from '@/model/rendering/schema/NovaColorParser'
 
+/**
+ * Описывает контракт NovaCompiledBoxStyle.
+ */
 export interface NovaCompiledBoxStyle {
   fill: NovaParsedColor
   opacity: number
@@ -18,6 +21,9 @@ export interface NovaCompiledBoxStyle {
   dashPattern?: number[]
 }
 
+/**
+ * Описывает контракт NovaCompiledTextStyle.
+ */
 export interface NovaCompiledTextStyle {
   color: NovaParsedColor
   opacity: number
@@ -30,6 +36,9 @@ export interface NovaCompiledTextStyle {
   ellipsis: boolean
 }
 
+/**
+ * Описывает контракт NovaCompiledPadding.
+ */
 export interface NovaCompiledPadding {
   left: number
   right: number
@@ -37,6 +46,9 @@ export interface NovaCompiledPadding {
   bottom: number
 }
 
+/**
+ * Компилирует nova rect style.
+ */
 export function compileNovaRectStyle(rect: NovaRect): NovaCompiledBoxStyle {
   const background = typeof rect.styles?.background === 'string' ? rect.styles.background : undefined
   return {
@@ -49,6 +61,9 @@ export function compileNovaRectStyle(rect: NovaRect): NovaCompiledBoxStyle {
   }
 }
 
+/**
+ * Компилирует nova border style.
+ */
 export function compileNovaBorderStyle(border: NovaBorder): NovaCompiledBoxStyle {
   return {
     fill: parseNovaColor(undefined, 0x00000000),
@@ -60,6 +75,9 @@ export function compileNovaBorderStyle(border: NovaBorder): NovaCompiledBoxStyle
   }
 }
 
+/**
+ * Компилирует nova circle style.
+ */
 export function compileNovaCircleStyle(circle: NovaCircle): NovaCompiledBoxStyle {
   const background = typeof circle.styles?.background === 'string' ? circle.styles.background : undefined
   return {
@@ -72,6 +90,9 @@ export function compileNovaCircleStyle(circle: NovaCircle): NovaCompiledBoxStyle
   }
 }
 
+/**
+ * Компилирует nova line style.
+ */
 export function compileNovaLineStyle(line: NovaLine): { color: NovaParsedColor; width: number; opacity: number; dashPattern?: number[] } {
   return {
     color: parseNovaColor(line.styles?.color, 0x000000ff),
@@ -81,6 +102,9 @@ export function compileNovaLineStyle(line: NovaLine): { color: NovaParsedColor; 
   }
 }
 
+/**
+ * Компилирует nova polygon style.
+ */
 export function compileNovaPolygonStyle(polygon: NovaPolygon): {
   fill: NovaParsedColor
   stroke: NovaParsedColor
@@ -95,6 +119,9 @@ export function compileNovaPolygonStyle(polygon: NovaPolygon): {
   }
 }
 
+/**
+ * Компилирует nova text style.
+ */
 export function compileNovaTextStyle(text: NovaText): NovaCompiledTextStyle {
   const font = text.styles?.font
   const fontSize = font?.size ?? 12
@@ -115,6 +142,9 @@ export function compileNovaTextStyle(text: NovaText): NovaCompiledTextStyle {
   }
 }
 
+/**
+ * Компилирует nova padding.
+ */
 export function compileNovaPadding(padding?: NovaStylePadding): Required<NovaCompiledPadding> {
   if (!padding) return { left: 0, right: 0, top: 0, bottom: 0 }
   if ('all' in padding) {

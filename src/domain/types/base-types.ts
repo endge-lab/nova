@@ -6,6 +6,9 @@ import type { NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import type { EventList } from '@endge/utils'
 import type { NovaSchemaRegistry } from '@/model/core/NovaSchemaRegistry'
 
+/**
+ * Описывает контракт NovaNodeProperties.
+ */
 export interface NovaNodeProperties extends RaphProperties {
   // Локальное состояние ноды. Не наследуется от родителя.
   localActive: boolean
@@ -35,6 +38,9 @@ export interface NovaNodeProperties extends RaphProperties {
   height: number
 }
 
+/**
+ * Описывает контракт NovaAppOptions.
+ */
 export interface NovaAppOptions {
   debug: boolean | string | string[]
 
@@ -45,8 +51,14 @@ export interface NovaAppOptions {
   maxDpr: number
 }
 
+/**
+ * Описывает тип NovaCanvasTarget.
+ */
 export type NovaCanvasTarget = HTMLCanvasElement
 
+/**
+ * Описывает контракт NovaSizeOptions.
+ */
 export interface NovaSizeOptions {
   width: number
   height: number
@@ -54,16 +66,31 @@ export interface NovaSizeOptions {
   maxDpr?: number
 }
 
+/**
+ * Описывает тип NovaPointerScope.
+ */
 export type NovaPointerScope = 'target'
+/**
+ * Описывает тип NovaKeyboardScope.
+ */
 export type NovaKeyboardScope = 'focused' | 'active' | 'hovered' | 'global' | 'manual'
+/**
+ * Описывает тип NovaInputPreventDefault.
+ */
 export type NovaInputPreventDefault = 'never' | 'handled' | 'always'
 
+/**
+ * Описывает контракт NovaPointerInputOptions.
+ */
 export interface NovaPointerInputOptions {
   enabled?: boolean
   scope?: NovaPointerScope
   capture?: boolean
 }
 
+/**
+ * Описывает контракт NovaKeyboardInputOptions.
+ */
 export interface NovaKeyboardInputOptions {
   enabled?: boolean
   scope?: NovaKeyboardScope
@@ -71,11 +98,17 @@ export interface NovaKeyboardInputOptions {
   ignoreEditableTargets?: boolean
 }
 
+/**
+ * Описывает контракт NovaInputOptions.
+ */
 export interface NovaInputOptions {
   pointer?: NovaPointerInputOptions
   keyboard?: NovaKeyboardInputOptions
 }
 
+/**
+ * Описывает контракт ResolvedNovaInputOptions.
+ */
 export interface ResolvedNovaInputOptions {
   pointer: {
     enabled: boolean
@@ -89,6 +122,9 @@ export interface ResolvedNovaInputOptions {
   }
 }
 
+/**
+ * Описывает контракт NovaRendererOptions.
+ */
 export interface NovaRendererOptions {
   main?: RendererType
   defaultSurface?: RendererType
@@ -96,17 +132,26 @@ export interface NovaRendererOptions {
   config?: NovaRendererConfigInput
 }
 
+/**
+ * Описывает контракт NovaSchedulerOptions.
+ */
 export interface NovaSchedulerOptions {
   type?: RaphSchedulerType
   loop?: boolean
 }
 
+/**
+ * Описывает контракт NovaDebugOptions.
+ */
 export interface NovaDebugOptions {
   enabled?: boolean | string | string[]
   telemetry?: boolean
   overlay?: boolean
 }
 
+/**
+ * Описывает контракт NovaAppCreateOptions.
+ */
 export interface NovaAppCreateOptions<E extends EventList = Record<string, any>> {
   target: NovaCanvasTarget
   size: NovaSizeOptions
@@ -118,13 +163,22 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   schemaRegistry?: NovaSchemaRegistry
 }
 
+/**
+ * Описывает тип NovaCanvasOwnership.
+ */
 export type NovaCanvasOwnership = 'external' | 'internal'
 
+/**
+ * Описывает контракт NovaCanvasCreateOptions.
+ */
 export interface NovaCanvasCreateOptions extends Partial<NovaSizeOptions> {
   webgl?: WebGLContextAttributes
   contextType?: RendererType
 }
 
+/**
+ * Описывает контракт SurfaceOptions.
+ */
 export interface SurfaceOptions {
   width: number
   height: number

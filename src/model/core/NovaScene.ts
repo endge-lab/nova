@@ -3,12 +3,21 @@ import { NovaNode } from '@/model/core/NovaNode'
 import type { NovaLifecycleState } from '@/domain/types/renderer-types'
 import type { EventList } from '@endge/utils'
 
+/**
+ * Описывает монтируемую сцену Nova и управляет ее жизненным циклом.
+ */
 export class NovaScene<E extends EventList> {
   private readonly _roots = new Set<NovaNode<E>>()
   private _state: NovaLifecycleState = 'created'
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(protected readonly app: NovaApp<E>) {}
 
+  /**
+   * Выполняет внутреннюю операцию mount.
+   */
   mount(): void {
     if (this._state === 'destroyed') {
       throw new Error('Нельзя смонтировать уничтоженную Nova-сцену')
@@ -25,6 +34,9 @@ export class NovaScene<E extends EventList> {
     this.app.invalidate()
   }
 
+  /**
+   * Выполняет внутреннюю операцию pause.
+   */
   pause(): void {
     if (this._state !== 'mounted') return
 
@@ -36,6 +48,9 @@ export class NovaScene<E extends EventList> {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию resume.
+   */
   resume(): void {
     if (this._state !== 'paused') return
 
@@ -49,6 +64,9 @@ export class NovaScene<E extends EventList> {
     this.app.invalidate()
   }
 
+  /**
+   * Выполняет внутреннюю операцию unmount.
+   */
   unmount(): void {
     if (this._state === 'created' || this._state === 'destroyed') return
 
@@ -63,6 +81,9 @@ export class NovaScene<E extends EventList> {
     this.app.invalidate()
   }
 
+  /**
+   * Освобождает runtime resources и снимает связанные ссылки.
+   */
   destroy(): void {
     if (this._state === 'destroyed') return
 
@@ -71,6 +92,9 @@ export class NovaScene<E extends EventList> {
     this._state = 'destroyed'
   }
 
+  /**
+   * Добавляет root.
+   */
   protected addRoot<T extends NovaNode<E>>(root: T): T {
     this._roots.add(root)
     if (this._state === 'mounted' || this._state === 'paused') {
@@ -83,6 +107,9 @@ export class NovaScene<E extends EventList> {
     return root
   }
 
+  /**
+   * Удаляет root.
+   */
   protected removeRoot(root: NovaNode<E>): void {
     if (!this._roots.delete(root)) return
 
@@ -90,16 +117,37 @@ export class NovaScene<E extends EventList> {
     this.app.invalidate()
   }
 
+  /**
+   * Обрабатывает событие mount.
+   */
   protected onMount(): void {}
+  /**
+   * Обрабатывает событие pause.
+   */
   protected onPause(): void {}
+  /**
+   * Обрабатывает событие resume.
+   */
   protected onResume(): void {}
+  /**
+   * Обрабатывает событие unmount.
+   */
   protected onUnmount(): void {}
+  /**
+   * Обрабатывает событие destroy.
+   */
   protected onDestroy(): void {}
 
+  /**
+   * Возвращает state.
+   */
   get state(): NovaLifecycleState {
     return this._state
   }
 
+  /**
+   * Возвращает root count.
+   */
   get rootCount(): number {
     return this._roots.size
   }

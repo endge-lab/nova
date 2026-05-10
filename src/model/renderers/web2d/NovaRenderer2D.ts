@@ -20,10 +20,16 @@ import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/renderin
 // TODO:
 let _CANVAS2D_TEMP_MODE = false
 
+/**
+ * Выполняет публичную операцию canvas2 d temp mode.
+ */
 export function CANVAS2D_TEMP_MODE(value: boolean): void {
   _CANVAS2D_TEMP_MODE = value
 }
 
+/**
+ * Рисует compiled Nova render frame через Canvas2D backend.
+ */
 export class NovaRenderer2D implements NovaRenderer {
   readonly id: string = randomString(5)
   readonly novaCanvas: NovaCanvas
@@ -44,15 +50,24 @@ export class NovaRenderer2D implements NovaRenderer {
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _schemaRegistry: NovaSchemaRegistry
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(canvas: NovaCanvas, schemaRegistry = new NovaSchemaRegistry()) {
     this.novaCanvas = canvas
     this._schemaRegistry = schemaRegistry
   }
 
+  /**
+   * Возвращает ctx.
+   */
   get ctx(): CanvasRenderingContext2D {
     return this.novaCanvas.getContext2D()
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): void {
     const ctx = this.ctx
     ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -60,6 +75,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.scale(this.novaCanvas.dpr, this.novaCanvas.dpr)
   }
 
+  /**
+   * Выполняет render-операцию frame.
+   */
   renderFrame(frame: NovaRenderFrame): NovaRenderMetrics {
     const startedAt = performance.now()
     const itemsById = new Map(frame.items.map(item => [item.id, item]))
@@ -130,6 +148,9 @@ export class NovaRenderer2D implements NovaRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию schema.
+   */
   schema(schema: NovaSchema<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
     for (const item of items) {
@@ -174,6 +195,9 @@ export class NovaRenderer2D implements NovaRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию red box.
+   */
   redBox(): void {
     this.schema([
       {
@@ -189,14 +213,23 @@ export class NovaRenderer2D implements NovaRenderer {
     ])
   }
 
+  /**
+   * Выполняет внутреннюю операцию save.
+   */
   save(): void {
     this.ctx.save()
   }
 
+  /**
+   * Выполняет внутреннюю операцию restore.
+   */
   restore(): void {
     this.ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию clip.
+   */
   clip(x: number, y: number, width: number, height: number): void {
     const ctx = this.ctx
     ctx.save()
@@ -205,16 +238,25 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.clip()
   }
 
+  /**
+   * Очищает clip.
+   */
   clearClip(): void {
     this.ctx.restore()
   }
 
+  /**
+   * Обновляет transform.
+   */
   setTransform(matrix: mat3): void {
     this.ctx.setTransform(1, 0, 0, 1, 0, 0)
     this.ctx.scale(this.novaCanvas.dpr, this.novaCanvas.dpr)
     this.ctx.transform(matrix[0], matrix[1], matrix[3], matrix[4], matrix[6], matrix[7])
   }
 
+  /**
+   * Выполняет внутреннюю операцию rect.
+   */
   rect(p: NovaRect): void {
     const ctx = this.ctx
     ctx.save()
@@ -250,6 +292,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию text.
+   */
   text(p: NovaText): void {
     //
     //
@@ -282,6 +327,9 @@ export class NovaRenderer2D implements NovaRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию resolve padding.
+   */
   private _resolvePadding(padding: any): {
     left: number
     right: number
@@ -312,6 +360,9 @@ export class NovaRenderer2D implements NovaRenderer {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию line.
+   */
   line(p: NovaLine): void {
     const ctx = this.ctx
     ctx.save()
@@ -326,6 +377,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию circle.
+   */
   circle(p: NovaCircle): void {
     const ctx = this.ctx
     ctx.save()
@@ -343,6 +397,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию polygon.
+   */
   polygon(p: NovaPolygon): void {
     const ctx = this.ctx
     ctx.save()
@@ -372,6 +429,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию icon.
+   */
   icon(p: NovaIcon): void {
     const ctx = this.ctx
     ctx.save()
@@ -392,10 +452,16 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию cursor.
+   */
   cursor(value: string): void {
     this.novaCanvas.element.style.cursor = value
   }
 
+  /**
+   * Выполняет внутреннюю операцию border.
+   */
   border(p: NovaBorder): void {
     const ctx = this.ctx
     ctx.save()
@@ -474,6 +540,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw rounded rect.
+   */
   private _drawRoundedRect(x: number, y: number, width: number, height: number, radius: number): void {
     const ctx = this.ctx
     const r = Math.min(radius, width / 2, height / 2)
@@ -490,6 +559,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.closePath()
   }
 
+  /**
+   * Выполняет внутреннюю операцию text string.
+   */
   private textString(p: NovaText): void {
     if (!p.text?.length) {
       return
@@ -578,6 +650,9 @@ export class NovaRenderer2D implements NovaRenderer {
     ctx.restore()
   }
 
+  /**
+   * Выполняет внутреннюю операцию measure text.
+   */
   measureText(p: NovaText): { width: number; height: number } {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
@@ -617,8 +692,14 @@ export class NovaRenderer2D implements NovaRenderer {
     }
   }
 
+  /**
+   * Освобождает runtime resources и снимает связанные ссылки.
+   */
   destroy(): void {}
 
+  /**
+   * Выполняет внутреннюю операцию text markdown.
+   */
   private textMarkdown(p: NovaText): void {
     const ctx = this.ctx
     ctx.save()
@@ -654,6 +735,9 @@ export class NovaRenderer2D implements NovaRenderer {
     return
   }
 
+  /**
+   * Выполняет внутреннюю операцию parse markdown to chunks.
+   */
   private _parseMarkdownToChunks(input: string): NovaTextChunk[] {
     if (!input?.length) {
       return [{ text: '' }]

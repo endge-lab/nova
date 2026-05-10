@@ -26,7 +26,13 @@ export const NodeEventNames = {
   dragMove: 'mousemove',
 } as const
 
+/**
+ * Описывает тип NodeEventName.
+ */
 export type NodeEventName = keyof typeof NodeEventNames
+/**
+ * Описывает тип DomEventName.
+ */
 export type DomEventName =
   | 'click'
   | 'dblclick'
@@ -56,6 +62,9 @@ export const CanvasDomEvents: DomEventName[] = [
 ]
 
 // Базовые DOM-обработчики
+/**
+ * Описывает контракт CanvasEventHandlers.
+ */
 export interface CanvasEventHandlers {
   click?: (e: MouseEvent) => void
   dblclick?: (e: MouseEvent) => void
@@ -69,6 +78,9 @@ export interface CanvasEventHandlers {
 }
 
 // Расширенные события для NovaNode
+/**
+ * Описывает контракт NovaNodeEventHandlers.
+ */
 export interface NovaNodeEventHandlers extends CanvasEventHandlers {
   mouseenter?: (e: MouseEvent) => void
   mouseleave?: (e: MouseEvent) => void
@@ -89,6 +101,9 @@ export interface NovaNodeEventHandlers extends CanvasEventHandlers {
   dragmove?: (e: MouseEvent, dx: number, dy: number, meta: NovaDragEventMeta) => void
 }
 
+/**
+ * Описывает контракт NovaDragEventMeta.
+ */
 export interface NovaDragEventMeta {
   pointerId: number
   startX: number

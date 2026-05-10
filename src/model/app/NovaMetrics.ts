@@ -1,3 +1,6 @@
+/**
+ * Описывает контракт NovaMetricsSnapshot.
+ */
 export interface NovaMetricsSnapshot {
   rFps: number
   fps: number
@@ -6,6 +9,9 @@ export interface NovaMetricsSnapshot {
   idle: number
 }
 
+/**
+ * Считает runtime-метрики кадров, draw events и update frequency.
+ */
 export class NovaMetrics {
   private _rafId = 0
   private _rafLastAt = 0
@@ -20,28 +26,46 @@ export class NovaMetrics {
   private _frameStartedAt = 0
   private _last = 0
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(private readonly readUps: () => number) {}
 
+  /**
+   * Запускает связанную runtime-операцию.
+   */
   start(): void {
     if (this._rafId || typeof requestAnimationFrame === 'undefined') return
     this._rafId = requestAnimationFrame(this.tickRaf)
   }
 
+  /**
+   * Останавливает связанную runtime-операцию.
+   */
   stop(): void {
     if (!this._rafId || typeof cancelAnimationFrame === 'undefined') return
     cancelAnimationFrame(this._rafId)
     this._rafId = 0
   }
 
+  /**
+   * Помечает frame start.
+   */
   markFrameStart(now = performance.now()): void {
     this._frameStartedAt = now
   }
 
+  /**
+   * Помечает frame end.
+   */
   markFrameEnd(now = performance.now()): void {
     if (!this._frameStartedAt) return
     this._last = now - this._frameStartedAt
   }
 
+  /**
+   * Помечает draw.
+   */
   markDraw(now = performance.now()): void {
     this._drawLastAt = now
     if (!this._drawWindowAt) this._drawWindowAt = now
@@ -56,6 +80,9 @@ export class NovaMetrics {
     }
   }
 
+  /**
+   * Выполняет внутреннюю операцию snapshot.
+   */
   snapshot(now = performance.now()): NovaMetricsSnapshot {
     const idle = this._drawLastAt ? now - this._drawLastAt : 0
 

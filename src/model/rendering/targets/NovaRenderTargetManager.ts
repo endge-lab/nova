@@ -1,5 +1,8 @@
 import type { NovaRenderTarget, NovaRenderTargetKind } from '@/domain/types/rendering/index'
 
+/**
+ * Описывает контракт CreateNovaRenderTargetOptions.
+ */
 export interface CreateNovaRenderTargetOptions {
   id: string
   kind: NovaRenderTargetKind
@@ -9,26 +12,44 @@ export interface CreateNovaRenderTargetOptions {
   ownerGroupId?: string
 }
 
+/**
+ * Управляет allocation и lifecycle render targets.
+ */
 export class NovaRenderTargetManager {
   private readonly _targets = new Map<string, NovaRenderTarget>()
   private _memoryBytes = 0
 
+  /**
+   * Возвращает targets.
+   */
   get targets(): NovaRenderTarget[] {
     return [...this._targets.values()]
   }
 
+  /**
+   * Возвращает memory bytes.
+   */
   get memoryBytes(): number {
     return this._memoryBytes
   }
 
+  /**
+   * Возвращает memory mb.
+   */
   get memoryMB(): number {
     return this._memoryBytes / 1024 / 1024
   }
 
+  /**
+   * Выполняет внутреннюю операцию get.
+   */
   get(id: string): NovaRenderTarget | undefined {
     return this._targets.get(id)
   }
 
+  /**
+   * Выполняет внутреннюю операцию ensure.
+   */
   ensure(options: CreateNovaRenderTargetOptions): NovaRenderTarget {
     const current = this._targets.get(options.id)
     if (current) {
@@ -54,6 +75,9 @@ export class NovaRenderTargetManager {
     return target
   }
 
+  /**
+   * Выполняет внутреннюю операцию delete.
+   */
   delete(id: string): boolean {
     const current = this._targets.get(id)
     if (!current) return false
@@ -61,11 +85,17 @@ export class NovaRenderTargetManager {
     return this._targets.delete(id)
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): void {
     this._targets.clear()
     this._memoryBytes = 0
   }
 
+  /**
+   * Выполняет внутреннюю операцию estimate target bytes.
+   */
   protected estimateTargetBytes(target: NovaRenderTarget): number {
     return Math.max(0, Math.ceil(target.width * target.dpr))
       * Math.max(0, Math.ceil(target.height * target.dpr))

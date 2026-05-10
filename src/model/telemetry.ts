@@ -1,3 +1,6 @@
+/**
+ * Описывает тип EventKind.
+ */
 export type EventKind =
   | 'ctx:create'
   | 'ctx:destroy'
@@ -11,8 +14,14 @@ export type EventKind =
   | 'page'
   | 'visibility'
 
+/**
+ * Описывает тип Evt.
+ */
 export type Evt = { t: number; k: EventKind; s?: string; g?: string; d: any }
 
+/**
+ * Описывает тип FrameStat.
+ */
 export type FrameStat = {
   t: number
   s?: string // surface
@@ -24,6 +33,9 @@ export type FrameStat = {
   backbufferBytes?: number
 }
 
+/**
+ * Описывает тип Snapshot.
+ */
 type Snapshot = {
   label: string
   at: number
@@ -31,8 +43,14 @@ type Snapshot = {
   events: Evt[]
 }
 
+/**
+ * Описывает тип SnapshotHandler.
+ */
 type SnapshotHandler = (snap: Snapshot) => void
 
+/**
+ * Собирает graphics telemetry events и статистику кадров.
+ */
 export class GfxTelemetry {
   private readonly eventsLimit: number
   private readonly statsLimit: number
@@ -47,19 +65,31 @@ export class GfxTelemetry {
 
   private _accBytes = 0
 
+  /**
+   * Возвращает enabled.
+   */
   get enabled(): boolean {
     return this._enabled
   }
 
+  /**
+   * Обновляет enabled.
+   */
   set enabled(value: boolean) {
     this._enabled = value
   }
 
+  /**
+   * Обрабатывает событие snapshot.
+   */
   onSnapshot(cb: SnapshotHandler): () => void {
     this._snapListeners.add(cb)
     return () => this._snapListeners.delete(cb)
   }
 
+  /**
+   * Выполняет внутреннюю операцию emit snapshot.
+   */
   private _emitSnapshot(snap: Snapshot) {
     for (const cb of this._snapListeners) {
       try {
@@ -70,11 +100,17 @@ export class GfxTelemetry {
     }
   }
 
+  /**
+   * Добавляет upload bytes.
+   */
   addUploadBytes(n: number) {
     if (!this._enabled) return
     this._accBytes += n
   }
 
+  /**
+   * Выполняет внутреннюю операцию consume acc bytes.
+   */
   consumeAccBytes(): number {
     if (!this._enabled) return 0
     const v = this._accBytes
@@ -82,11 +118,17 @@ export class GfxTelemetry {
     return v
   }
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(opts?: { eventsLimit?: number; statsLimit?: number }) {
     this.eventsLimit = opts?.eventsLimit ?? 1000
     this.statsLimit = opts?.statsLimit ?? 300
   }
 
+  /**
+   * Выполняет внутреннюю операцию event.
+   */
   event(k: EventKind, d: any = {}, s?: string, g?: string) {
     if (!this._enabled) return
     const e: Evt = { t: performance.now(), k, s, g, d }
@@ -94,6 +136,9 @@ export class GfxTelemetry {
     if (this._events.length > this.eventsLimit) this._events.shift()
   }
 
+  /**
+   * Выполняет внутреннюю операцию stat.
+   */
   stat(partial: Omit<FrameStat, 't'>) {
     if (!this._enabled) return
     const rec: FrameStat = { t: performance.now(), ...partial }
@@ -101,6 +146,9 @@ export class GfxTelemetry {
     if (this._stats.length > this.statsLimit) this._stats.shift()
   }
 
+  /**
+   * Выполняет внутреннюю операцию snapshot.
+   */
   snapshot(label: string) {
     const now = performance.now()
 
@@ -119,6 +167,9 @@ export class GfxTelemetry {
 
 export const Telemetry = new GfxTelemetry({ statsLimit: 300, eventsLimit: 1000 })
 
+/**
+ * Выполняет публичную операцию analyze snapshot.
+ */
 export function analyzeSnapshot(snap: { stats: FrameStat[]; events: Evt[] }) {
   const ev = snap.events
   const st = snap.stats

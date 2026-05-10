@@ -1,6 +1,15 @@
+/**
+ * Описывает тип PhaseLog.
+ */
 type PhaseLog = { type: 'info' | 'warn' | 'error' | 'success'; message: string }
+/**
+ * Описывает тип TimerMap.
+ */
 type TimerMap = Map<string, number>
 
+/**
+ * Собирает debug-информацию по кадрам и фазам runtime.
+ */
 export class NovaDebug {
   private _enabled = false
   private _lastLogFrameTimes = new Map<string, number>()
@@ -24,22 +33,37 @@ export class NovaDebug {
   private _phaseLogs: Record<string, PhaseLog[]> = {}
   private _timers: TimerMap = new Map()
 
+  /**
+   * Обновляет enabled.
+   */
   set enabled(v: boolean) {
     this._enabled = v
   }
 
+  /**
+   * Возвращает enabled.
+   */
   get enabled(): boolean {
     return this._enabled
   }
 
+  /**
+   * Возвращает last frame time.
+   */
   get lastFrameTime(): number {
     return this._lastFrameTime
   }
 
+  /**
+   * Возвращает last fps.
+   */
   get lastFps(): number {
     return this._lastFps
   }
 
+  /**
+   * Возвращает display fps.
+   */
   get displayFps(): number {
     if (this._lastRenderedAt > 0 && performance.now() - this._lastRenderedAt > 1500) {
       return 0
@@ -48,6 +72,9 @@ export class NovaDebug {
     return this._displayFps
   }
 
+  /**
+   * Запускает связанную runtime-операцию.
+   */
   startDisplayMonitor(): void {
     if (this._displayRafId !== null || typeof requestAnimationFrame === 'undefined') {
       return
@@ -61,6 +88,9 @@ export class NovaDebug {
     this._displayRafId = requestAnimationFrame(tick)
   }
 
+  /**
+   * Останавливает связанную runtime-операцию.
+   */
   stopDisplayMonitor(): void {
     if (this._displayRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
       cancelAnimationFrame(this._displayRafId)
@@ -74,6 +104,9 @@ export class NovaDebug {
     this._displayFps = 0
   }
 
+  /**
+   * Помечает rendered frame.
+   */
   markRenderedFrame(): void {
     const now = performance.now()
 
@@ -102,6 +135,9 @@ export class NovaDebug {
   // FRAME
   //
 
+  /**
+   * Выполняет внутреннюю операцию frame start.
+   */
   frameStart(group: string | null = 'default'): void {
     if (this._phaseStack === 0) {
       const now = performance.now()
@@ -128,6 +164,9 @@ export class NovaDebug {
     this._phaseStack++
   }
 
+  /**
+   * Выполняет внутреннюю операцию frame end.
+   */
   frameEnd(title = '🔹FRAME'): void {
     this._phaseStack--
 
@@ -173,12 +212,18 @@ export class NovaDebug {
   // PHASE
   //
 
+  /**
+   * Выполняет внутреннюю операцию phase start.
+   */
   phaseStart(name: string): void {
     if (!this._shouldLogFrame || !this._enabled) return
     this._phaseName = name
     this._phaseStart = performance.now()
   }
 
+  /**
+   * Выполняет внутреннюю операцию phase end.
+   */
   phaseEnd(): void {
     if (!this._shouldLogFrame || !this._enabled) return
     const duration = performance.now() - this._phaseStart
@@ -189,6 +234,9 @@ export class NovaDebug {
   // FACE LOG
   //
 
+  /**
+   * Выполняет внутреннюю операцию face log.
+   */
   faceLog(message: string): void {
     if (!this._enabled || !this._shouldLogFrame) return
     this._frameLogs.push(message)
@@ -198,6 +246,9 @@ export class NovaDebug {
   // TIMERS
   //
 
+  /**
+   * Запускает связанную runtime-операцию.
+   */
   startTimer(label: string): void {
     if (!this._enabled || !this._shouldLogFrame) return
     this._timers.set(label, performance.now())
@@ -207,22 +258,37 @@ export class NovaDebug {
   // LOGS
   //
 
+  /**
+   * Выполняет внутреннюю операцию info.
+   */
   info(message: string, timerLabel?: string): void {
     this.logToPhase('info', message, timerLabel)
   }
 
+  /**
+   * Выполняет внутреннюю операцию warn.
+   */
   warn(message: string, timerLabel?: string): void {
     this.logToPhase('warn', message, timerLabel)
   }
 
+  /**
+   * Выполняет внутреннюю операцию error.
+   */
   error(message: string, timerLabel?: string): void {
     this.logToPhase('error', message, timerLabel)
   }
 
+  /**
+   * Выполняет внутреннюю операцию success.
+   */
   success(message: string, timerLabel?: string): void {
     this.logToPhase('success', message, timerLabel)
   }
 
+  /**
+   * Выполняет внутреннюю операцию log to phase.
+   */
   private logToPhase(
     type: PhaseLog['type'],
     message: string,
@@ -243,6 +309,9 @@ export class NovaDebug {
     this._phaseLogs[this._phaseName].push({ type, message })
   }
 
+  /**
+   * Выполняет внутреннюю операцию print colored.
+   */
   private printColored(type: PhaseLog['type'], message: string): void {
     const colors = {
       info: 'color:#888',

@@ -9,6 +9,9 @@ import type {
 import type { NovaBounds, NovaSchemaItem } from '@/domain/types/renderer-types'
 import type { mat3 } from 'gl-matrix'
 
+/**
+ * Описывает контракт CreateNovaRenderItemOptions.
+ */
 export interface CreateNovaRenderItemOptions {
   id: string
   groupId: NovaRenderGroupId
@@ -23,6 +26,9 @@ export interface CreateNovaRenderItemOptions {
   bounds?: NovaBounds
 }
 
+/**
+ * Создает nova render item.
+ */
 export function createNovaRenderItem(options: CreateNovaRenderItemOptions): NovaRenderItem {
   return {
     id: options.id,
@@ -39,6 +45,9 @@ export function createNovaRenderItem(options: CreateNovaRenderItemOptions): Nova
   }
 }
 
+/**
+ * Вычисляет nova render item kind.
+ */
 export function resolveNovaRenderItemKind(item: NovaSchemaItem<any>): NovaRenderItemKind {
   switch (item.type) {
     case 'rect':
@@ -54,6 +63,9 @@ export function resolveNovaRenderItemKind(item: NovaSchemaItem<any>): NovaRender
   }
 }
 
+/**
+ * Создает nova render item batch key.
+ */
 export function createNovaRenderItemBatchKey(item: NovaSchemaItem<any>): string {
   if (item.type === 'rect') {
     const background = typeof item.styles?.background === 'string' ? item.styles.background : 'texture'
@@ -68,6 +80,9 @@ export function createNovaRenderItemBatchKey(item: NovaSchemaItem<any>): string 
   return item.type
 }
 
+/**
+ * Вычисляет nova render stream kind.
+ */
 export function resolveNovaRenderStreamKind(item: NovaSchemaItem<any>): NovaRenderStreamKind {
   if (item.type === 'rect') {
     const border = item.styles?.border

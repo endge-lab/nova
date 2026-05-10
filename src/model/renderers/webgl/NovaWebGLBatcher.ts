@@ -1,11 +1,20 @@
 import type { NovaRenderItem } from '@/domain/types/rendering/index'
 
+/**
+ * Описывает контракт NovaWebGLRenderBatch.
+ */
 export interface NovaWebGLRenderBatch {
   key: string
   items: NovaRenderItem[]
 }
 
+/**
+ * Группирует WebGL render items в batches с учетом painter order и ключей batching.
+ */
 export class NovaWebGLBatcher {
+  /**
+   * Выполняет внутреннюю операцию build display order batches.
+   */
   buildDisplayOrderBatches(items: NovaRenderItem[]): NovaWebGLRenderBatch[] {
     const batches: NovaWebGLRenderBatch[] = []
     const ordered = [...items].sort((a, b) => a.order - b.order)

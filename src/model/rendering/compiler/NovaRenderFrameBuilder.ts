@@ -13,6 +13,9 @@ import { createNovaRenderLayer } from '@/model/rendering/NovaRenderLayer'
 
 let frameId = 0
 
+/**
+ * Создает empty metrics.
+ */
 function createEmptyMetrics(): NovaRenderMetrics {
   return {
     compilerMs: 0,
@@ -40,6 +43,9 @@ function createEmptyMetrics(): NovaRenderMetrics {
   }
 }
 
+/**
+ * Собирает итоговый NovaRenderFrame из layers, groups, commands и metrics.
+ */
 export class NovaRenderFrameBuilder {
   private readonly _groups: NovaRenderGroup[] = []
   private readonly _items: NovaRenderItem[] = []
@@ -49,6 +55,9 @@ export class NovaRenderFrameBuilder {
   private readonly _mainLayer: NovaRenderLayer
   private _order = 0
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(
     private readonly _surfaceId: string,
     private readonly _viewport: NovaRenderViewport,
@@ -59,23 +68,38 @@ export class NovaRenderFrameBuilder {
     this._groups.push(this._mainLayer.rootGroup)
   }
 
+  /**
+   * Возвращает main layer.
+   */
   get mainLayer(): NovaRenderLayer {
     return this._mainLayer
   }
 
+  /**
+   * Возвращает root group.
+   */
   get rootGroup(): NovaRenderGroup {
     return this._mainLayer.rootGroup
   }
 
+  /**
+   * Выполняет внутреннюю операцию next order.
+   */
   nextOrder(): number {
     this._order += 1
     return this._order
   }
 
+  /**
+   * Выполняет внутреннюю операцию peek order.
+   */
   peekOrder(): number {
     return this._order
   }
 
+  /**
+   * Добавляет command.
+   */
   addCommand(command: Omit<NovaRenderCommand, 'order'> & { order?: number }): NovaRenderCommand {
     const next: NovaRenderCommand = {
       ...command,
@@ -86,22 +110,34 @@ export class NovaRenderFrameBuilder {
     return next
   }
 
+  /**
+   * Добавляет item.
+   */
   addItem(item: NovaRenderItem): NovaRenderItem {
     this._items.push(item)
     this.rootGroup.instructionBuffer.items.push(item)
     return item
   }
 
+  /**
+   * Добавляет group.
+   */
   addGroup(group: NovaRenderGroup): NovaRenderGroup {
     this._groups.push(group)
     return group
   }
 
+  /**
+   * Добавляет target.
+   */
   addTarget(target: NovaRenderTarget): NovaRenderTarget {
     this._targets.push(target)
     return target
   }
 
+  /**
+   * Выполняет внутреннюю операцию build.
+   */
   build(metrics: Partial<NovaRenderMetrics> = {}): NovaRenderFrame {
     const resolvedMetrics = {
       ...createEmptyMetrics(),

@@ -1,3 +1,6 @@
+/**
+ * Описывает контракт NovaTextureAtlasEntry.
+ */
 export interface NovaTextureAtlasEntry<T = unknown> {
   id: string
   key: string
@@ -12,11 +15,17 @@ export interface NovaTextureAtlasEntry<T = unknown> {
   lastUsed: number
 }
 
+/**
+ * Описывает контракт NovaTextureAtlasManagerOptions.
+ */
 export interface NovaTextureAtlasManagerOptions {
   maxMemoryMB: number
   pageSize?: number
 }
 
+/**
+ * Описывает контракт NovaTextureAtlasPage.
+ */
 export interface NovaTextureAtlasPage {
   id: string
   width: number
@@ -27,26 +36,44 @@ export interface NovaTextureAtlasPage {
   entries: Set<string>
 }
 
+/**
+ * Кэширует texture regions и управляет atlas entries для image/icon resources.
+ */
 export class NovaTextureAtlasManager<T = unknown> {
   private readonly _entries = new Map<string, NovaTextureAtlasEntry<T>>()
   private readonly _pages: NovaTextureAtlasPage[] = []
   private _bytes = 0
   private _tick = 0
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(private readonly _options: NovaTextureAtlasManagerOptions) {}
 
+  /**
+   * Возвращает memory bytes.
+   */
   get memoryBytes(): number {
     return this._bytes
   }
 
+  /**
+   * Возвращает memory mb.
+   */
   get memoryMB(): number {
     return this._bytes / 1024 / 1024
   }
 
+  /**
+   * Возвращает entries.
+   */
   get entries(): NovaTextureAtlasEntry<T>[] {
     return [...this._entries.values()]
   }
 
+  /**
+   * Возвращает pages.
+   */
   get pages(): NovaTextureAtlasPage[] {
     return this._pages.map(page => ({
       ...page,
@@ -54,12 +81,18 @@ export class NovaTextureAtlasManager<T = unknown> {
     }))
   }
 
+  /**
+   * Выполняет внутреннюю операцию get.
+   */
   get(key: string): NovaTextureAtlasEntry<T> | undefined {
     const entry = this._entries.get(key)
     if (entry) entry.lastUsed = ++this._tick
     return entry
   }
 
+  /**
+   * Выполняет внутреннюю операцию set.
+   */
   set(entry: Omit<NovaTextureAtlasEntry<T>, 'lastUsed' | 'bytes'> & { bytes?: number }): NovaTextureAtlasEntry<T> {
     const current = this._entries.get(entry.key)
     if (current) {
@@ -84,6 +117,9 @@ export class NovaTextureAtlasManager<T = unknown> {
     return next
   }
 
+  /**
+   * Выполняет внутреннюю операцию evict to budget.
+   */
   evictToBudget(): NovaTextureAtlasEntry<T>[] {
     const evicted: NovaTextureAtlasEntry<T>[] = []
     const budgetBytes = this._options.maxMemoryMB * 1024 * 1024
@@ -101,12 +137,18 @@ export class NovaTextureAtlasManager<T = unknown> {
     return evicted
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): void {
     this._entries.clear()
     this._pages.length = 0
     this._bytes = 0
   }
 
+  /**
+   * Выполняет внутреннюю операцию allocate region.
+   */
   private allocateRegion(width: number, height: number): { page: NovaTextureAtlasPage; x: number; y: number } {
     const pageSize = this._options.pageSize ?? 2048
     const w = Math.max(1, Math.ceil(width))
@@ -130,6 +172,9 @@ export class NovaTextureAtlasManager<T = unknown> {
     return this.tryAllocateOnPage(page, w, h)!
   }
 
+  /**
+   * Выполняет внутреннюю операцию try allocate on page.
+   */
   private tryAllocateOnPage(page: NovaTextureAtlasPage, width: number, height: number): { page: NovaTextureAtlasPage; x: number; y: number } | null {
     if (width > page.width || height > page.height) return null
 
@@ -148,6 +193,9 @@ export class NovaTextureAtlasManager<T = unknown> {
     return { page, x, y }
   }
 
+  /**
+   * Удаляет from page.
+   */
   private removeFromPage(entry: NovaTextureAtlasEntry<T>): void {
     if (!entry.pageId) return
     const page = this._pages.find(item => item.id === entry.pageId)

@@ -7,6 +7,9 @@ import type {
   NovaRenderVersions,
 } from '@/domain/types/rendering/index'
 
+/**
+ * Хранит значение DEFAULT_NOVA_RENDER_POLICY, используемое runtime-кодом пакета.
+ */
 export const DEFAULT_NOVA_RENDER_POLICY: NovaRenderPolicy = Object.freeze({
   group: 'auto',
   cache: 'auto',
@@ -15,6 +18,9 @@ export const DEFAULT_NOVA_RENDER_POLICY: NovaRenderPolicy = Object.freeze({
   layer: 'auto',
 })
 
+/**
+ * Хранит значение DEFAULT_NOVA_RENDERER_CONFIG, используемое runtime-кодом пакета.
+ */
 export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
   batching: Object.freeze({
     maxBatchSize: 8192,
@@ -46,6 +52,9 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
   }),
 })
 
+/**
+ * Вычисляет nova render policy.
+ */
 export function resolveNovaRenderPolicy(input: NovaRenderPolicyInput = {}): NovaRenderPolicy {
   return {
     ...DEFAULT_NOVA_RENDER_POLICY,
@@ -53,6 +62,9 @@ export function resolveNovaRenderPolicy(input: NovaRenderPolicyInput = {}): Nova
   }
 }
 
+/**
+ * Вычисляет nova renderer config.
+ */
 export function resolveNovaRendererConfig(
   input: NovaRendererConfigInput = {},
   base: NovaRendererConfig = DEFAULT_NOVA_RENDERER_CONFIG,
@@ -78,6 +90,9 @@ export function resolveNovaRendererConfig(
   }
 }
 
+/**
+ * Создает clean render dirty flags.
+ */
 export function createCleanRenderDirtyFlags(): NovaRenderDirtyFlags {
   return {
     transform: false,
@@ -90,6 +105,9 @@ export function createCleanRenderDirtyFlags(): NovaRenderDirtyFlags {
   }
 }
 
+/**
+ * Создает full render dirty flags.
+ */
 export function createFullRenderDirtyFlags(): NovaRenderDirtyFlags {
   return {
     transform: true,
@@ -102,6 +120,9 @@ export function createFullRenderDirtyFlags(): NovaRenderDirtyFlags {
   }
 }
 
+/**
+ * Создает render versions.
+ */
 export function createRenderVersions(value = 0): NovaRenderVersions {
   return {
     transform: value,
@@ -114,6 +135,9 @@ export function createRenderVersions(value = 0): NovaRenderVersions {
   }
 }
 
+/**
+ * Объединяет render dirty flags.
+ */
 export function mergeRenderDirtyFlags(
   target: NovaRenderDirtyFlags,
   patch: Partial<NovaRenderDirtyFlags>,
@@ -125,6 +149,9 @@ export function mergeRenderDirtyFlags(
   return target
 }
 
+/**
+ * Выполняет публичную операцию bump render versions.
+ */
 export function bumpRenderVersions(
   versions: NovaRenderVersions,
   flags: Partial<NovaRenderDirtyFlags>,

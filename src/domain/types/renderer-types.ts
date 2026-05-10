@@ -1,11 +1,17 @@
 import type { mat3 } from 'gl-matrix'
 import type { DataRect } from '@endge/utils'
 
+/**
+ * Описывает набор значений RendererType.
+ */
 export enum RendererType {
   Web2D = '2d',
   WebGL = 'webgl',
 }
 
+/**
+ * Описывает тип NovaStylePadding.
+ */
 export type NovaStylePadding =
   | {
       left?: number
@@ -26,12 +32,18 @@ export type NovaStylePadding =
  */
 export type NovaStyleBackground = string | ImageBitmap | HTMLCanvasElement
 
+/**
+ * Описывает контракт NovaUIBase.
+ */
 export interface NovaUIBase {
   active?: boolean
   clip?: DataRect | true
   meta?: any
 }
 
+/**
+ * Описывает контракт NovaRect.
+ */
 export interface NovaRect extends NovaUIBase {
   x: number
   y: number
@@ -50,6 +62,9 @@ export interface NovaRect extends NovaUIBase {
   }
 }
 
+/**
+ * Описывает контракт NovaBorder.
+ */
 export interface NovaBorder extends NovaUIBase {
   x: number
   y: number
@@ -64,6 +79,9 @@ export interface NovaBorder extends NovaUIBase {
   }
 }
 
+/**
+ * Описывает контракт NovaText.
+ */
 export interface NovaText extends NovaUIBase {
   text: string
   x: number
@@ -103,6 +121,9 @@ export interface NovaText extends NovaUIBase {
   }
 }
 
+/**
+ * Описывает контракт NovaLine.
+ */
 export interface NovaLine extends NovaUIBase {
   x1: number
   y1: number
@@ -116,6 +137,9 @@ export interface NovaLine extends NovaUIBase {
   }
 }
 
+/**
+ * Описывает контракт NovaCircle.
+ */
 export interface NovaCircle extends NovaUIBase {
   x: number
   y: number
@@ -131,6 +155,9 @@ export interface NovaCircle extends NovaUIBase {
   }
 }
 
+/**
+ * Описывает контракт NovaTextChunk.
+ */
 export interface NovaTextChunk {
   text: string
   bold?: boolean
@@ -138,6 +165,9 @@ export interface NovaTextChunk {
   newline?: boolean
 }
 
+/**
+ * Описывает контракт NovaIcon.
+ */
 export interface NovaIcon extends NovaUIBase {
   x: number
   y: number
@@ -152,6 +182,9 @@ export interface NovaIcon extends NovaUIBase {
   }
 }
 
+/**
+ * Описывает контракт NovaPolygon.
+ */
 export interface NovaPolygon extends NovaUIBase {
   points: { x: number; y: number }[]
   styles?: {
@@ -174,6 +207,9 @@ export interface NovaStripePattern {
 }
 
 // Универсальная схема
+/**
+ * Описывает тип NovaSchemaItem.
+ */
 export type NovaSchemaItem<TCustom extends { type: string } = never> =
   | ({ type: 'rect' } & NovaRect)
   | ({ type: 'border' } & NovaBorder)
@@ -184,6 +220,9 @@ export type NovaSchemaItem<TCustom extends { type: string } = never> =
   | ({ type: 'polygon' } & NovaPolygon)
   | TCustom
 
+/**
+ * Описывает контракт NovaCustomSchemaItem.
+ */
 export interface NovaCustomSchemaItem extends NovaUIBase {
   type: string
   id?: string
@@ -191,13 +230,22 @@ export interface NovaCustomSchemaItem extends NovaUIBase {
   [key: string]: any
 }
 
+/**
+ * Описывает тип NovaSemanticScopeKind.
+ */
 export type NovaSemanticScopeKind = 'strict' | 'grid' | 'table' | 'timeline-row' | 'non-overlap-layered'
 
+/**
+ * Описывает тип NovaSchema.
+ */
 export type NovaSchema<TCustom extends { type: string } = never> = Array<NovaSchemaItem<TCustom>> & {
   semanticScope?: NovaSemanticScopeKind
   contentVersion?: number
 }
 
+/**
+ * Описывает контракт NovaRendererCapabilities.
+ */
 export interface NovaRendererCapabilities {
   canvas2d: boolean
   webgl: boolean
@@ -212,28 +260,55 @@ export interface NovaRendererCapabilities {
   measureText: boolean
 }
 
+/**
+ * Описывает тип NovaRenderPipeline.
+ */
 export type NovaRenderPipeline = 'retained'
+/**
+ * Описывает тип NovaRenderDirtyMode.
+ */
 export type NovaRenderDirtyMode = 'graph'
+/**
+ * Описывает тип NovaRenderCullingMode.
+ */
 export type NovaRenderCullingMode = 'off' | 'bounds'
+/**
+ * Описывает тип NovaHitTestMode.
+ */
 export type NovaHitTestMode = 'linear' | 'spatial'
+/**
+ * Описывает тип NovaLifecycleState.
+ */
 export type NovaLifecycleState = 'created' | 'mounted' | 'paused' | 'destroyed'
 
+/**
+ * Описывает контракт NovaRenderQueueStats.
+ */
 export interface NovaRenderQueueStats {
   commands: number
   items: number
   batches: number
 }
 
+/**
+ * Описывает контракт NovaRenderSubtreeStats.
+ */
 export interface NovaRenderSubtreeStats {
   rebuiltNodes: number
   cachedNodes: number
 }
 
+/**
+ * Описывает контракт NovaRenderCullingStats.
+ */
 export interface NovaRenderCullingStats {
   testedNodes: number
   culledNodes: number
 }
 
+/**
+ * Описывает контракт NovaBounds.
+ */
 export interface NovaBounds {
   x: number
   y: number
@@ -241,6 +316,9 @@ export interface NovaBounds {
   height: number
 }
 
+/**
+ * Описывает контракт NovaRendererCanvas.
+ */
 export interface NovaRendererCanvas {
   readonly element: HTMLCanvasElement
   readonly width: number
@@ -294,6 +372,9 @@ export interface NovaRenderer {
   destroy(): void
 }
 
+/**
+ * Описывает контракт Batch.
+ */
 export interface Batch<G = unknown, T = unknown> {
   id: number
   tasks: any[]

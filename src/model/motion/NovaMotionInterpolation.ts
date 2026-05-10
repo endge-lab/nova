@@ -1,5 +1,8 @@
 import type { NovaMotionValue } from '@/domain/types/motion-types'
 
+/**
+ * Описывает контракт RgbaColor.
+ */
 interface RgbaColor {
   r: number
   g: number
@@ -7,6 +10,9 @@ interface RgbaColor {
   a: number
 }
 
+/**
+ * Выполняет публичную операцию interpolate nova motion value.
+ */
 export function interpolateNovaMotionValue(
   from: NovaMotionValue,
   to: NovaMotionValue,
@@ -30,6 +36,9 @@ export function interpolateNovaMotionValue(
   return progress >= 1 ? to : from
 }
 
+/**
+ * Парсит color.
+ */
 export function parseColor(value: unknown): RgbaColor | null {
   if (typeof value !== 'string') return null
   const color = value.trim()
@@ -68,6 +77,9 @@ export function parseColor(value: unknown): RgbaColor | null {
   return { r, g, b, a }
 }
 
+/**
+ * Форматирует rgba.
+ */
 function formatRgba(color: RgbaColor): string {
   const r = Math.round(clamp(color.r, 0, 255))
   const g = Math.round(clamp(color.g, 0, 255))
@@ -77,10 +89,16 @@ function formatRgba(color: RgbaColor): string {
   return `rgba(${r}, ${g}, ${b}, ${roundAlpha(a)})`
 }
 
+/**
+ * Выполняет внутреннюю операцию clamp.
+ */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
 
+/**
+ * Выполняет внутреннюю операцию round alpha.
+ */
 function roundAlpha(value: number): number {
   return Math.round(value * 1000) / 1000
 }

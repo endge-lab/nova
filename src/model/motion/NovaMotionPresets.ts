@@ -9,6 +9,9 @@ import type {
   NovaMotionValue,
 } from '@/domain/types/motion-types'
 
+/**
+ * Описывает тип NovaMotionPresetCategory.
+ */
 export type NovaMotionPresetCategory =
   | 'Fade'
   | 'Slide'
@@ -18,12 +21,18 @@ export type NovaMotionPresetCategory =
   | 'Gesture'
   | 'Visual'
 
+/**
+ * Описывает тип NovaMotionPatternCategory.
+ */
 export type NovaMotionPatternCategory =
   | 'Stagger'
   | 'Timeline'
   | 'Sequence'
   | 'Repeat'
 
+/**
+ * Описывает контракт NovaMotionPresetMeta.
+ */
 export interface NovaMotionPresetMeta {
   title: string
   category: NovaMotionPresetCategory
@@ -31,6 +40,9 @@ export interface NovaMotionPresetMeta {
   duration: number
 }
 
+/**
+ * Описывает контракт NovaMotionPatternMeta.
+ */
 export interface NovaMotionPatternMeta {
   title: string
   category: NovaMotionPatternCategory
@@ -38,6 +50,9 @@ export interface NovaMotionPatternMeta {
   duration: number
 }
 
+/**
+ * Описывает контракт NovaMotionPresetOptions.
+ */
 export interface NovaMotionPresetOptions extends NovaMotionOptions {
   distance?: number
   fill?: string
@@ -45,6 +60,9 @@ export interface NovaMotionPresetOptions extends NovaMotionOptions {
   strokeWidth?: number
 }
 
+/**
+ * Описывает контракт NovaMotionPatternOptions.
+ */
 export interface NovaMotionPatternOptions extends NovaMotionOptions {
   each?: number
   distance?: number
@@ -52,6 +70,9 @@ export interface NovaMotionPatternOptions extends NovaMotionOptions {
   fill?: string
 }
 
+/**
+ * Хранит значение NOVA_MOTION_PRESETS, используемое runtime-кодом пакета.
+ */
 export const NOVA_MOTION_PRESETS = {
   fadeIn: {
     title: 'Fade In',
@@ -223,6 +244,9 @@ export const NOVA_MOTION_PRESETS = {
   },
 } as const satisfies Record<string, NovaMotionPresetMeta>
 
+/**
+ * Хранит значение NOVA_MOTION_PATTERNS, используемое runtime-кодом пакета.
+ */
 export const NOVA_MOTION_PATTERNS = {
   staggerFade: {
     title: 'Stagger Fade',
@@ -274,21 +298,36 @@ export const NOVA_MOTION_PATTERNS = {
   },
 } as const satisfies Record<string, NovaMotionPatternMeta>
 
+/**
+ * Описывает тип NovaMotionPresetName.
+ */
 export type NovaMotionPresetName = keyof typeof NOVA_MOTION_PRESETS
+/**
+ * Описывает тип NovaMotionPatternName.
+ */
 export type NovaMotionPatternName = keyof typeof NOVA_MOTION_PATTERNS
 
+/**
+ * Описывает тип PresetRunner.
+ */
 type PresetRunner = (
   engine: NovaMotionEngine,
   target: NovaMotionTarget,
   options?: NovaMotionPresetOptions,
 ) => NovaMotionPlayback
 
+/**
+ * Описывает тип PatternRunner.
+ */
 type PatternRunner = (
   engine: NovaMotionEngine,
   targets: NovaMotionTarget[],
   options?: NovaMotionPatternOptions,
 ) => NovaMotionPlayback
 
+/**
+ * Выполняет публичную операцию run nova motion preset.
+ */
 export function runNovaMotionPreset(
   engine: NovaMotionEngine,
   target: NovaMotionTarget,
@@ -298,6 +337,9 @@ export function runNovaMotionPreset(
   return PRESET_RUNNERS[name](engine, target, options)
 }
 
+/**
+ * Выполняет публичную операцию run nova motion pattern.
+ */
 export function runNovaMotionPattern(
   engine: NovaMotionEngine,
   targets: NovaMotionTarget[],
@@ -558,6 +600,9 @@ const PATTERN_RUNNERS: Record<NovaMotionPatternName, PatternRunner> = {
   },
 }
 
+/**
+ * Выполняет внутреннюю операцию from offset.
+ */
 function fromOffset(
   engine: NovaMotionEngine,
   target: NovaMotionTarget,
@@ -580,6 +625,9 @@ function fromOffset(
   return engine.to(target, to, tweenOptions(name, options, { from, easing: 'outCubic' }))
 }
 
+/**
+ * Выполняет внутреннюю операцию scale tween.
+ */
 function scaleTween(
   engine: NovaMotionEngine,
   target: NovaMotionTarget,
@@ -600,6 +648,9 @@ function scaleTween(
   )
 }
 
+/**
+ * Выполняет внутреннюю операцию scale keyframes.
+ */
 function scaleKeyframes(
   engine: NovaMotionEngine,
   target: NovaMotionTarget,
@@ -617,6 +668,9 @@ function scaleKeyframes(
   }])
 }
 
+/**
+ * Выполняет внутреннюю операцию shake.
+ */
 function shake(
   engine: NovaMotionEngine,
   target: NovaMotionTarget,
@@ -637,6 +691,9 @@ function shake(
   ] }])
 }
 
+/**
+ * Выполняет внутреннюю операцию timeline.
+ */
 function timeline(
   engine: NovaMotionEngine,
   name: NovaMotionPresetName | NovaMotionPatternName,
@@ -652,6 +709,9 @@ function timeline(
   })
 }
 
+/**
+ * Выполняет внутреннюю операцию tween options.
+ */
 function tweenOptions(
   name: NovaMotionPresetName,
   options: NovaMotionPresetOptions | undefined,
@@ -665,6 +725,9 @@ function tweenOptions(
   }
 }
 
+/**
+ * Выполняет внутреннюю операцию timeline options.
+ */
 function timelineOptions(
   name: NovaMotionPresetName | NovaMotionPatternName,
   options: NovaMotionPresetOptions | NovaMotionPatternOptions | undefined,
@@ -678,6 +741,9 @@ function timelineOptions(
   }
 }
 
+/**
+ * Выполняет внутреннюю операцию duration.
+ */
 function duration(
   name: NovaMotionPresetName | NovaMotionPatternName,
   options?: NovaMotionPresetOptions | NovaMotionPatternOptions,
@@ -688,6 +754,9 @@ function duration(
   return Math.max(0, options?.duration ?? meta.duration)
 }
 
+/**
+ * Выполняет внутреннюю операцию at.
+ */
 function at(
   name: NovaMotionPresetName | NovaMotionPatternName,
   options: NovaMotionPresetOptions | NovaMotionPatternOptions | undefined,
@@ -696,24 +765,39 @@ function at(
   return duration(name, options) * progress
 }
 
+/**
+ * Выполняет внутреннюю операцию distance.
+ */
 function distance(options?: NovaMotionPresetOptions | NovaMotionPatternOptions, fallback = 24): number {
   return options?.distance ?? fallback
 }
 
+/**
+ * Выполняет внутреннюю операцию each.
+ */
 function each(options?: NovaMotionPatternOptions, fallback = 28): number {
   return options?.each ?? fallback
 }
 
+/**
+ * Выполняет внутреннюю операцию number value.
+ */
 function numberValue(target: NovaMotionTarget, key: string, fallback = 0): number {
   const value = readValue(target, key)
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
+/**
+ * Выполняет внутреннюю операцию string value.
+ */
 function stringValue(target: NovaMotionTarget, key: string, fallback: string): string {
   const value = readValue(target, key)
   return typeof value === 'string' ? value : fallback
 }
 
+/**
+ * Читает value.
+ */
 function readValue(target: NovaMotionTarget, key: string): NovaMotionValue {
   if (key in target) return (target as any)[key]
   if (typeof (target as any).getProps === 'function') return (target as any).getProps()[key]
@@ -721,6 +805,9 @@ function readValue(target: NovaMotionTarget, key: string): NovaMotionValue {
   return undefined
 }
 
+/**
+ * Обновляет targets.
+ */
 function setTargets(targets: NovaMotionTarget[], patch: NovaMotionPatch): void {
   for (const target of targets) {
     for (const [key, value] of Object.entries(patch)) {

@@ -15,6 +15,9 @@ import {
   NovaTypedRenderStream,
 } from '@/model/rendering/NovaRenderStream'
 
+/**
+ * Хранит persistent render graph, dirty queues, groups и handles для surface.
+ */
 export class NovaRenderGraph {
   readonly groupsById = new Map<NovaRenderGroupId, NovaRenderGroup>()
   readonly groupByNodeId = new Map<string, NovaRenderGroup>()
@@ -29,10 +32,16 @@ export class NovaRenderGraph {
   readonly childrenDirtyGroupIds = new Set<NovaRenderGroupId>()
   readonly cacheDirtyGroupIds = new Set<NovaRenderGroupId>()
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(readonly surfaceId: string, readonly rootGroup: NovaRenderGroup) {
     this.addGroup(rootGroup)
   }
 
+  /**
+   * Добавляет group.
+   */
   addGroup(group: NovaRenderGroup): void {
     this.groupsById.set(group.id, group)
     if (group.ownerNodeId) this.groupByNodeId.set(group.ownerNodeId, group)
@@ -40,6 +49,9 @@ export class NovaRenderGraph {
     this.streamsByGroupId.set(group.id, group.streams as Map<NovaRenderStreamId, NovaTypedRenderStream>)
   }
 
+  /**
+   * Добавляет handle.
+   */
   addHandle(handle: NovaRenderHandle): void {
     const stream = this.ensureStream(handle.groupId, handle.streamKind, handle.streamId)
     const allocation = stream.allocateSlot({
@@ -75,6 +87,9 @@ export class NovaRenderGraph {
     groupHandles.push(handle)
   }
 
+  /**
+   * Очищает handles.
+   */
   clearHandles(): void {
     this.handlesByNodeId.clear()
     this.handlesByItemId.clear()
@@ -88,6 +103,9 @@ export class NovaRenderGraph {
     this.batchPlanByGroupId.clear()
   }
 
+  /**
+   * Выполняет внутреннюю операцию replace handles.
+   */
   replaceHandles(nodeId: string, handles: NovaRenderHandle[]): void {
     for (const handle of this.handlesByNodeId.get(nodeId) ?? []) {
       this.handlesByItemId.delete(handle.itemId)
@@ -99,30 +117,51 @@ export class NovaRenderGraph {
     for (const handle of handles) this.addHandle(handle)
   }
 
+  /**
+   * Помечает transform dirty.
+   */
   markTransformDirty(nodeId: string): void {
     this.transformDirtyNodeIds.add(nodeId)
   }
 
+  /**
+   * Помечает paint dirty.
+   */
   markPaintDirty(nodeId: string): void {
     this.paintDirtyNodeIds.add(nodeId)
   }
 
+  /**
+   * Помечает resource dirty.
+   */
   markResourceDirty(nodeId: string): void {
     this.resourceDirtyNodeIds.add(nodeId)
   }
 
+  /**
+   * Помечает visibility dirty.
+   */
   markVisibilityDirty(nodeId: string): void {
     this.visibilityDirtyNodeIds.add(nodeId)
   }
 
+  /**
+   * Помечает children dirty.
+   */
   markChildrenDirty(groupId: NovaRenderGroupId): void {
     this.childrenDirtyGroupIds.add(groupId)
   }
 
+  /**
+   * Помечает cache dirty.
+   */
   markCacheDirty(groupId: NovaRenderGroupId): void {
     this.cacheDirtyGroupIds.add(groupId)
   }
 
+  /**
+   * Выполняет внутреннюю операцию ensure stream.
+   */
   ensureStream(
     groupId: NovaRenderGroupId,
     kind: NovaRenderStreamKind,
@@ -146,6 +185,9 @@ export class NovaRenderGraph {
     return stream
   }
 
+  /**
+   * Выполняет внутреннюю операцию rebuild batch plan.
+   */
   rebuildBatchPlan(groupId: NovaRenderGroupId, semanticScope?: NovaSemanticScopeKind): NovaBatchPlan {
     const streams = this.streamsByGroupId.get(groupId)?.values() ?? []
     const current = this.batchPlanByGroupId.get(groupId)
@@ -161,6 +203,9 @@ export class NovaRenderGraph {
     return next
   }
 
+  /**
+   * Возвращает dirty handle count.
+   */
   getDirtyHandleCount(): number {
     let total = 0
     for (const nodeId of this.paintDirtyNodeIds) {
@@ -172,6 +217,9 @@ export class NovaRenderGraph {
     return total
   }
 
+  /**
+   * Очищает dirty queues.
+   */
   clearDirtyQueues(): void {
     this.transformDirtyNodeIds.clear()
     this.paintDirtyNodeIds.clear()

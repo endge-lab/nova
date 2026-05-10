@@ -4,6 +4,9 @@ import { Telemetry } from '@/model/telemetry.ts'
 
 const CANVAS_2D_CONTEXT_TYPE = '2d'
 
+/**
+ * Оборачивает HTMLCanvasElement и управляет context, DPR и ownership.
+ */
 export class NovaCanvas {
   private readonly _element: HTMLCanvasElement
   private readonly _ownership: NovaCanvasOwnership
@@ -23,6 +26,9 @@ export class NovaCanvas {
   private _onContextLostCallback?: () => void
   private _onContextRestoredCallback?: () => void
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   private constructor(canvas: HTMLCanvasElement, ownership: NovaCanvasOwnership, options: NovaCanvasCreateOptions = {}) {
     this._element = canvas
     this._ownership = ownership
@@ -31,38 +37,65 @@ export class NovaCanvas {
     this._webglAttributes = options.webgl
   }
 
+  /**
+   * Возвращает element.
+   */
   get element(): HTMLCanvasElement {
     return this._element
   }
 
+  /**
+   * Возвращает width.
+   */
   get width(): number {
     return this._element.width / this._dpr
   }
 
+  /**
+   * Возвращает height.
+   */
   get height(): number {
     return this._element.height / this._dpr
   }
 
+  /**
+   * Возвращает pixel width.
+   */
   get pixelWidth(): number {
     return this._element.width
   }
 
+  /**
+   * Возвращает pixel height.
+   */
   get pixelHeight(): number {
     return this._element.height
   }
 
+  /**
+   * Возвращает dpr.
+   */
   get dpr(): number {
     return this._dpr
   }
 
+  /**
+   * Возвращает max dpr.
+   */
   get maxDpr(): number {
     return this._maxDpr
   }
 
+  /**
+   * Возвращает webgl attributes.
+   */
   get webglAttributes(): WebGLContextAttributes | undefined {
     return this._webglAttributes
   }
 
+  /**
+   * Возвращает bounding client rect.
+   */
   getBoundingClientRect(): DOMRectReadOnly {
     if (!this._cachedRect) {
       this._cachedRect = this._element.getBoundingClientRect()
@@ -70,10 +103,16 @@ export class NovaCanvas {
     return this._cachedRect
   }
 
+  /**
+   * Выполняет внутреннюю операцию invalidate.
+   */
   invalidate(): void {
     this._cachedRect = undefined
   }
 
+  /**
+   * Выполняет внутреннюю операцию resize.
+   */
   resize(width: number, height: number, options: Partial<NovaSizeOptions> = {}): void {
     this._cachedRect = undefined
 
@@ -95,6 +134,9 @@ export class NovaCanvas {
     }
   }
 
+  /**
+   * Возвращает context2 d.
+   */
   getContext2D(): CanvasRenderingContext2D {
     if (!this._ctx2D) {
       const ctx = this._element.getContext(CANVAS_2D_CONTEXT_TYPE)
@@ -106,6 +148,9 @@ export class NovaCanvas {
     return this._ctx2D
   }
 
+  /**
+   * Освобождает runtime resources и снимает связанные ссылки.
+   */
   destroy(): void {
     if (this._destroyed) return
     this._destroyed = true
@@ -142,18 +187,30 @@ export class NovaCanvas {
     this._cachedRect = undefined
   }
 
+  /**
+   * Обрабатывает событие context lost.
+   */
   public onContextLost(callback: () => void): void {
     this._onContextLostCallback = callback
   }
 
+  /**
+   * Обрабатывает событие context restored.
+   */
   public onContextRestored(callback: () => void): void {
     this._onContextRestoredCallback = callback
   }
 
+  /**
+   * Проверяет context lost.
+   */
   public isContextLost(): boolean {
     return this._isContextLost
   }
 
+  /**
+   * Выполняет внутреннюю операцию create.
+   */
   static create(
     width: number,
     height: number,
@@ -177,6 +234,9 @@ export class NovaCanvas {
     return instance
   }
 
+  /**
+   * Выполняет внутреннюю операцию attach.
+   */
   static attach(canvas: HTMLCanvasElement, options: NovaCanvasCreateOptions = {}): NovaCanvas {
     const instance = new NovaCanvas(canvas, 'external', options)
     const rect = canvas.getBoundingClientRect()
@@ -191,11 +251,17 @@ export class NovaCanvas {
     return instance
   }
 
+  /**
+   * Вычисляет dpr.
+   */
   private resolveDpr(dpr?: number, maxDpr?: number): number {
     const raw = dpr ?? (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
     return Math.max(1, Math.min(raw, maxDpr ?? this._maxDpr))
   }
 
+  /**
+   * Выполняет внутреннюю операцию init context loss handlers.
+   */
   private initContextLossHandlers(): void {
     if (this._handlersInited) {
       return

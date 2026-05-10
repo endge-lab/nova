@@ -22,6 +22,9 @@ import type { ConstructorOrFactory } from '@endge/utils'
 import { createInstance } from '@endge/utils'
 import type { EventList } from '@endge/utils'
 
+/**
+ * Описывает logical surface, который связывает subtree, viewport и renderer pipeline.
+ */
 export class NovaSurface<E extends EventList> extends NovaNode<E> {
   readonly name: string
 
@@ -53,6 +56,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   private readonly _rendererType: RendererType
   private readonly _novaApp: NovaApp<E>
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(name: string, app: NovaApp<E>, type: RendererType) {
     super(app)
     this.name = name
@@ -80,6 +86,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     })
   }
 
+  /**
+   * Выполняет внутреннюю операцию options.
+   */
   override options(opts: Partial<NovaNodeProperties>): this {
     const { width, height } = opts
 
@@ -98,6 +107,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
 
   // Помимо базовой отрисовки в локальных координатах,
   // Очищаем второй буфер
+  /**
+   * Выполняет внутреннюю операцию do render.
+   */
   doRender(): void {
     this._renderSubtreeStats = {
       rebuiltNodes: 0,
@@ -129,6 +141,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     }
   }
 
+  /**
+   * Выполняет render-операцию with renderer.
+   */
   renderWithRenderer(renderer: NovaRenderer): void {
     const previous = this._activeRenderer
     this._activeRenderer = renderer
@@ -139,22 +154,37 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     }
   }
 
+  /**
+   * Помечает render node rebuilt.
+   */
   markRenderNodeRebuilt(): void {
     this._renderSubtreeStats.rebuiltNodes += 1
   }
 
+  /**
+   * Помечает render node tested for culling.
+   */
   markRenderNodeTestedForCulling(): void {
     this._renderCullingStats.testedNodes += 1
   }
 
+  /**
+   * Помечает render node culled.
+   */
   markRenderNodeCulled(): void {
     this._renderCullingStats.culledNodes += 1
   }
 
+  /**
+   * Выполняет внутреннюю операцию do flush.
+   */
   doFlush(mainCtx: CanvasRenderingContext2D): void {
     this.flush(mainCtx)
   }
 
+  /**
+   * Сбрасывает накопленные операции в следующий слой runtime.
+   */
   flush(mainCtx: CanvasRenderingContext2D): void {
     mainCtx.save()
     mainCtx.setTransform(1, 0, 0, 1, 0, 0)
@@ -173,6 +203,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     mainCtx.restore()
   }
 
+  /**
+   * Освобождает runtime resources и снимает связанные ссылки.
+   */
   destroy(): void {
     this._renderer?.destroy()
     if (this._ownsCanvas) this._canvas?.destroy()
@@ -182,6 +215,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   // STATE
   //
 
+  /**
+   * Создает node.
+   */
   createNode<T extends NovaNode<E>>(
     NodeClassOrFactory?: ConstructorOrFactory<T, [NovaApp<E>, NovaSurface<E>, ...any[]]>,
     ...args: any[]
@@ -195,6 +231,9 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     return node
   }
 
+  /**
+   * Выполняет внутреннюю операцию recreate canvas and renderer.
+   */
   private _recreateCanvasAndRenderer(): void {
     console.warn(`[NovaSurface:${this.name}] Recreating canvas and renderer`)
 
@@ -236,12 +275,18 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   // CONTEXT
   //
 
+  /**
+   * Выполняет внутреннюю операцию subscribe to canvas context events.
+   */
   private _subscribeToCanvasContextEvents(): void {
     this._canvas.onContextLost(() => {
       this._recreateCanvasAndRenderer()
     })
   }
 
+  /**
+   * Выполняет внутреннюю операцию create canvas.
+   */
   private _createCanvas(width: number, height: number): NovaCanvas {
     if (this._rendererType === RendererType.WebGL && this._novaApp.mainRendererType === RendererType.WebGL) {
       this._ownsCanvas = false
@@ -260,50 +305,86 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   // ACCESS
   //
 
+  /**
+   * Возвращает canvas.
+   */
   get canvas(): NovaCanvas {
     return this._canvas
   }
 
+  /**
+   * Возвращает renderer.
+   */
   get renderer(): NovaRenderer {
     return this._activeRenderer
   }
 
+  /**
+   * Возвращает render graph.
+   */
   get renderGraph(): NovaRenderGraph {
     return this._renderGraph
   }
 
+  /**
+   * Возвращает render pipeline.
+   */
   get renderPipeline(): NovaRenderPipeline {
     return this._renderPipeline
   }
 
+  /**
+   * Обновляет render pipeline.
+   */
   set renderPipeline(value: NovaRenderPipeline) {
     this._renderPipeline = value
   }
 
+  /**
+   * Возвращает render dirty mode.
+   */
   get renderDirtyMode(): NovaRenderDirtyMode {
     return this._renderDirtyMode
   }
 
+  /**
+   * Обновляет render dirty mode.
+   */
   set renderDirtyMode(value: NovaRenderDirtyMode) {
     this._renderDirtyMode = value
   }
 
+  /**
+   * Возвращает render culling mode.
+   */
   get renderCullingMode(): NovaRenderCullingMode {
     return this._renderCullingMode
   }
 
+  /**
+   * Обновляет render culling mode.
+   */
   set renderCullingMode(value: NovaRenderCullingMode) {
     this._renderCullingMode = value
   }
 
+  /**
+   * Возвращает render queue stats.
+   */
   get renderQueueStats(): NovaRenderQueueStats {
     return this._renderQueueStats
   }
 
+  /**
+   * Возвращает render subtree stats.
+   */
   get renderSubtreeStats(): NovaRenderSubtreeStats {
     return this._renderSubtreeStats
   }
 
+  /**
+   * Возвращает render culling stats.
+   */
   get renderCullingStats(): NovaRenderCullingStats {
     return this._renderCullingStats
   }

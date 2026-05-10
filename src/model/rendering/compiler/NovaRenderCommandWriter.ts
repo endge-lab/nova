@@ -11,6 +11,9 @@ import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderIt
 import type { NovaRenderGraph } from '@/model/rendering/NovaRenderGraph'
 import type { NovaRenderFrameBuilder } from '@/model/rendering/compiler/NovaRenderFrameBuilder'
 
+/**
+ * Записывает render commands в instruction buffer и поддерживает clip stack.
+ */
 export class NovaRenderCommandWriter {
   private readonly _transformStack: mat3[] = []
   private readonly _clipStack: NovaRenderClip[] = []
@@ -20,42 +23,69 @@ export class NovaRenderCommandWriter {
   private _handleId = 0
   private _currentNodeId = 'surface'
 
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
   constructor(
     private readonly _frameBuilder: NovaRenderFrameBuilder,
     private readonly _group: NovaRenderGroup = _frameBuilder.rootGroup,
     private readonly _graph?: NovaRenderGraph,
   ) {}
 
+  /**
+   * Возвращает current transform.
+   */
   get currentTransform(): mat3 {
     return this._currentTransform
   }
 
+  /**
+   * Возвращает current clip.
+   */
   get currentClip(): NovaRenderClip | null {
     return this._clipStack.length > 0 ? this._clipStack[this._clipStack.length - 1] : null
   }
 
+  /**
+   * Возвращает current node id.
+   */
   get currentNodeId(): string {
     return this._currentNodeId
   }
 
+  /**
+   * Обновляет current node.
+   */
   setCurrentNode(nodeId: string): void {
     this._currentNodeId = nodeId
   }
 
+  /**
+   * Очищает внутреннее состояние.
+   */
   clear(): NovaRenderCommand {
     return this.command({ type: 'clear' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию save.
+   */
   save(): NovaRenderCommand {
     this._transformStack.push(mat3.clone(this._currentTransform))
     return this.command({ type: 'save' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию restore.
+   */
   restore(): NovaRenderCommand {
     this._currentTransform = this._transformStack.pop() ?? mat3.create()
     return this.command({ type: 'restore' })
   }
 
+  /**
+   * Обновляет transform.
+   */
   setTransform(matrix: mat3): NovaRenderCommand {
     this._currentTransform = mat3.clone(matrix)
     return this.command({
@@ -64,6 +94,9 @@ export class NovaRenderCommandWriter {
     })
   }
 
+  /**
+   * Выполняет внутреннюю операцию clip.
+   */
   clip(x: number, y: number, width: number, height: number): NovaRenderCommand {
     const clip = { x, y, width, height }
     this._clipStack.push(clip)
@@ -73,11 +106,17 @@ export class NovaRenderCommandWriter {
     })
   }
 
+  /**
+   * Очищает clip.
+   */
   clearClip(): NovaRenderCommand {
     this._clipStack.pop()
     return this.command({ type: 'clearClip' })
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw schema item.
+   */
   drawSchemaItem(item: NovaSchemaItem<any>, nodeId = this._currentNodeId): NovaRenderItem {
     const order = this._frameBuilder.nextOrder()
     const renderItem = createNovaRenderItem({
@@ -104,6 +143,9 @@ export class NovaRenderCommandWriter {
     return renderItem
   }
 
+  /**
+   * Выполняет внутреннюю операцию draw schema batch.
+   */
   drawSchemaBatch(
     items: NovaSchemaItem<any>[],
     mode: 'batched' | 'ordered' = 'batched',
@@ -137,6 +179,9 @@ export class NovaRenderCommandWriter {
     })
   }
 
+  /**
+   * Выполняет внутреннюю операцию cursor.
+   */
   cursor(type: 'default' | 'pointer' | 'col-resize' | 'row-resize'): NovaRenderCommand {
     return this.command({
       type: 'cursor',
@@ -144,6 +189,9 @@ export class NovaRenderCommandWriter {
     })
   }
 
+  /**
+   * Выполняет внутреннюю операцию command.
+   */
   command(command: Omit<NovaRenderCommand, 'id' | 'order'> & { order?: number }): NovaRenderCommand {
     return this._frameBuilder.addCommand({
       ...command,
@@ -154,6 +202,9 @@ export class NovaRenderCommandWriter {
     })
   }
 
+  /**
+   * Добавляет handle.
+   */
   private addHandle(renderItem: NovaRenderItem, item: NovaSchemaItem<any>, offset: number, count: number, nodeId: string): void {
     if (!this._graph) return
 

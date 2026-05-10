@@ -6,19 +6,55 @@ import type {
   RendererType,
 } from '@/domain/types/renderer-types'
 
+/**
+ * Описывает тип NovaRenderLayerId.
+ */
 export type NovaRenderLayerId = 'main' | 'overlay' | 'selection' | 'drag-preview' | 'debug' | string
+/**
+ * Описывает тип NovaRenderTargetId.
+ */
 export type NovaRenderTargetId = string
+/**
+ * Описывает тип NovaRenderGroupId.
+ */
 export type NovaRenderGroupId = string
+/**
+ * Описывает тип NovaRenderItemId.
+ */
 export type NovaRenderItemId = string
+/**
+ * Описывает тип NovaRenderHandleId.
+ */
 export type NovaRenderHandleId = string
+/**
+ * Описывает тип NovaRenderStreamId.
+ */
 export type NovaRenderStreamId = string
 
+/**
+ * Описывает тип NovaRenderPolicyGroup.
+ */
 export type NovaRenderPolicyGroup = 'auto' | 'always' | 'never'
+/**
+ * Описывает тип NovaRenderPolicyCache.
+ */
 export type NovaRenderPolicyCache = 'auto' | 'texture' | 'none'
+/**
+ * Описывает тип NovaRenderPolicyTextQuality.
+ */
 export type NovaRenderPolicyTextQuality = 'auto' | 'crisp' | 'performance'
+/**
+ * Описывает тип NovaRenderPolicyUpdateMode.
+ */
 export type NovaRenderPolicyUpdateMode = 'static' | 'dynamic' | 'stream'
+/**
+ * Описывает тип NovaRenderPolicyLayer.
+ */
 export type NovaRenderPolicyLayer = 'auto' | 'main' | 'overlay' | 'debug' | NovaRenderLayerId
 
+/**
+ * Описывает контракт NovaRenderPolicy.
+ */
 export interface NovaRenderPolicy {
   group: NovaRenderPolicyGroup
   cache: NovaRenderPolicyCache
@@ -27,8 +63,14 @@ export interface NovaRenderPolicy {
   layer: NovaRenderPolicyLayer
 }
 
+/**
+ * Описывает тип NovaRenderPolicyInput.
+ */
 export type NovaRenderPolicyInput = Partial<NovaRenderPolicy>
 
+/**
+ * Описывает контракт NovaRendererBatchingConfig.
+ */
 export interface NovaRendererBatchingConfig {
   maxBatchSize: number
   semanticScopes: 'off' | 'safe' | 'manual'
@@ -38,6 +80,9 @@ export interface NovaRendererBatchingConfig {
   fullUploadDirtyRatio: number
 }
 
+/**
+ * Описывает контракт NovaRendererTextConfig.
+ */
 export interface NovaRendererTextConfig {
   quality: 'performance' | 'balanced' | 'quality'
   mode: 'auto' | 'run-atlas' | 'glyph-atlas' | 'msdf'
@@ -48,6 +93,9 @@ export interface NovaRendererTextConfig {
   rasterBudgetMs: number
 }
 
+/**
+ * Описывает контракт NovaRendererCacheConfig.
+ */
 export interface NovaRendererCacheConfig {
   maxTextureMemoryMB: number
   maxTextAtlasMemoryMB: number
@@ -55,12 +103,18 @@ export interface NovaRendererCacheConfig {
   groupCache: 'auto' | 'off' | 'aggressive'
 }
 
+/**
+ * Описывает контракт NovaRendererDiagnosticsConfig.
+ */
 export interface NovaRendererDiagnosticsConfig {
   showBatches: boolean
   showDirtyRegions: boolean
   showAtlas: boolean
 }
 
+/**
+ * Описывает контракт NovaRendererConfig.
+ */
 export interface NovaRendererConfig {
   batching: NovaRendererBatchingConfig
   text: NovaRendererTextConfig
@@ -68,6 +122,9 @@ export interface NovaRendererConfig {
   diagnostics: NovaRendererDiagnosticsConfig
 }
 
+/**
+ * Описывает тип NovaRendererConfigInput.
+ */
 export type NovaRendererConfigInput = {
   batching?: Partial<NovaRendererBatchingConfig>
   text?: Partial<NovaRendererTextConfig>
@@ -75,6 +132,9 @@ export type NovaRendererConfigInput = {
   diagnostics?: Partial<NovaRendererDiagnosticsConfig>
 }
 
+/**
+ * Описывает контракт NovaRenderDirtyFlags.
+ */
 export interface NovaRenderDirtyFlags {
   transform: boolean
   layout: boolean
@@ -85,6 +145,9 @@ export interface NovaRenderDirtyFlags {
   visibility: boolean
 }
 
+/**
+ * Описывает контракт NovaRenderVersions.
+ */
 export interface NovaRenderVersions {
   transform: number
   layout: number
@@ -95,6 +158,9 @@ export interface NovaRenderVersions {
   visibility: number
 }
 
+/**
+ * Описывает контракт NovaRenderViewport.
+ */
 export interface NovaRenderViewport {
   x: number
   y: number
@@ -103,6 +169,9 @@ export interface NovaRenderViewport {
   dpr: number
 }
 
+/**
+ * Описывает контракт NovaRenderClip.
+ */
 export interface NovaRenderClip {
   x: number
   y: number
@@ -110,14 +179,23 @@ export interface NovaRenderClip {
   height: number
 }
 
+/**
+ * Описывает контракт NovaRenderCachePolicy.
+ */
 export interface NovaRenderCachePolicy {
   enabled: boolean
   mode: 'auto' | 'texture'
   reason?: string
 }
 
+/**
+ * Описывает тип NovaRenderTargetKind.
+ */
 export type NovaRenderTargetKind = 'screen' | 'texture' | 'cache' | 'effect' | 'picking' | 'debug'
 
+/**
+ * Описывает контракт NovaRenderTarget.
+ */
 export interface NovaRenderTarget {
   id: NovaRenderTargetId
   kind: NovaRenderTargetKind
@@ -129,6 +207,9 @@ export interface NovaRenderTarget {
   framebufferId?: string
 }
 
+/**
+ * Описывает тип NovaRenderItemKind.
+ */
 export type NovaRenderItemKind =
   | 'rect'
   | 'border'
@@ -142,6 +223,9 @@ export type NovaRenderItemKind =
   | 'cached-group'
   | 'custom'
 
+/**
+ * Описывает контракт NovaRenderItem.
+ */
 export interface NovaRenderItem {
   id: NovaRenderItemId
   nodeId?: string
@@ -157,6 +241,9 @@ export interface NovaRenderItem {
   dirtyFlags?: Partial<NovaRenderDirtyFlags>
 }
 
+/**
+ * Описывает тип NovaRenderStreamKind.
+ */
 export type NovaRenderStreamKind =
   | 'plain-rect'
   | 'rounded-rect'
@@ -169,6 +256,9 @@ export type NovaRenderStreamKind =
   | 'icon'
   | 'cached-group'
 
+/**
+ * Описывает тип NovaRenderSemanticLayer.
+ */
 export type NovaRenderSemanticLayer =
   | 'background'
   | 'border'
@@ -178,6 +268,9 @@ export type NovaRenderSemanticLayer =
   | 'overlay'
   | 'strict'
 
+/**
+ * Описывает контракт NovaRenderStreamSlot.
+ */
 export interface NovaRenderStreamSlot {
   itemId: NovaRenderItemId
   offset: number
@@ -187,6 +280,9 @@ export interface NovaRenderStreamSlot {
   bounds?: NovaBounds
 }
 
+/**
+ * Описывает контракт NovaRenderStream.
+ */
 export interface NovaRenderStream {
   id: NovaRenderStreamId
   groupId: NovaRenderGroupId
@@ -198,6 +294,9 @@ export interface NovaRenderStream {
   slots: NovaRenderStreamSlot[]
 }
 
+/**
+ * Описывает контракт NovaRenderBatch.
+ */
 export interface NovaRenderBatch {
   id: string
   groupId: NovaRenderGroupId
@@ -211,6 +310,9 @@ export interface NovaRenderBatch {
   orderEnd: number
 }
 
+/**
+ * Описывает контракт NovaBatchPlan.
+ */
 export interface NovaBatchPlan {
   id: string
   groupId: NovaRenderGroupId
@@ -219,6 +321,9 @@ export interface NovaBatchPlan {
   batches: NovaRenderBatch[]
 }
 
+/**
+ * Описывает контракт NovaRenderHandle.
+ */
 export interface NovaRenderHandle {
   id: NovaRenderHandleId
   nodeId: string
@@ -237,6 +342,9 @@ export interface NovaRenderHandle {
   localBounds?: NovaBounds
 }
 
+/**
+ * Описывает тип NovaRenderCommandType.
+ */
 export type NovaRenderCommandType =
   | 'clear'
   | 'save'
@@ -250,6 +358,9 @@ export type NovaRenderCommandType =
   | 'beginGroup'
   | 'endGroup'
 
+/**
+ * Описывает контракт NovaRenderCommand.
+ */
 export interface NovaRenderCommand {
   id: string
   type: NovaRenderCommandType
@@ -267,6 +378,9 @@ export interface NovaRenderCommand {
   cursor?: 'default' | 'pointer' | 'col-resize' | 'row-resize'
 }
 
+/**
+ * Описывает контракт NovaInstructionBuffer.
+ */
 export interface NovaInstructionBuffer {
   id: string
   version: number
@@ -275,6 +389,9 @@ export interface NovaInstructionBuffer {
   reused: boolean
 }
 
+/**
+ * Описывает контракт NovaRenderGroup.
+ */
 export interface NovaRenderGroup {
   id: NovaRenderGroupId
   ownerNodeId?: string
@@ -300,6 +417,9 @@ export interface NovaRenderGroup {
   lastRenderedVersion: number
 }
 
+/**
+ * Описывает контракт NovaRenderLayer.
+ */
 export interface NovaRenderLayer {
   id: NovaRenderLayerId
   zIndex: number
@@ -307,6 +427,9 @@ export interface NovaRenderLayer {
   targetId?: NovaRenderTargetId
 }
 
+/**
+ * Описывает контракт NovaRenderResourceDelta.
+ */
 export interface NovaRenderResourceDelta {
   texturesCreated: number
   texturesUpdated: number
@@ -315,6 +438,9 @@ export interface NovaRenderResourceDelta {
   bytesUploaded: number
 }
 
+/**
+ * Описывает контракт NovaRenderMetrics.
+ */
 export interface NovaRenderMetrics {
   compilerMs: number
   backendMs: number
@@ -342,6 +468,9 @@ export interface NovaRenderMetrics {
   cachedTextureMemoryMB: number
 }
 
+/**
+ * Описывает контракт NovaRenderFrame.
+ */
 export interface NovaRenderFrame {
   id: number
   surfaceId: string

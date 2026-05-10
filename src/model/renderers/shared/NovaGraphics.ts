@@ -1,3 +1,6 @@
+/**
+ * Содержит вспомогательные drawing helpers для Canvas2D primitives.
+ */
 export class NovaGraphics {
   private static assetsMap = new Map<string, HTMLCanvasElement>()
 
@@ -74,6 +77,9 @@ export class NovaGraphics {
     return patternCanvas
   }
 
+  /**
+   * Создает icon.
+   */
   static async createIcon(
     name: string,
     svgContent: string,
