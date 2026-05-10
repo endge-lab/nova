@@ -210,7 +210,7 @@ function createApp(
 }
 
 function createInteractiveNode(app: NovaApp<TestEvents>): NovaNode<TestEvents> {
-  const surface = app.createSurface2D('test-surface')
+  const surface = app.createSurface('test-surface')
   const node = surface.createNode()
   node.options({
     x: 0,
@@ -337,7 +337,7 @@ describe('NovaApp', () => {
 
   it('updates node interactive flag and allows zIndex zero', () => {
     const app = createApp()
-    const surface: NovaSurface<TestEvents> = app.createSurface2D('test-surface')
+    const surface: NovaSurface<TestEvents> = app.createSurface('test-surface')
     const node = surface.createNode()
 
     expect(node.interactive).toBe(false)
@@ -354,7 +354,7 @@ describe('NovaApp', () => {
 
   it('exposes renderer config and node renderPolicy defaults with overrides', () => {
     const app = createApp()
-    const surface = app.createSurface2D('policy-surface')
+    const surface = app.createSurface('policy-surface')
     const node = surface.createNode()
 
     expect(node.renderPolicy).toMatchObject({
@@ -393,7 +393,7 @@ describe('NovaApp', () => {
 
   it('creates the new WebGL surface through the render compiler renderer', () => {
     const app = createApp()
-    const surface = app.createSurfaceWebGL('new-webgl')
+    const surface = app.createSurface('new-webgl')
 
     expect(surface.renderer).toBeInstanceOf(NovaRendererWebGL)
 

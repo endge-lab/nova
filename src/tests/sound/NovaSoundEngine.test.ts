@@ -79,7 +79,7 @@ describe('NovaSoundEngine', () => {
     await app.sound.load({ id: 'loop', src: 'loop.ogg', loop: true })
     const scope = app.sound.scope('test')
     const scoped = scope.play('loop', { dedupeKey: 'scoped' })
-    const surface = app.createSurface2D('sound')
+    const surface = app.createSurface('sound')
     const node = surface.createNode().withSound({ click: { id: 'loop', dedupeKey: 'node' } })
 
     node.eventHandlers.click?.(new MouseEvent('click'))
@@ -98,7 +98,7 @@ describe('NovaSoundEngine', () => {
     vi.useFakeTimers()
     const app = createPointerApp()
     await app.sound.load({ id: 'ui.click', src: 'click.ogg' })
-    const surface = app.createSurface2D('sound-input')
+    const surface = app.createSurface('sound-input')
     const node = surface.createNode().options({ width: app.width, height: app.height })
     node.withSound({ click: 'ui.click' })
 

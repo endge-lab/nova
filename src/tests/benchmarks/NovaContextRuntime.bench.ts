@@ -100,7 +100,7 @@ function createBenchNode(
  */
 function createInjectFixture(count: number) {
   const app = createTestApp()
-  const surface = app.createSurface2D('inject')
+  const surface = app.createSurface('inject')
   const token = createNovaContextToken<{ id: number }>('bench.inject')
   const provider = createBenchNode(app, surface)
   const nodes: Array<BenchNode> = []
@@ -125,7 +125,7 @@ function createInjectFixture(count: number) {
  */
 function createReparentFixture(count: number) {
   const app = createTestApp()
-  const surface = app.createSurface2D('reparent')
+  const surface = app.createSurface('reparent')
   const token = createNovaContextToken<{ id: number }>('bench.reparent')
   const sourceParent = createBenchNode(app, surface)
   const targetParent = new BenchNode(app, surface)
@@ -163,7 +163,7 @@ function createObserveDataFixture() {
 
   for (let runtimeIndex = 0; runtimeIndex < apps.length; runtimeIndex++) {
     const app = apps[runtimeIndex]
-    const surface = app.createSurface2D(`runtime-${runtimeIndex}`)
+    const surface = app.createSurface(`runtime-${runtimeIndex}`)
     const node = createBenchNode(app, surface)
     if (runtimeIndex === 0) {
       for (let i = 0; i < OBSERVER_COUNT; i++) {
@@ -186,7 +186,7 @@ function createObserveDataFixture() {
  */
 function createLocalPropertyFixture() {
   const app = createTestApp()
-  const surface = app.createSurface2D('local')
+  const surface = app.createSurface('local')
   const node = createBenchNode(app, surface)
   const notifySpy = vi.spyOn(app.raph.kernel, 'notify')
   ;(app.raph as any).invalidate = () => {}

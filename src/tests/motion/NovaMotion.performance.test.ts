@@ -44,7 +44,7 @@ describe('NovaMotion performance', () => {
   })
 
   it('ticks 10k transform-only animated rects under a local budget', () => {
-    const surface = app.createSurface2D('perf')
+    const surface = app.createSurface('perf')
     const nodes = Array.from({ length: 10_000 }, (_, index) => {
       const node = surface.createNode()
       node.options({ x: index % 200, y: Math.floor(index / 200), width: 2, height: 2 })
@@ -71,7 +71,7 @@ describe('NovaMotion performance', () => {
   })
 
   it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('ticks preset %s under a local budget', name => {
-    const surface = app.createSurface2D(`preset-${name}`)
+    const surface = app.createSurface(`preset-${name}`)
     const nodes = Array.from({ length: 160 }, (_, index) => {
       const node = surface.createNode(PerfMotionNode)
       node.options({ x: index % 40, y: Math.floor(index / 40), width: 4, height: 4 })
@@ -97,7 +97,7 @@ describe('NovaMotion performance', () => {
 
   it.each([100, 500, 1000])('ticks all motion patterns with %s targets under a local budget', count => {
     for (const name of Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>) {
-      const surface = app.createSurface2D(`pattern-${name}-${count}`)
+      const surface = app.createSurface(`pattern-${name}-${count}`)
       const columns = Math.max(1, Math.ceil(Math.sqrt(count)))
       const nodes = Array.from({ length: count }, (_, index) => {
         const node = surface.createNode(PerfMotionNode)

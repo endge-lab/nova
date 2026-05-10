@@ -51,7 +51,7 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
   compileSurface(surface: NovaSurface<E>): NovaRenderCompileResult {
     const startedAt = performance.now()
 
-    if (this._lastFrame && !surface.renderSubtreeDirty) {
+    if (this._lastFrame && !surface.renderFrameDirty) {
       const culling = surface.renderGraph
         ? collectVisibleNovaRenderGroups(surface.renderGraph.groupsById.values(), this._lastFrame.viewport)
         : null
@@ -80,13 +80,13 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
     const writer = new NovaRenderCommandWriter(frameBuilder, frameBuilder.rootGroup, surface.renderGraph)
     const builder = new NovaRenderBuilder(surface.canvas, this._schemaRegistry, writer)
 
-    surface.renderWithRenderer(builder)
+    surface.renderWithContext(builder)
 
     const frame = frameBuilder.build({
       compilerMs: performance.now() - startedAt,
       compiledGroups: 1,
       reusedGroups: 0,
-      nodeRenderCalls: surface.renderSubtreeStats.rebuiltNodes,
+      nodeRenderCalls: surface.renderCompileStats.rebuiltNodes,
       updatedHandles: surface.renderGraph?.handlesByItemId.size ?? 0,
       atlasMemoryMB: 0,
       cachedTextureMemoryMB: 0,
@@ -102,7 +102,7 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       frame.metrics.reusedGroups = culling.visibleGroups.length
     }
     frame.metrics.batches = this.estimateBatches(frame.commands.map(command => command.itemId).filter(Boolean).length)
-    surface.markRenderSubtreeClean(true)
+    surface.markRenderFrameClean(true)
     surface.renderGraph?.clearDirtyQueues()
     this._lastFrame = frame
 

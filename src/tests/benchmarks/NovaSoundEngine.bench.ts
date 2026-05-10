@@ -21,7 +21,7 @@ describe('Nova Sound Engine benchmarks', () => {
   const playbackApp = createTestApp({ sound: { maxVoices: 64 } })
   const poolApp = createTestApp({ sound: { maxVoices: 16 } })
   const dispatchApp = createTestApp()
-  const dispatchSurface = dispatchApp.createSurface2D('sound-dispatch')
+  const dispatchSurface = dispatchApp.createSurface('sound-dispatch')
   const plainNode = dispatchSurface.createNode().options({ width: 10, height: 10 })
   const soundNode = dispatchSurface.createNode().options({ width: 10, height: 10 })
 

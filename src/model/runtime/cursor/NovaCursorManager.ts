@@ -301,7 +301,7 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
   private resolveOverlaySurface(): NovaSurface<E> {
     if (this._overlaySurface) return this._overlaySurface
 
-    const surface = this.app.createSurface2D('nova-cursor-overlay')
+    const surface = this.app.createSurface('nova-cursor-overlay')
     surface.options({
       zIndex: 1_000_000,
       interactive: false,

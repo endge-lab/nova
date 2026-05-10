@@ -72,8 +72,8 @@ describe('Nova Raph runtime bridge', () => {
     const kernel = new RaphKernel()
     const firstApp = createTestApp({ raph: { kernel, runtimeId: 'nova-a' } })
     const secondApp = createTestApp({ raph: { kernel, runtimeId: 'nova-b' } })
-    const firstNode = createAuditNode(firstApp, firstApp.createSurface2D('first'))
-    const secondNode = createAuditNode(secondApp, secondApp.createSurface2D('second'))
+    const firstNode = createAuditNode(firstApp, firstApp.createSurface('first'))
+    const secondNode = createAuditNode(secondApp, secondApp.createSurface('second'))
 
     firstNode.observeData('shared.first.version')
     secondNode.observeData('shared.second.version')
@@ -92,7 +92,7 @@ describe('Nova Raph runtime bridge', () => {
   it('uses update phase as default observeData target', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-default-update' } })
-    const node = createAuditNode(app, app.createSurface2D('default-update'))
+    const node = createAuditNode(app, app.createSurface('default-update'))
 
     node.observeData('items.default.version')
     kernel.set('items.default.version', 1)
@@ -107,7 +107,7 @@ describe('Nova Raph runtime bridge', () => {
   it('allows observeData to target render phase explicitly', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-render' } })
-    const node = createAuditNode(app, app.createSurface2D('render'))
+    const node = createAuditNode(app, app.createSurface('render'))
 
     node.observeData('items.render.version', {
       phase: NovaPhase.Render,
@@ -124,7 +124,7 @@ describe('Nova Raph runtime bridge', () => {
   it('allows observeData to target matrix phase explicitly', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-matrix' } })
-    const node = createAuditNode(app, app.createSurface2D('matrix'))
+    const node = createAuditNode(app, app.createSurface('matrix'))
 
     node.observeData('items.matrix.version', {
       phase: NovaPhase.Matrix,
@@ -141,7 +141,7 @@ describe('Nova Raph runtime bridge', () => {
   it('removes observeData subscriptions when node is disposed', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-cleanup' } })
-    const node = createAuditNode(app, app.createSurface2D('cleanup'))
+    const node = createAuditNode(app, app.createSurface('cleanup'))
 
     node.observeData('items.cleanup.version')
     node.dispose()
@@ -156,7 +156,7 @@ describe('Nova Raph runtime bridge', () => {
 
   it('keeps local properties on the instant Raph path', () => {
     const app = createTestApp()
-    const node = createAuditNode(app, app.createSurface2D('local-properties'))
+    const node = createAuditNode(app, app.createSurface('local-properties'))
 
     const notifySpy = vi.spyOn(node.raph.kernel, 'notify')
 

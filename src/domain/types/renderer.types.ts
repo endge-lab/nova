@@ -290,14 +290,6 @@ export interface NovaRendererCapabilities {
 }
 
 /**
- * Описывает тип NovaRenderPipeline.
- */
-export type NovaRenderPipeline = 'retained'
-/**
- * Описывает тип NovaRenderDirtyMode.
- */
-export type NovaRenderDirtyMode = 'graph'
-/**
  * Описывает тип NovaRenderCullingMode.
  */
 export type NovaRenderCullingMode = 'off' | 'bounds'
@@ -311,18 +303,9 @@ export type NovaHitTestMode = 'linear' | 'spatial'
 export type NovaLifecycleState = 'created' | 'mounted' | 'paused' | 'destroyed'
 
 /**
- * Описывает контракт NovaRenderQueueStats.
+ * Описывает статистику compile-фазы retained frame.
  */
-export interface NovaRenderQueueStats {
-  commands: number
-  items: number
-  batches: number
-}
-
-/**
- * Описывает контракт NovaRenderSubtreeStats.
- */
-export interface NovaRenderSubtreeStats {
+export interface NovaRenderCompileStats {
   rebuiltNodes: number
   cachedNodes: number
 }

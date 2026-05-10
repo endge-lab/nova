@@ -110,7 +110,7 @@ describe('Nova component registry', () => {
 
   it('creates node components from schema and exposes them by public component id', () => {
     const app = createApp()
-    const surface = app.createSurface2D('components')
+    const surface = app.createSurface('components')
     app.schema.register(COUNTER_DESCRIPTOR)
 
     const node = app.schema.createNode(surface, {
@@ -137,7 +137,7 @@ describe('Nova component registry', () => {
 
   it('creates child components owned by a parent node', () => {
     const app = createApp()
-    const surface = app.createSurface2D('components')
+    const surface = app.createSurface('components')
     const parent = surface.createNode()
     app.schema.register(COUNTER_DESCRIPTOR)
 

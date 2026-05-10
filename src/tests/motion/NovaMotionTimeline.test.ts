@@ -22,7 +22,7 @@ describe('NovaMotionTimeline', () => {
   })
 
   it('compiles keyframes and stagger segments deterministically', () => {
-    const surface = app.createSurface2D('timeline')
+    const surface = app.createSurface('timeline')
     const first = surface.createNode()
     const second = surface.createNode()
     first.options({ x: 0, y: 0, width: 10, height: 10, opacity: 0 })
@@ -53,7 +53,7 @@ describe('NovaMotionTimeline', () => {
   })
 
   it('supports repeat and yoyo cycles', () => {
-    const surface = app.createSurface2D('timeline')
+    const surface = app.createSurface('timeline')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })
 

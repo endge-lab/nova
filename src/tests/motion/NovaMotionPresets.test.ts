@@ -61,7 +61,7 @@ describe('NovaMotion presets and patterns', () => {
     installCanvasMocks()
     installRafMock()
     app = createApp()
-    surface = app.createSurface2D('motion-presets')
+    surface = app.createSurface('motion-presets')
   })
 
   afterEach(() => {

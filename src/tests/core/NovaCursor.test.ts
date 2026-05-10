@@ -209,7 +209,7 @@ describe('Nova cursor system', () => {
 
   it('applies native and url cursors from node declarations and root fallback', () => {
     const app = createApp()
-    const surface = app.createSurface2D('cursor')
+    const surface = app.createSurface('cursor')
     const root = surface.createNode(CursorBoxNode)
     root.options({
       x: 0,
@@ -234,7 +234,7 @@ describe('Nova cursor system', () => {
 
   it('keeps cursor-only nodes out of pointer event dispatch', () => {
     const app = createApp(true)
-    const surface = app.createSurface2D('cursor')
+    const surface = app.createSurface('cursor')
     const interactive = surface.createNode(CursorBoxNode)
     const cursorOnly = surface.createNode(CursorBoxNode)
     const mouseDown = vi.fn()
@@ -253,7 +253,7 @@ describe('Nova cursor system', () => {
 
   it('reuses component cursor nodes per effective component signature', () => {
     const app = createApp()
-    const surface = app.createSurface2D('cursor')
+    const surface = app.createSurface('cursor')
     app.schema.register(TEST_CURSOR_DESCRIPTOR)
 
     const node = surface.createNode(CursorBoxNode)
@@ -279,7 +279,7 @@ describe('Nova cursor system', () => {
 
   it('resets cursor on canvas leave and destroys cursor overlay state', () => {
     const app = createApp(true)
-    const surface = app.createSurface2D('cursor')
+    const surface = app.createSurface('cursor')
     app.schema.register(TEST_CURSOR_DESCRIPTOR)
     const node = surface.createNode(CursorBoxNode)
     node.options({

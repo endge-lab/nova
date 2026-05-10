@@ -52,7 +52,7 @@ describe('NovaMotionEngine', () => {
   })
 
   it('applies tween number values at deterministic frame times', () => {
-    const surface = app.createSurface2D('motion')
+    const surface = app.createSurface('motion')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })
 
@@ -66,7 +66,7 @@ describe('NovaMotionEngine', () => {
   })
 
   it('overwrites active target/key segments by default', () => {
-    const surface = app.createSurface2D('motion')
+    const surface = app.createSurface('motion')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })
 
@@ -78,7 +78,7 @@ describe('NovaMotionEngine', () => {
   })
 
   it('cancels target animations and stops patching disposed nodes', () => {
-    const surface = app.createSurface2D('motion')
+    const surface = app.createSurface('motion')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })
 
@@ -90,7 +90,7 @@ describe('NovaMotionEngine', () => {
   })
 
   it('applies component patches through setProps', () => {
-    const surface = app.createSurface2D('motion')
+    const surface = app.createSurface('motion')
     const node = surface.createNode(CounterNode)
 
     app.motion.to(node, { value: 10, color: '#ffffff' }, { duration: 100, easing: 'linear' })

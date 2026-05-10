@@ -14,15 +14,18 @@ import type {
   NovaText,
   NovaTextChunk,
 } from '@/domain/types/renderer.types'
+import { RendererType } from '@/domain/types/renderer.types'
 import { NovaGraphics } from '@/model/platform/NovaGraphics'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
+import type { NovaRenderBackend } from '@/model/render/backends/NovaRenderBackend'
 
 /**
  * Рисует compiled Nova render frame через Canvas2D backend.
  */
-export class NovaRenderer2D implements NovaRenderer {
+export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   readonly id: string = randomString(5)
+  readonly type = RendererType.Web2D
   readonly novaCanvas: NovaCanvas
   readonly capabilities = {
     canvas2d: true,
@@ -69,6 +72,13 @@ export class NovaRenderer2D implements NovaRenderer {
   }
 
   /**
+   * Clears the root render target once before ordered surface replay.
+   */
+  clearRoot(): void {
+    this.clear()
+  }
+
+  /**
    * Временно включает очистку text bounds перед draw.
    */
   withTextBackgroundClearing<T>(enabled: boolean, run: () => T): T {
@@ -88,8 +98,6 @@ export class NovaRenderer2D implements NovaRenderer {
     const startedAt = performance.now()
     const itemsById = new Map(frame.items.map(item => [item.id, item]))
     let drawCalls = 0
-
-    this.clear()
 
     for (const command of frame.commands) {
       switch (command.type) {

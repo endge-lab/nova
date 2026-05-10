@@ -101,7 +101,7 @@ export class NovaNode<
   private readonly _orderedChildren: Array<NovaNode<E>> = []
   private readonly _localRenderBounds = createEmptyBounds()
   private _renderOrderCounter = 0
-  private _renderSubtreeDirty = true
+  private _renderFrameDirty = true
   private _lifecycleState: NovaLifecycleState = 'created'
   private _hasLocalRenderBounds = false
   private _renderPolicy: NovaRenderPolicy = resolveNovaRenderPolicy()
@@ -546,7 +546,7 @@ export class NovaNode<
       nodeAwareRenderer?.endNode(this)
     }
     this.surface.markRenderNodeRebuilt()
-    this._renderSubtreeDirty = false
+    this._renderFrameDirty = false
 
     this.debugger.info(`${this.__type} завершил render`, 'render')
   }
@@ -609,7 +609,7 @@ export class NovaNode<
       this.markRenderDirtyFlags({ transform: true, layout: true, visibility: true })
       this.surface.renderGraph?.markTransformDirty(this.renderNodeId)
       this.surface.renderGraph?.markVisibilityDirty(this.renderNodeId)
-      if (!this.surface.renderGraph) this.markRenderSubtreeDirty(true)
+      if (!this.surface.renderGraph) this.markRenderFrameDirty(true)
       this.nova.events.markSpatialDirty(this, true)
       this.raph.dirty('matrix', this)
       this.raph.dirty('render', this.surface)
@@ -619,7 +619,7 @@ export class NovaNode<
       this.markRenderDirtyFlags({ paint: true, resource: true, cache: true })
       this.surface.renderGraph?.markPaintDirty(this.renderNodeId)
       this.surface.renderGraph?.markResourceDirty(this.renderNodeId)
-      this.markRenderSubtreeDirty(true)
+      this.markRenderFrameDirty(true)
       this.nova.events.markSpatialDirty(this)
       this.raph.dirty('render', this.surface) // отрисовка всегда от корня слоя
       this.raph.dirty('flush', this.surface)
@@ -1008,8 +1008,8 @@ export class NovaNode<
   /**
    * Возвращает render subtree dirty.
    */
-  get renderSubtreeDirty(): boolean {
-    return this._renderSubtreeDirty
+  get renderFrameDirty(): boolean {
+    return this._renderFrameDirty
   }
 
   /**
@@ -1025,7 +1025,7 @@ export class NovaNode<
   set renderPolicy(value: NovaRenderPolicyInput) {
     this._renderPolicy = resolveNovaRenderPolicy(value)
     this.markRenderDirtyFlags({ cache: true })
-    this.markRenderSubtreeDirty(true)
+    this.markRenderFrameDirty(true)
   }
 
   /**
@@ -1118,12 +1118,12 @@ export class NovaNode<
   /**
    * Помечает render subtree dirty.
    */
-  markRenderSubtreeDirty(includeChildren = false): void {
-    this._renderSubtreeDirty = true
+  markRenderFrameDirty(includeChildren = false): void {
+    this._renderFrameDirty = true
 
     let parent = this.parent
     while (parent instanceof NovaNode) {
-      parent._renderSubtreeDirty = true
+      parent._renderFrameDirty = true
       parent = parent.parent
     }
 
@@ -1131,7 +1131,7 @@ export class NovaNode<
 
     for (const child of this.children) {
       if (child instanceof NovaNode) {
-        child.markRenderSubtreeDirty(true)
+        child.markRenderFrameDirty(true)
       }
     }
   }
@@ -1139,15 +1139,15 @@ export class NovaNode<
   /**
    * Помечает render subtree clean.
    */
-  markRenderSubtreeClean(includeChildren = false): void {
-    this._renderSubtreeDirty = false
+  markRenderFrameClean(includeChildren = false): void {
+    this._renderFrameDirty = false
     this.clearRenderDirtyFlags()
 
     if (!includeChildren) return
 
     for (const child of this.children) {
       if (child instanceof NovaNode) {
-        child.markRenderSubtreeClean(true)
+        child.markRenderFrameClean(true)
       }
     }
   }
@@ -1299,7 +1299,7 @@ export class NovaNode<
     this._nodeContext = undefined
     this._hasNodeContext = false
     this._inverseMatrixSource = undefined
-    this._renderSubtreeDirty = true
+    this._renderFrameDirty = true
     this._lifecycleState = 'destroyed'
     this.nova.events.markSpatialDirty(this, true)
     this.nova.cursors.unregister(this)
@@ -1419,7 +1419,7 @@ export class NovaNode<
     }
     const result = super.addChild(node, raphOptions)
     this.markRenderDirtyFlags({ children: true, cache: true })
-    this.markRenderSubtreeDirty(false)
+    this.markRenderFrameDirty(false)
     if (node instanceof NovaNode) {
       if (this._lifecycleState === 'mounted' || this._lifecycleState === 'paused') {
         node.mountSubtree()
@@ -1427,7 +1427,7 @@ export class NovaNode<
       if (this._lifecycleState === 'paused') {
         node.pause()
       }
-      node.markRenderSubtreeDirty(true)
+      node.markRenderFrameDirty(true)
     }
 
     return result

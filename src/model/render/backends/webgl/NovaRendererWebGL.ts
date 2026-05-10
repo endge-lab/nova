@@ -12,11 +12,13 @@ import type {
   NovaRendererCapabilities,
   NovaSchema,
   NovaText,
+  RendererType,
 } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/NovaRenderPolicy'
+import type { NovaRenderBackend } from '@/model/render/backends/NovaRenderBackend'
 import { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'
 import { NovaWebGLDiagnostics } from '@/model/render/backends/webgl/NovaWebGLDiagnostics'
 import { NovaWebGLFrameRenderer } from '@/model/render/backends/webgl/NovaWebGLFrameRenderer'
@@ -27,8 +29,9 @@ import { NovaWebGLTextureManager } from '@/model/render/backends/webgl/NovaWebGL
 /**
  * Реализует WebGL renderer для compiled Nova render frames.
  */
-export class NovaRendererWebGL implements NovaRenderer {
+export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
   readonly id: string = randomString(5)
+  readonly type = RendererType.WebGL
   readonly capabilities: NovaRendererCapabilities = {
     canvas2d: false,
     webgl: true,
@@ -74,6 +77,13 @@ export class NovaRendererWebGL implements NovaRenderer {
     const metrics = this._frameRenderer.render(frame)
     this.diagnostics.capture(frame, metrics)
     return metrics
+  }
+
+  /**
+   * Clears the root render target once before ordered surface replay.
+   */
+  clearRoot(): void {
+    this.device.clear()
   }
 
   /**

@@ -140,7 +140,7 @@ describe('Nova cursor performance', () => {
 
   it('queries 10000 cursor-capable nodes and reuses component cursors inside budget', () => {
     const app = createApp()
-    const surface = app.createSurface2D('cursor-perf')
+    const surface = app.createSurface('cursor-perf')
     app.schema.register(PERF_CURSOR_DESCRIPTOR)
 
     for (let index = 0; index < 10_000; index += 1) {

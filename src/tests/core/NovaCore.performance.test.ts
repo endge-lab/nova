@@ -235,7 +235,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('renders direct surface children by zIndex while keeping zIndex as weight', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     const first = surface.createNode(AuditNode, 'first-inserted-z100', log)
     first.options({ width: 10, height: 10, zIndex: 100 })
@@ -243,7 +243,7 @@ describe('Nova core behavior and performance smoke', () => {
     second.options({ width: 10, height: 10, zIndex: 0 })
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(first.weight).toBe(100)
@@ -256,14 +256,14 @@ describe('Nova core behavior and performance smoke', () => {
   it('keeps direct surface child insertion order when zIndex values are equal', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     surface.createNode(AuditNode, 'first-z10', log).options({ width: 10, height: 10, zIndex: 10 })
     surface.createNode(AuditNode, 'second-z10', log).options({ width: 10, height: 10, zIndex: 10 })
     surface.createNode(AuditNode, 'third-z10', log).options({ width: 10, height: 10, zIndex: 10 })
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['first-z10', 'second-z10', 'third-z10'])
@@ -275,8 +275,8 @@ describe('Nova core behavior and performance smoke', () => {
     const log = createAuditLog()
     const app = createApp()
 
-    app.createSurface2D('inserted-first-z100', AuditSurface, log).options({ zIndex: 100 })
-    app.createSurface2D('inserted-second-z0', AuditSurface, log).options({ zIndex: 0 })
+    app.createSurface('inserted-first-z100', AuditSurface, log).options({ zIndex: 100 })
+    app.createSurface('inserted-second-z0', AuditSurface, log).options({ zIndex: 0 })
 
     clearAuditLog(log)
     app.flush()
@@ -289,7 +289,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('isolates main canvas transform while compositing a surface', () => {
     const log = createAuditLog()
     const app = createApp({ width: 100, height: 80 })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const ctx = app.canvas.getContext2D()
 
     surface.flush(ctx)
@@ -307,9 +307,9 @@ describe('Nova core behavior and performance smoke', () => {
     const log = createAuditLog()
     const app = createApp()
 
-    app.createSurface2D('first-z10', AuditSurface, log).options({ zIndex: 10 })
-    app.createSurface2D('second-z10', AuditSurface, log).options({ zIndex: 10 })
-    app.createSurface2D('third-z10', AuditSurface, log).options({ zIndex: 10 })
+    app.createSurface('first-z10', AuditSurface, log).options({ zIndex: 10 })
+    app.createSurface('second-z10', AuditSurface, log).options({ zIndex: 10 })
+    app.createSurface('third-z10', AuditSurface, log).options({ zIndex: 10 })
 
     clearAuditLog(log)
     app.flush()
@@ -322,7 +322,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('renders nested descendants during surface-level redraw', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     const group = surface.createNode(AuditNode, 'group', log)
     group.options({ width: 100, height: 100 })
@@ -331,7 +331,7 @@ describe('Nova core behavior and performance smoke', () => {
     group.addChild(child)
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['group', 'nested-child'])
@@ -342,7 +342,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('marks the whole surface for redraw when one direct child becomes render-dirty', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const nodes = Array.from({ length: 30 }, (_, index) => {
       const node = surface.createNode(AuditNode, `node-${index}`, log)
       node.options({ x: index, y: index, width: 5, height: 5 })
@@ -362,7 +362,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('computes active from local active and restores inherited active when parent is reactivated', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const group = surface.createNode(AuditNode, 'group', log)
     const child = new AuditNode(app, surface, 'child', log)
     group.addChild(child)
@@ -395,7 +395,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('keeps visible render-only and active update-only for node lifecycle', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const node = surface.createNode(AuditNode, 'node', log)
     node.options({ width: 10, height: 10 })
 
@@ -421,14 +421,14 @@ describe('Nova core behavior and performance smoke', () => {
   it('computes visible from local visible and inherited parent visibility', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const group = surface.createNode(AuditNode, 'group', log)
     const child = new AuditNode(app, surface, 'child', log)
     group.addChild(child)
 
     group.visible = false
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(group.visible).toBe(false)
@@ -439,7 +439,7 @@ describe('Nova core behavior and performance smoke', () => {
     group.visible = true
     child.visible = false
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['group'])
@@ -448,7 +448,7 @@ describe('Nova core behavior and performance smoke', () => {
 
     child.visible = true
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['group', 'child'])
@@ -459,7 +459,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('uses NovaContainer API to add, remove, clear and bulk-toggle children', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const container = surface.createNode(NovaContainer<TestEvents>)
     const first = new AuditNode(app, surface, 'first', log)
     const second = new AuditNode(app, surface, 'second', log)
@@ -499,7 +499,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('calculates local, world and container bounds', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const node = surface.createNode(AuditNode, 'node', log)
     node.options({ x: 12, y: 18, width: 40, height: 20 })
 
@@ -518,7 +518,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('calculates exact render bounds from schema items', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const node = surface.createNode(AuditNode, 'schema-node', log)
 
     node.options({ x: 20, y: 30, width: 1, height: 1 })
@@ -543,7 +543,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('uses transform hierarchy for hit testing and coordinate conversion', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const group = surface.createNode(AuditNode, 'group', log)
     const child = new AuditNode(app, surface, 'child', log)
 
@@ -562,14 +562,14 @@ describe('Nova core behavior and performance smoke', () => {
   it('culls nodes outside surface bounds when bounds culling is enabled', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     surface.renderCullingMode = 'bounds'
 
     surface.createNode(AuditNode, 'visible', log).options({ x: 20, y: 20, width: 40, height: 30 })
     surface.createNode(AuditNode, 'outside', log).options({ x: 600, y: 20, width: 40, height: 30 })
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['visible'])
@@ -582,7 +582,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('keeps a culling root renderable when it exposes viewport bounds before children exist', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     surface.renderCullingMode = 'bounds'
 
     class ViewportRootNode extends NovaContainer<TestEvents> {
@@ -602,7 +602,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.createNode(ViewportRootNode).options({ width: 320, height: 180 })
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual(['late-child'])
@@ -614,7 +614,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('culls an empty container before it can create children without explicit render bounds', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     surface.renderCullingMode = 'bounds'
 
     class EmptyBoundsContainerNode extends NovaContainer<TestEvents> {
@@ -628,7 +628,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.createNode(EmptyBoundsContainerNode)
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     surface.doRender()
 
     expect(log.renders).toEqual([])
@@ -640,7 +640,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('returns the visual top node during overlapping hit-test', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const bottom = surface.createNode(AuditNode, 'bottom', log)
     const top = surface.createNode(AuditNode, 'top', log)
 
@@ -658,7 +658,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('uses render-order stamps for equal z-index direct sibling hit-test', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const first = surface.createNode(AuditNode, 'first', log)
     const second = surface.createNode(AuditNode, 'second', log)
 
@@ -677,7 +677,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('hit-tests a node by custom render bounds when local bounds are only a placeholder', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     class RenderBoundsHitNode extends AuditNode {
       override getRenderBounds(): { x: number; y: number; width: number; height: number } {
@@ -709,7 +709,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('updates spatial index incrementally when one node moves or is removed', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const node = surface.createNode(AuditNode, 'moving', log)
 
     app.events.hitTestMode = 'spatial'
@@ -733,7 +733,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('dispatches pointer events through capture, target and bubble phases', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const order: Array<string> = []
     const group = surface.createNode(AuditNode, 'group', log)
     const child = new AuditNode(app, surface, 'child', log)
@@ -755,7 +755,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('stops pointer bubbling when target cancels propagation', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const order: Array<string> = []
     const group = surface.createNode(AuditNode, 'group', log)
     const child = new AuditNode(app, surface, 'child', log)
@@ -780,7 +780,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('keeps spatial hit-test target equal to linear hit-test target', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     for (let index = 0; index < 400; index++) {
       const node = surface.createNode(AuditNode, `node-${index}`, log)
@@ -813,7 +813,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('unregisters interactive nodes when handlers are removed', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const node = surface.createNode(AuditNode, 'interactive', log)
     const handler = vi.fn()
 
@@ -829,7 +829,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('redraws 500 direct children inside a mock frame budget', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const nodes = Array.from({ length: 500 }, (_, index) => {
       const node = new AuditNode(app, surface, `node-${index}`, log)
       node.options({ x: index % 100, y: Math.floor(index / 100), width: 4, height: 4 })
@@ -852,7 +852,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('sorts 1000 z-indexed direct children inside a mock frame budget', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const nodes = Array.from({ length: 1000 }, (_, index) => {
       const node = new AuditNode(app, surface, `node-${index}`, log)
       node.options({
@@ -883,7 +883,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('renders a 1000-node nested chain recursively inside a mock frame budget', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const root = surface.createNode(AuditNode, 'root', log)
     root.options({ width: 1, height: 1 })
 
@@ -897,7 +897,7 @@ describe('Nova core behavior and performance smoke', () => {
     surface.dirty({ render: true })
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     const elapsedMs = measure('recursive surface redraw / 1000-node nested chain', () => {
       surface.doRender()
     })
@@ -916,7 +916,7 @@ describe('Nova core behavior and performance smoke', () => {
 
     for (let index = 0; index < 500; index++) {
       app
-        .createSurface2D(`surface-${index}`, AuditSurface, log)
+        .createSurface(`surface-${index}`, AuditSurface, log)
         .options({ zIndex: 500 - index })
     }
 
@@ -936,7 +936,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('hit-tests 1000 interactive nodes with the current linear event path', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     for (let index = 0; index < 1000; index++) {
       const node = new AuditNode(app, surface, `node-${index}`, log)
@@ -1050,7 +1050,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('culls 1000 offscreen nodes inside a mock frame budget', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     surface.renderCullingMode = 'bounds'
 
     for (let index = 0; index < 1000; index++) {
@@ -1058,7 +1058,7 @@ describe('Nova core behavior and performance smoke', () => {
     }
 
     clearAuditLog(log)
-    surface.markRenderSubtreeDirty(true)
+    surface.markRenderFrameDirty(true)
     const elapsedMs = measure('bounds culling / 1000 offscreen nodes', () => {
       surface.doRender()
     })
@@ -1073,7 +1073,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('toggles active for a 1000-node group through propagation inside a mock budget', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const group = surface.createNode(AuditNode, 'group', log)
     const children = Array.from({ length: 1000 }, (_, index) => {
       const child = new AuditNode(app, surface, `child-${index}`, log)
@@ -1096,7 +1096,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('toggles visible for a 1000-node group inside a mock budget', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const group = surface.createNode(AuditNode, 'group', log)
 
     for (let index = 0; index < 1000; index++) {
@@ -1128,7 +1128,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('adds and clears 1000 container children inside a mock budget', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const container = surface.createNode(NovaContainer<TestEvents>)
 
     const children = Array.from({ length: 1000 }, (_, index) => {
@@ -1155,7 +1155,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('removes interactive descendants from input state when a group is disposed', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const group = surface.createNode(NovaContainer<TestEvents>)
     const child = new AuditNode(app, surface, 'interactive-child', log)
     child.options({ x: 20, y: 20, width: 40, height: 40 })
@@ -1178,7 +1178,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('runs NovaScene lifecycle hooks and removes roots on unmount', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     class TestScene extends NovaScene<TestEvents> {
       root: LifecycleAuditNode | null = null
@@ -1222,7 +1222,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('hides and shows a 5000-node container through the parent flag inside a mock budget', () => {
     const log = createAuditLog()
     const app = createApp()
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const group = surface.createNode(NovaContainer<TestEvents>)
     const children = Array.from({ length: 5000 }, (_, index) => {
       const child = new AuditNode(app, surface, `child-${index}`, log)
@@ -1249,7 +1249,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('switches scenes without accumulating interactive nodes', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
 
     class SwitchScene extends NovaScene<TestEvents> {
       override onMount(): void {
@@ -1279,7 +1279,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('keeps drag events on the captured node when pointer leaves its bounds', async () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const events: Array<string> = []
     const node = surface.createNode(AuditNode, 'captured', log)
     node.options({ x: 10, y: 10, width: 30, height: 30 })
@@ -1307,7 +1307,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('honors disabled automatic pointer capture while keeping manual capture available', () => {
     const log = createAuditLog()
     const app = createApp({ input: true, pointerCapture: false })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const events: Array<string> = []
     const node = surface.createNode(AuditNode, 'manual-capture', log)
     node.options({ x: 10, y: 10, width: 30, height: 30 })
@@ -1331,7 +1331,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('keeps independent pointer captures by pointerId', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const first = surface.createNode(AuditNode, 'first-pointer', log)
     const second = surface.createNode(AuditNode, 'second-pointer', log)
     const events: Array<string> = []
@@ -1367,7 +1367,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('emits hover enter and leave when the top target changes', async () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const events: Array<string> = []
     const first = surface.createNode(AuditNode, 'first', log)
     first.options({ x: 10, y: 10, width: 20, height: 20 })
@@ -1391,7 +1391,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('routes keyboard events to the focused node and supports selection state', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const events: Array<string> = []
     const first = surface.createNode(AuditNode, 'first', log)
     first.options({ x: 10, y: 10, width: 20, height: 20 })
@@ -1427,7 +1427,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('keeps selection and focus isolated by explicit scopes', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const first = surface.createNode(AuditNode, 'first', log)
     const second = surface.createNode(AuditNode, 'second', log)
 
@@ -1460,7 +1460,7 @@ describe('Nova core behavior and performance smoke', () => {
   it('processes 1000 captured drag moves inside a mock budget', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
-    const surface = app.createSurface2D('scene', AuditSurface, log)
+    const surface = app.createSurface('scene', AuditSurface, log)
     const node = surface.createNode(AuditNode, 'drag', log)
     let moves = 0
     node.options({ x: 10, y: 10, width: 30, height: 30 })

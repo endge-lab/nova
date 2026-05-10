@@ -3,7 +3,6 @@ import { EventBus } from '@endge/utils'
 import type { RaphApp, RaphLocalPhaseContext , RaphNode } from '@endge/raph'
 import { Raph, RaphLocalPhase, RaphSchedulerType } from '@endge/raph'
 import { NovaSurface } from '@/model/runtime/tree/NovaSurface'
-import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
 import type {
     NovaAppCreateOptions,
     NovaAppOptions,
@@ -33,6 +32,9 @@ import type { NovaRendererConfig, NovaRendererConfigInput } from '@/domain/types
 import { resolveNovaRendererConfig } from '@/model/render/policy/NovaRenderPolicy'
 import { NovaPhase } from '@/domain/constants/NovaPhase'
 import { createNovaRaphRuntime } from '@/model/runtime/app/createNovaRaphRuntime'
+import type { NovaRenderBackend } from '@/model/render/backends/NovaRenderBackend'
+import { createNovaRenderBackend } from '@/model/render/backends/NovaRenderBackendFactory'
+import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
 
 /**
  * Управляет жизненным циклом Nova runtime, canvas, input, surfaces и фазами Raph.
@@ -43,7 +45,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     private readonly _raph: RaphApp<NovaNodeProperties>
     private readonly _ownsRaphKernel: boolean
     private readonly _canvas: NovaCanvas
-    private readonly _renderer: NovaRenderer2D | null
+    private readonly _backend: NovaRenderBackend
+    private readonly _orchestrator: NovaRenderOrchestrator<E>
     private readonly _mainRendererType: RendererType
     private readonly _events: NovaEvents<E>
 
@@ -57,6 +60,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     // Порядок surfaces нужен для стабильного compositing и hit-test.
     private readonly _surfaceOrder = new WeakMap<NovaSurface<E>, number>()
     private readonly _orderedSurfaces: Array<NovaSurface<E>> = []
+    private readonly _dirtySurfaces = new Set<NovaSurface<E>>()
     private _surfaceOrderCounter = 0
 
     //
@@ -102,11 +106,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         })
 
         //
-        // Создаем registry, renderer и event system, которые дальше используют surfaces и nodes.
+        // Создаем registry, backend и event system, которые дальше используют surfaces и nodes.
         this.schema = options.schemaRegistry ?? new NovaSchemaRegistry()
-        this._renderer = this._mainRendererType === RendererType.Web2D
-            ? new NovaRenderer2D(this._canvas, this.schema)
-            : null
+        this._backend = createNovaRenderBackend(this._mainRendererType, this._canvas, this.schema, this._rendererConfig)
+        this._orchestrator = new NovaRenderOrchestrator(this._backend)
         this._events = new NovaEvents(this)
         this.sound = new NovaSoundEngine(this, options.sound)
         this.cursors = new NovaCursorManager(this)
@@ -207,29 +210,22 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             }
         }
 
-        //
-        // Render всегда идет от корня surface, чтобы дочерние dirty-ноды не рисовались поверх слоя повторно.
         for (const surface of dirtySurfaces) {
-            surface.doRender()
+            this._dirtySurfaces.add(surface)
         }
 
         this._debugger.phaseEnd()
     }
 
     /**
-     * Композитит Web2D surfaces в основной canvas и фиксирует факт отрисовки.
+     * Компилирует dirty surfaces и replay-ит все retained frames в основной canvas.
      */
     @RaphLocalPhase({ name: NovaPhase.Flush, priority: 4 })
     flush(): void {
         this._debugger.phaseStart('flush')
 
-        if (this._mainRendererType === RendererType.Web2D && this._renderer) {
-            this._renderer.clear()
-            const ctx = this.canvas.getContext2D()!
-            for (const surface of this.getOrderedSurfaces()) {
-                surface.doFlush(ctx)
-            }
-        }
+        this._orchestrator.render(this.getOrderedSurfaces(), this._dirtySurfaces)
+        this._dirtySurfaces.clear()
 
         //
         // Mark rendered frame нужен метрикам даже тогда, когда Web2D flush не выполнялся.
@@ -367,16 +363,6 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
 
     /**
-     * Возвращает Web2D renderer для production Web2D mode.
-     */
-    get renderer(): NovaRenderer2D {
-        if (!this._renderer) {
-            throw new Error('NovaApp.renderer is available only when main renderer is RendererType.Web2D.')
-        }
-        return this._renderer
-    }
-
-    /**
      * Обновляет CSS cursor основного canvas независимо от active renderer backend.
      */
     cursor(value: string): void {
@@ -461,26 +447,14 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
 
     /**
-     * Создает logical surface, который рендерится через Web2D backend.
+     * Создает logical surface для app-level backend.
      */
-    createSurface2D<T extends NovaSurface<E>>(
+    createSurface<T extends NovaSurface<E>>(
         name: string,
         SurfaceClass: new (...args: Array<any>) => T = NovaSurface<E> as any,
         ...args: Array<any>
     ): T {
-        const surface = new SurfaceClass(name, this, RendererType.Web2D, ...args)
-        return this.addSurface(surface)
-    }
-
-    /**
-     * Создает logical surface, который рендерится через WebGL backend.
-     */
-    createSurfaceWebGL<T extends NovaSurface<E>>(
-        name: string,
-        SurfaceClass: new (...args: Array<any>) => T = NovaSurface as any,
-        ...args: Array<any>
-    ): T {
-        const surface = new SurfaceClass(name, this, RendererType.WebGL, ...args)
+        const surface = new SurfaceClass(name, this, ...args)
         return this.addSurface(surface)
     }
 
@@ -690,6 +664,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         for (const surface of this.surfaces) {
             surface.destroy()
         }
+        this._backend.destroy()
         this._canvas.destroy()
 
         this.raph.clear()

@@ -33,7 +33,7 @@ class TestComponentNode extends NovaComponentNode<TestProps> {
 
 function createSurface() {
   const app = createTestApp()
-  const surface = app.createSurface2D('context')
+  const surface = app.createSurface('context')
   return { app, surface }
 }
 

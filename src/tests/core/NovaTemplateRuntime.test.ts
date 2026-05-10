@@ -65,7 +65,7 @@ describe('Nova template runtime', () => {
   it('reuses keyed nodes and patches props without recreating identity', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
-    const surface = app.createSurface2D('template')
+    const surface = app.createSurface('template')
     const parent = surface.createNode()
     const runtime = new NovaTemplateRuntime(parent)
 
@@ -94,7 +94,7 @@ describe('Nova template runtime', () => {
   it('forwards explicit context while reconciling children', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
-    const surface = app.createSurface2D('template-context')
+    const surface = app.createSurface('template-context')
     const parent = surface.createNode()
 
     const result = reconcileNovaTemplateChildren(parent, [], [
@@ -109,7 +109,7 @@ describe('Nova template runtime', () => {
   it('does not schedule generated template hosts into a sync self-update loop', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
-    const surface = app.createSurface2D('template-host')
+    const surface = app.createSurface('template-host')
 
     const host = surface.createNode(TemplateHostNode)
 

@@ -439,7 +439,6 @@ export class NovaWebGLFrameRenderer {
     this._viewportWidth = Math.max(1, frame.viewport.width)
     this._viewportHeight = Math.max(1, frame.viewport.height)
     this._device.resize()
-    this._device.clear()
     this.setScissor(null, currentTransform)
 
     const pushClip = (clip: NovaRenderClip | null | undefined, transform: mat3): void => {
