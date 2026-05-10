@@ -3,9 +3,25 @@ import type { NovaComponentSchema } from '@/domain/types/component.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+
+/** Constructor скомпилированного `.nova` компонента. */
+export type NovaCompiledNodeConstructor<E extends EventList = Record<string, any>> = new (
+  app: NovaApp<E>,
+  surface: NovaSurface<E>,
+  props?: Record<string, any>,
+  listeners?: Record<string, (...args: Array<any>) => void>,
+) => NovaNode<E>
+
+/** Тип компонента в compiled template schema. */
+export type NovaTemplateComponentType<E extends EventList = Record<string, any>> =
+  | string
+  | NovaCompiledNodeConstructor<E>
 
 export interface NovaTemplateChildSchema<TProps = Record<string, any>>
-  extends NovaComponentSchema<TProps> {
+  extends Omit<NovaComponentSchema<TProps>, 'type'> {
+  type: NovaTemplateComponentType
   key?: string | number
   context?: unknown
   children?: Array<NovaTemplateChildSchema>
@@ -24,7 +40,12 @@ interface NovaTemplateEventState {
   events: Map<string, (...args: Array<any>) => void>
 }
 
+interface NovaTemplateListenerTarget {
+  setListeners: (listeners: Record<string, (...args: Array<any>) => void>) => void
+}
+
 const NODE_EVENT_STATE = new WeakMap<NovaNode<any>, NovaTemplateEventState>()
+const NODE_TEMPLATE_KEY = new WeakMap<NovaNode<any>, string>()
 
 /**
  * Runtime для сгенерированных Nova SFC, который сохраняет identity keyed children.
@@ -122,12 +143,11 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
 
     if (existing) {
       existing.remove()
+      used.add(existing)
       removed += 1
     }
 
-    const node = parent.nova.schema.createChild(parent, schema, {
-      context: schema.context,
-    }) as NovaNode<E>
+    const node = createTemplateChild(parent, schema, key)
     patchNovaTemplateNode(node, schema)
     used.add(node)
     nextNodes.push(node)
@@ -167,7 +187,14 @@ export function patchNovaTemplateNode<E extends EventList>(
     ;(node as NovaComponentNode<any>).setProps(schema.props)
   }
 
-  patchNovaTemplateEvents(node, schema.events ?? {})
+  const listenerTarget = node as unknown as Partial<NovaTemplateListenerTarget>
+  if (typeof listenerTarget.setListeners === 'function') {
+    listenerTarget.setListeners(
+      schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+    )
+  } else {
+    patchNovaTemplateEvents(node, schema.events ?? {})
+  }
 
   if (schema.children) {
     const api = typeof (node as NovaComponentNode<any>).getApi === 'function'
@@ -183,6 +210,8 @@ export function patchNovaTemplateNode<E extends EventList>(
  * Проверяет, может ли node быть обновлена без пересоздания.
  */
 export function canPatchTemplateNode(node: NovaNode<any>, schema: NovaTemplateChildSchema): boolean {
+  if (typeof schema.type === 'function') return node.constructor === schema.type
+
   const component = node as NovaComponentNode<any>
   return !!component.descriptor && component.descriptor.type === schema.type
 }
@@ -212,12 +241,46 @@ function patchNovaTemplateEvents<E extends EventList>(
 }
 
 function resolveSchemaKey(schema: NovaTemplateChildSchema, index: number): string {
-  return String(schema.key ?? schema.id ?? `${schema.type}:${index}`)
+  return String(schema.key ?? schema.id ?? `${resolveSchemaTypeName(schema.type)}:${index}`)
 }
 
 function resolveNodeKey(node: NovaNode<any>, index: number): string {
+  const templateKey = NODE_TEMPLATE_KEY.get(node)
+  if (templateKey) return templateKey
+
   const component = node as NovaComponentNode<any>
   return String(component.componentId ?? `${node.__type}:${index}`)
+}
+
+function createTemplateChild<E extends EventList>(
+  parent: NovaNode<E>,
+  schema: NovaTemplateChildSchema,
+  key: string,
+): NovaNode<E> {
+  if (typeof schema.type !== 'function') {
+    const node = parent.nova.schema.createChild(parent, schema as NovaComponentSchema, {
+      context: schema.context,
+    }) as NovaNode<E>
+    NODE_TEMPLATE_KEY.set(node, key)
+    return node
+  }
+
+  const Component = schema.type as NovaCompiledNodeConstructor<E>
+  const node = new Component(
+    parent.nova,
+    parent.surface,
+    schema.props ?? {},
+    schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+  )
+  parent.addChild(node, {
+    context: schema.context,
+  })
+  NODE_TEMPLATE_KEY.set(node, key)
+  return node
+}
+
+function resolveSchemaTypeName(type: NovaTemplateComponentType): string {
+  return typeof type === 'string' ? type : type.name
 }
 
 function reorderManagedChildren<E extends EventList>(

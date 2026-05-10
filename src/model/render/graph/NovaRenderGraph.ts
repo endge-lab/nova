@@ -7,13 +7,25 @@ import type {
   NovaRenderStream,
   NovaRenderStreamId,
   NovaRenderStreamKind,
+  NovaRenderVersions,
 } from '@/domain/types/rendering/index'
-import type { NovaSemanticScopeKind } from '@/domain/types/renderer.types'
+import type { NovaBounds, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
 import {
   createNovaBatchPlan,
   createNovaRenderStreamId,
   NovaTypedRenderStream,
 } from '@/model/render/graph/NovaRenderStream'
+
+/**
+ * Описывает retained handle update without rebuilding render graph.
+ */
+export interface NovaRenderHandleUpdate {
+  values?: ReadonlyArray<number>
+  batchKey?: string
+  localBounds?: NovaBounds
+  versions?: Partial<NovaRenderVersions>
+  markDirty?: boolean
+}
 
 /**
  * Хранит persistent render graph, dirty queues, groups и handles для surface.
@@ -115,6 +127,43 @@ export class NovaRenderGraph {
 
     this.handlesByNodeId.delete(nodeId)
     for (const handle of handles) this.addHandle(handle)
+  }
+
+  /**
+   * Обновляет retained handle и его stream slot без пересборки graph.
+   */
+  updateHandle(itemId: NovaRenderItemId, update: NovaRenderHandleUpdate): boolean {
+    const handle = this.handlesByItemId.get(itemId)
+    if (!handle) return false
+
+    const stream = this.streamsByGroupId.get(handle.groupId)?.get(handle.streamId)
+    if (!stream) return false
+
+    if (update.batchKey !== undefined) {
+      handle.batchKey = update.batchKey
+      const slot = stream.slotsByItemId.get(itemId)
+      if (slot) slot.batchKey = update.batchKey
+    }
+
+    if (update.localBounds !== undefined) {
+      handle.localBounds = update.localBounds
+      const slot = stream.slotsByItemId.get(itemId)
+      if (slot) slot.bounds = update.localBounds
+    }
+
+    if (update.versions) {
+      Object.assign(handle.versions, update.versions)
+    }
+
+    if (update.values) {
+      return stream.writeSlot(itemId, update.values)
+    }
+
+    if (update.markDirty !== false) {
+      stream.markSlotDirty(handle.slotOffset ?? handle.offset)
+    }
+
+    return true
   }
 
   /**

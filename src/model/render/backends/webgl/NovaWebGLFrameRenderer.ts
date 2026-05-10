@@ -216,6 +216,16 @@ interface NonOverlapLayeredBatchCache {
   rects: Array<NovaSchemaItem<any>>
   icons: Array<NovaSchemaItem<any>>
   texts: Array<NovaSchemaItem<any>>
+  rectIndexBySourceIndex: Array<number | undefined>
+  iconIndexBySourceIndex: Array<number | undefined>
+  textIndexBySourceIndex: Array<number | undefined>
+}
+
+/**
+ * Описывает schema batch array with retained dirty metadata.
+ */
+interface SchemaBatchItems extends Array<NovaSchemaItem<any>> {
+  dirtyIndices?: ReadonlyArray<number>
 }
 
 /**
@@ -620,6 +630,53 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Возвращает retained dirty indices for schema batch.
+   */
+  private resolveSchemaDirtyIndices(items: Array<NovaSchemaItem<any>>): ReadonlyArray<number> | undefined {
+    const dirtyIndices = (items as SchemaBatchItems).dirtyIndices
+    if (!dirtyIndices) return undefined
+    if (dirtyIndices.length === 0) return []
+
+    const normalized: Array<number> = []
+    const seen = new Set<number>()
+    for (const index of dirtyIndices) {
+      if (!Number.isInteger(index) || index < 0 || index >= items.length || seen.has(index)) continue
+      seen.add(index)
+      normalized.push(index)
+    }
+
+    return normalized
+  }
+
+  /**
+   * Переносит dirty indices исходного semantic batch на дочерний layer batch.
+   */
+  private applyLayerDirtyIndices(
+    sourceItems: Array<NovaSchemaItem<any>>,
+    targetItems: Array<NovaSchemaItem<any>>,
+    targetIndexBySourceIndex: Array<number | undefined>,
+  ): void {
+    const sourceDirtyIndices = this.resolveSchemaDirtyIndices(sourceItems)
+    const target = targetItems as SchemaBatchItems
+
+    if (!sourceDirtyIndices) {
+      target.dirtyIndices = undefined
+      return
+    }
+
+    const dirtyIndices: Array<number> = []
+    const seen = new Set<number>()
+    for (const sourceIndex of sourceDirtyIndices) {
+      const targetIndex = targetIndexBySourceIndex[sourceIndex]
+      if (targetIndex === undefined || seen.has(targetIndex)) continue
+      seen.add(targetIndex)
+      dirtyIndices.push(targetIndex)
+    }
+
+    target.dirtyIndices = dirtyIndices
+  }
+
+  /**
    * Выполняет внутреннюю операцию draw schema batch.
    */
   private drawSchemaBatch(
@@ -629,6 +686,8 @@ export class NovaWebGLFrameRenderer {
     semanticScope?: NovaSemanticScopeKind,
     contentVersion?: number,
   ): boolean {
+    const dirtyIndices = this.resolveSchemaDirtyIndices(items)
+
     if (semanticScope === 'non-overlap-layered' && this.drawNonOverlapLayeredSchemaBatch(items, transform, stats, contentVersion)) {
       return true
     }
@@ -651,7 +710,7 @@ export class NovaWebGLFrameRenderer {
       batch = nextBatch
       this._rectBatchCache.set(items, nextBatch)
     } else if (contentVersion === undefined || batch.contentVersion !== contentVersion) {
-      const update = this.updateRectBatch(items, batch)
+      const update = this.updateRectBatch(items, batch, dirtyIndices)
       if (!update) {
         const nextBatch = this.buildRectBatch(items)
         if (!nextBatch) return false
@@ -687,13 +746,14 @@ export class NovaWebGLFrameRenderer {
     let batch = this._plainRectBatchCache.get(items)
     let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
+    const dirtyIndices = this.resolveSchemaDirtyIndices(items)
 
     if (!batch) {
       batch = this.buildPlainRectBatch(items)
       batch.contentVersion = contentVersion
       this._plainRectBatchCache.set(items, batch)
     } else if (contentVersion === undefined || batch.contentVersion !== contentVersion) {
-      const update = this.updatePlainRectBatch(items, batch)
+      const update = this.updatePlainRectBatch(items, batch, dirtyIndices)
       if (!update) {
         batch = this.buildPlainRectBatch(items)
         batch.contentVersion = contentVersion
@@ -730,10 +790,13 @@ export class NovaWebGLFrameRenderer {
     const batch = this.resolveNonOverlapLayeredBatch(items)
     if (!batch) return false
 
+    this.applyLayerDirtyIndices(items, batch.rects, batch.rectIndexBySourceIndex)
     if (batch.rects.length > 0 && !this.drawSchemaBatch(batch.rects, transform, stats, undefined, contentVersion)) return false
 
+    this.applyLayerDirtyIndices(items, batch.icons, batch.iconIndexBySourceIndex)
     if (batch.icons.length > 0 && !this.drawTextureSchemaBatch(batch.icons, transform, stats, contentVersion)) return false
 
+    this.applyLayerDirtyIndices(items, batch.texts, batch.textIndexBySourceIndex)
     if (batch.texts.length > 0 && !this.drawTextureSchemaBatch(batch.texts, transform, stats, contentVersion)) {
       for (const text of batch.texts) {
         this.drawPrimitive(text, transform, stats)
@@ -753,22 +816,29 @@ export class NovaWebGLFrameRenderer {
     const rects: Array<NovaSchemaItem<any>> = []
     const icons: Array<NovaSchemaItem<any>> = []
     const texts: Array<NovaSchemaItem<any>> = []
+    const rectIndexBySourceIndex: Array<number | undefined> = []
+    const iconIndexBySourceIndex: Array<number | undefined> = []
+    const textIndexBySourceIndex: Array<number | undefined> = []
 
-    for (const item of items) {
+    for (let sourceIndex = 0; sourceIndex < items.length; sourceIndex += 1) {
+      const item = items[sourceIndex]
       if (item.active === false) continue
       if (item.clip !== undefined && item.clip !== true) return null
 
       if (item.type === 'rect') {
+        rectIndexBySourceIndex[sourceIndex] = rects.length
         rects.push(item)
         continue
       }
 
       if (item.type === 'icon') {
+        iconIndexBySourceIndex[sourceIndex] = icons.length
         icons.push(item)
         continue
       }
 
       if (item.type === 'text') {
+        textIndexBySourceIndex[sourceIndex] = texts.length
         texts.push(item)
         continue
       }
@@ -776,7 +846,14 @@ export class NovaWebGLFrameRenderer {
       return null
     }
 
-    const batch = { rects, icons, texts }
+    const batch = {
+      rects,
+      icons,
+      texts,
+      rectIndexBySourceIndex,
+      iconIndexBySourceIndex,
+      textIndexBySourceIndex,
+    }
     this._semanticBatchCache.set(items, batch)
     return batch
   }
@@ -855,13 +932,19 @@ export class NovaWebGLFrameRenderer {
   /**
    * Обновляет rect batch.
    */
-  private updateRectBatch(items: Array<NovaSchemaItem<any>>, batch: RectBatchCache): RectBatchUpdate | null {
+  private updateRectBatch(
+    items: Array<NovaSchemaItem<any>>,
+    batch: RectBatchCache,
+    dirtyIndices?: ReadonlyArray<number>,
+  ): RectBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
 
     const dirtyRanges: Array<FloatDirtyRange> = []
     let changedItems = 0
 
-    for (let index = 0; index < items.length; index += 1) {
+    const indexCount = dirtyIndices?.length ?? items.length
+    for (let dirtyIndex = 0; dirtyIndex < indexCount; dirtyIndex += 1) {
+      const index = dirtyIndices ? dirtyIndices[dirtyIndex] : dirtyIndex
       const rect = items[index] as NovaRect
       const signature = this.createRectSignature(rect)
       if (signature === batch.signatures[index]) continue
@@ -902,7 +985,11 @@ export class NovaWebGLFrameRenderer {
   /**
    * Обновляет plain rect batch.
    */
-  private updatePlainRectBatch(items: Array<NovaSchemaItem<any>>, batch: RectBatchCache): RectBatchUpdate | null {
+  private updatePlainRectBatch(
+    items: Array<NovaSchemaItem<any>>,
+    batch: RectBatchCache,
+    dirtyIndices?: ReadonlyArray<number>,
+  ): RectBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) {
       return null
     }
@@ -910,7 +997,9 @@ export class NovaWebGLFrameRenderer {
     const dirtyRanges: Array<FloatDirtyRange> = []
     let changedItems = 0
 
-    for (let index = 0; index < items.length; index += 1) {
+    const indexCount = dirtyIndices?.length ?? items.length
+    for (let dirtyIndex = 0; dirtyIndex < indexCount; dirtyIndex += 1) {
+      const index = dirtyIndices ? dirtyIndices[dirtyIndex] : dirtyIndex
       const rect = items[index] as NovaRect
       const signature = this.createRectSignature(rect)
       if (signature === batch.signatures[index]) continue
@@ -942,6 +1031,7 @@ export class NovaWebGLFrameRenderer {
     let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
     const rasterScale = this.resolveTextureRasterScale(items, transform)
+    const dirtyIndices = this.resolveSchemaDirtyIndices(items)
 
     if (!batch) {
       batch = this.buildTextureBatch(items, stats, rasterScale, transform)
@@ -951,7 +1041,7 @@ export class NovaWebGLFrameRenderer {
       this._textureBatchCache.set(items, batch)
       this._ownedTextureBatchCaches.add(batch)
     } else if (contentVersion === undefined || batch.contentVersion !== contentVersion || batch.rasterScale !== rasterScale) {
-      const update = this.updateTextureBatch(items, batch, stats, rasterScale, transform)
+      const update = this.updateTextureBatch(items, batch, stats, rasterScale, transform, dirtyIndices)
       if (!update) {
         batch = this.buildTextureBatch(items, stats, rasterScale, transform)
         if (!batch) return false
@@ -1037,13 +1127,16 @@ export class NovaWebGLFrameRenderer {
     stats: RenderStats,
     rasterScale?: number,
     transform?: mat3,
+    dirtyIndices?: ReadonlyArray<number>,
   ): TextureBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
 
     const dirtyRanges: Array<FloatDirtyRange> = []
     let changedItems = 0
 
-    for (let index = 0; index < items.length; index += 1) {
+    const indexCount = dirtyIndices?.length ?? items.length
+    for (let dirtyIndex = 0; dirtyIndex < indexCount; dirtyIndex += 1) {
+      const index = dirtyIndices ? dirtyIndices[dirtyIndex] : dirtyIndex
       const item = this.resolveTextureBatchItem(items[index], stats, rasterScale, transform)
       if (!item || item.texture !== batch.texture) return null
       if (item.signature === batch.signatures[index]) continue

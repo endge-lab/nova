@@ -32,7 +32,7 @@ export interface NovaCursorPointerSync<E extends EventList> {
 export class NovaCursorManager<E extends EventList = Record<string, any>> {
   readonly cursorNodes = new Set<NovaNode<E>>()
 
-  private readonly _spatialIndex = new NovaSpatialIndex<E>()
+  private readonly _spatialIndex = new NovaSpatialIndex<E>(32)
   private readonly _spatialDirtyNodes = new Set<NovaNode<E>>()
   private readonly _componentNodes = new Map<string, NovaNode<E>>()
   private _spatialFullDirty = true

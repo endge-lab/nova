@@ -640,6 +640,22 @@ export class NovaNode<
   }
 
   /**
+   * Помечает retained paint/resource update without rebuilding node render commands.
+   */
+  dirtyRetainedRender(): void {
+    this.markRenderDirtyFlags({ paint: true, resource: true, cache: true })
+    if (this.surface.renderGraph) {
+      this.surface.renderGraph.markPaintDirty(this.renderNodeId)
+      this.surface.renderGraph.markResourceDirty(this.renderNodeId)
+    } else {
+      this.markRenderFrameDirty(true)
+    }
+    this.nova.events.markSpatialDirty(this)
+    this.raph.dirty('render', this.surface)
+    this.raph.dirty('flush', this.surface)
+  }
+
+  /**
    * Возвращает local bounds.
    */
   getLocalBounds(): NovaBounds {

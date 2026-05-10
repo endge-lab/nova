@@ -34,6 +34,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
+    fileParallelism: false,
     testTimeout: 30_000,
     benchmark: {
       include: ['src/tests/benchmarks/**/*.bench.ts'],

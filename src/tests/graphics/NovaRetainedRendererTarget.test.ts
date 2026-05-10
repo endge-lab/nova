@@ -488,6 +488,27 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(plan.batches.every(batch => batch.slotCount > 0)).toBe(true)
   })
 
+  it('updates retained graph handles and stream slots by item id', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const { graph } = createCompiledFrameWithGraph(canvas, createRectSchema(4))
+    const handle = graph.handlesByNodeId.get('grid-node')?.[0]
+
+    expect(handle).toBeTruthy()
+    expect(graph.updateHandle(handle!.itemId, {
+      values: [1, 2, 3, 4],
+      batchKey: 'rect:#f97316:none:1',
+      versions: { paint: 1 },
+    })).toBe(true)
+
+    const stream = graph.streamsByGroupId.get(handle!.groupId)?.get(handle!.streamId)
+    const slot = stream?.slotsByItemId.get(handle!.itemId)
+
+    expect(slot?.batchKey).toBe('rect:#f97316:none:1')
+    expect(stream?.consumeDirtyRanges().length).toBeGreaterThan(0)
+    expect(handle!.versions.paint).toBe(1)
+  })
+
   it('compiles ctx.particles into retained particle stream handles', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -598,6 +619,33 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(dirty.fullUploads).toBe(0)
     expect(dirty.bufferSubDataCalls).toBeGreaterThan(0)
     expect(dirty.updatedHandles).toBe(5)
+  })
+
+  it('uses schema dirty indices to skip full batch scans on retained paint updates', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schema = createRectSchema(100)
+
+    schema.contentVersion = 1
+    const first = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const warm = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    for (let index = 0; index < schema.length; index += 1) {
+      const item = schema[index]
+      if (item.type === 'rect') item.styles = { ...item.styles, background: '#f97316' }
+    }
+
+    schema.contentVersion = 2
+    schema.dirtyIndices = [10, 40]
+    const dirty = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.uploadBytes).toBe(0)
+    expect(dirty.updatedHandles).toBe(2)
+    expect(dirty.uploadBytes).toBeGreaterThan(0)
+    expect(dirty.uploadBytes).toBeLessThan(first.uploadBytes!)
+    expect(dirty.fullUploads).toBe(0)
   })
 
   it('renders shader-animation frames through uniforms without stream uploads after warmup', () => {

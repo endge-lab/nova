@@ -269,6 +269,7 @@ export type NovaSemanticScopeKind = 'strict' | 'grid' | 'table' | 'timeline-row'
 export type NovaSchema<TCustom extends { type: string } = never> = Array<NovaSchemaItem<TCustom>> & {
   semanticScope?: NovaSemanticScopeKind
   contentVersion?: number
+  dirtyIndices?: ReadonlyArray<number>
 }
 
 /**

@@ -4,9 +4,11 @@ import {
   NovaNode,
   NovaTemplateRuntime,
   reconcileNovaTemplateChildren,
+  type NovaApp,
   type NovaComponentDescriptor,
   type NovaComponentSchema,
   type NovaComponentCreateContext,
+  type NovaSurface,
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
 
@@ -33,6 +35,37 @@ class TemplateHostNode extends NovaNode<Record<string, any>> {
     ])
   }
 }
+
+class CompiledTemplateNode extends NovaNode<Record<string, any>> {
+  props: Record<string, unknown>
+  listeners: Record<string, (...args: Array<any>) => void>
+
+  constructor(
+    app: NovaApp<Record<string, any>>,
+    surface: NovaSurface<Record<string, any>>,
+    props: Record<string, unknown> = {},
+    listeners: Record<string, (...args: Array<any>) => void> = {},
+  ) {
+    super(app, surface)
+    this.props = props
+    this.listeners = listeners
+  }
+
+  setProps(patch: Record<string, unknown>): this {
+    this.props = {
+      ...this.props,
+      ...patch,
+    }
+    return this
+  }
+
+  setListeners(listeners: Record<string, (...args: Array<any>) => void>): this {
+    this.listeners = listeners
+    return this
+  }
+}
+
+class ReplacementCompiledTemplateNode extends CompiledTemplateNode {}
 
 function createDescriptor(): NovaComponentDescriptor<TestProps, unknown, Record<string, unknown>, TestProps> {
   const descriptor: NovaComponentDescriptor<TestProps, unknown, Record<string, unknown>, TestProps> = {
@@ -116,6 +149,60 @@ describe('Nova template runtime', () => {
     expect(host.updateCount).toBe(1)
     expect(host.children).toHaveLength(1)
     expect(host.template.getStats().created).toBe(1)
+
+    app.destroy()
+  })
+
+  it('creates compiled constructor children and patches props/listeners', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('compiled-template')
+    const parent = surface.createNode()
+    const runtime = new NovaTemplateRuntime(parent)
+    const firstListener = vi.fn()
+    const secondListener = vi.fn()
+
+    runtime.reconcile([
+      {
+        type: CompiledTemplateNode,
+        id: 'compiled',
+        props: { label: 'first' },
+        events: { press: firstListener },
+      },
+    ])
+
+    const node = parent.children[0] as CompiledTemplateNode
+    const stats = runtime.reconcile([
+      {
+        type: CompiledTemplateNode,
+        id: 'compiled',
+        props: { label: 'second' },
+        events: { press: secondListener },
+      },
+    ])
+
+    expect(stats.created).toBe(0)
+    expect(stats.reused).toBe(1)
+    expect(parent.children[0]).toBe(node)
+    expect(node.props.label).toBe('second')
+    expect(node.listeners.press).toBe(secondListener)
+
+    app.destroy()
+  })
+
+  it('recreates compiled constructor children when constructor changes', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('compiled-template-hmr')
+    const parent = surface.createNode()
+    const runtime = new NovaTemplateRuntime(parent)
+
+    runtime.reconcile([{ type: CompiledTemplateNode, id: 'compiled' }])
+    const first = parent.children[0]
+    const stats = runtime.reconcile([{ type: ReplacementCompiledTemplateNode, id: 'compiled' }])
+
+    expect(stats.created).toBe(1)
+    expect(stats.removed).toBe(1)
+    expect(parent.children[0]).not.toBe(first)
+    expect(parent.children[0]).toBeInstanceOf(ReplacementCompiledTemplateNode)
 
     app.destroy()
   })
