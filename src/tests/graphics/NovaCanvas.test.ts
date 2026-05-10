@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { RendererType } from '@/domain/types/renderer-types'
-import { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
+import { RendererType } from '@/domain/types/renderer.types'
+import { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
 
 describe('NovaCanvas', () => {
   afterEach(() => {

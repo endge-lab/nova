@@ -1,4 +1,4 @@
-import type { NovaBounds } from '@/domain/types/renderer-types'
+import type { NovaBounds } from '@/domain/types/renderer.types'
 import type { mat3 } from 'gl-matrix'
 
 /**

@@ -198,7 +198,6 @@ function createApp(
     },
     renderer: {
       main: RendererType.Web2D,
-      defaultSurface: RendererType.Web2D,
     },
     scheduler: {
       type: RaphSchedulerType.Sync,

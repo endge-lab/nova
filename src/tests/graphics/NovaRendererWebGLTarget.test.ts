@@ -84,8 +84,8 @@ describe('Nova target WebGL2 renderer contracts', () => {
   })
 
   it('does not depend on webgl-old or drawImage replay in the target backend', () => {
-    const rendererSource = readFileSync(resolve(process.cwd(), 'src/model/renderers/webgl/NovaRendererWebGL.ts'), 'utf8')
-    const frameRendererSource = readFileSync(resolve(process.cwd(), 'src/model/renderers/webgl/NovaWebGLFrameRenderer.ts'), 'utf8')
+    const rendererSource = readFileSync(resolve(process.cwd(), 'src/model/render/backends/webgl/NovaRendererWebGL.ts'), 'utf8')
+    const frameRendererSource = readFileSync(resolve(process.cwd(), 'src/model/render/backends/webgl/NovaWebGLFrameRenderer.ts'), 'utf8')
     const combined = `${rendererSource}\n${frameRendererSource}`
 
     expect(combined).not.toContain('webgl_old')

@@ -1,0 +1,868 @@
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { EventList } from '@endge/utils'
+import { NovaSpatialIndex } from '@/model/runtime/interaction/NovaSpatialIndex'
+import type { NovaHitTestMode } from '@/domain/types/renderer.types'
+import type { NovaDragEventMeta } from '@/domain/types/events.types'
+
+/**
+ * Описывает тип NovaPointerDomEvent.
+ */
+type NovaPointerDomEvent = MouseEvent & { pointerId?: number }
+
+/**
+ * Описывает тип NovaPointerState.
+ */
+type NovaPointerState<E extends EventList> = {
+  pointerId: number
+  startX: number
+  startY: number
+  lastX: number
+  lastY: number
+  x: number
+  y: number
+  isDragging: boolean
+  isDraggingEmitted: boolean
+  draggedNodes: Set<NovaNode<E>>
+}
+
+const DEFAULT_POINTER_ID = 1
+const DEFAULT_SCOPE = 'default'
+
+/**
+ * Управляет DOM-событиями, hit-test и маршрутизацией событий к Nova nodes.
+ */
+export class NovaEvents<E extends EventList> {
+  interactiveNodes: Set<NovaNode<E>> = new Set()
+  hoveredNodes: Set<NovaNode<E>> = new Set()
+  draggedNodes: Set<NovaNode<E>> = new Set()
+  selectedNodes: Set<NovaNode<E>> = new Set()
+  focusedNode: NovaNode<E> | null = null
+  pointerCaptureNode: NovaNode<E> | null = null
+  readonly selectedNodesByScope = new Map<string, Set<NovaNode<E>>>()
+  readonly focusedNodesByScope = new Map<string, NovaNode<E> | null>()
+  hitTestMode: NovaHitTestMode = 'linear'
+  lastHitTestCandidates = 0
+  lastHitTestMode: NovaHitTestMode = 'linear'
+
+  isDragging = false
+  isDraggingEmitted = false
+  lastClickTime = 0
+  clickTimeout: number | null = null
+
+  startMouseX = 0
+  startMouseY = 0
+  lastMouseX = 0
+  lastMouseY = 0
+  mouseX = 0
+  mouseY = 0
+
+  clickTimeoutMs = 250
+
+  private _mouseMoveQueued = false
+  private _lastMouseMoveEvent: NovaPointerDomEvent | null = null
+  private readonly _spatialIndex = new NovaSpatialIndex<E>()
+  private readonly _spatialDirtyNodes = new Set<NovaNode<E>>()
+  private readonly _pointerCaptureNodes = new Map<number, NovaNode<E>>()
+  private readonly _pointerStates = new Map<number, NovaPointerState<E>>()
+  private _spatialFullDirty = true
+  private _activePointerId = DEFAULT_POINTER_ID
+
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
+  constructor(public readonly app: NovaApp<E>) {}
+
+  /**
+   * Сбрасывает внутреннее состояние к начальному виду.
+   */
+  reset(): void {
+    if (this.clickTimeout) {
+      clearTimeout(this.clickTimeout)
+      this.clickTimeout = null
+    }
+    this.interactiveNodes.clear()
+    this.hoveredNodes.clear()
+    this.draggedNodes.clear()
+    this.selectedNodes.clear()
+    this.selectedNodesByScope.clear()
+    this.focusedNodesByScope.clear()
+    this.focusedNode = null
+    this.pointerCaptureNode = null
+    this._pointerCaptureNodes.clear()
+    this._pointerStates.clear()
+    this._activePointerId = DEFAULT_POINTER_ID
+    this.isDragging = false
+    this.isDraggingEmitted = false
+    this._mouseMoveQueued = false
+    this._lastMouseMoveEvent = null
+    this._spatialIndex.clear()
+    this._spatialDirtyNodes.clear()
+    this._spatialFullDirty = true
+    this.lastHitTestCandidates = 0
+  }
+
+  /**
+   * Помечает spatial dirty.
+   */
+  markSpatialDirty(node?: NovaNode<E>, includeChildren = false): void {
+    if (!node) {
+      this._spatialFullDirty = true
+      this._spatialDirtyNodes.clear()
+      return
+    }
+
+    if (this._spatialFullDirty) return
+    this._spatialDirtyNodes.add(node)
+    if (!includeChildren) return
+
+    for (const child of node.children) {
+      if (child instanceof NovaNode) {
+        this.markSpatialDirty(child, true)
+      }
+    }
+  }
+
+  /**
+   * Удаляет node references.
+   */
+  removeNodeReferences(node: NovaNode<E>): void {
+    this.interactiveNodes.delete(node)
+    this._spatialDirtyNodes.delete(node)
+    this._spatialIndex.remove(node)
+    this.hoveredNodes.delete(node)
+    this.draggedNodes.delete(node)
+    this.selectedNodes.delete(node)
+    for (const nodes of this.selectedNodesByScope.values()) {
+      nodes.delete(node)
+    }
+    for (const [scope, focused] of this.focusedNodesByScope) {
+      if (focused === node) this.focusedNodesByScope.set(scope, null)
+    }
+    if (this.focusedNode === node) this.focusedNode = null
+    for (const [pointerId, captured] of this._pointerCaptureNodes) {
+      if (captured === node) this._pointerCaptureNodes.delete(pointerId)
+    }
+    if (this.pointerCaptureNode === node) this.pointerCaptureNode = this._firstCapturedNode()
+  }
+
+  /**
+   * Выполняет внутреннюю операцию handle.
+   */
+  handle(type: keyof NovaNodeEventHandlers, event: Event): boolean {
+    if (this.interactiveNodes.size === 0 && !this.focusedNode && this._pointerCaptureNodes.size === 0) return false
+
+    switch (type) {
+      case 'mousedown':
+        return this.onMouseDown(event as MouseEvent)
+      case 'mousemove':
+        return this.onMouseMove(event as MouseEvent)
+      case 'mouseup':
+        return this.onMouseUp(event as MouseEvent)
+      case 'wheel':
+        return this.onWheel(event as WheelEvent)
+      case 'contextmenu':
+        return this.onContextMenu(event as MouseEvent)
+      case 'keydown':
+        return this.onKeyDown(event as KeyboardEvent)
+      case 'keyup':
+        return this.onKeyUp(event as KeyboardEvent)
+      case 'mouseenter':
+        return this.onCanvasEnter(event as MouseEvent)
+      case 'mouseleave':
+        return this.onCanvasLeave(event as MouseEvent)
+      default:
+        return false
+    }
+  }
+
+  // Css координаты
+  /**
+   * Возвращает canvas mouse position.
+   */
+  getCanvasMousePosition(event: MouseEvent): { x: number; y: number } {
+    const rect = this.app.canvas.element.getBoundingClientRect()
+    const cssX = event.clientX - rect.left
+    const cssY = event.clientY - rect.top
+
+    return {
+      x: cssX,
+      y: cssY,
+    }
+  }
+
+  /**
+   * Выполняет внутреннюю операцию hit test.
+   */
+  hitTest(x: number, y: number): NovaNode<E> | null {
+    const candidates = this.getHitCandidates(x, y)
+      .filter(node => node.active && node.visible && node.containsPoint(x, y))
+
+    candidates.sort((a, b) => this.app.compareRenderOrder(a, b))
+    return candidates[candidates.length - 1] ?? null
+  }
+
+  /**
+   * Обновляет pointer capture.
+   */
+  setPointerCapture(node: NovaNode<E>, event?: MouseEvent): void {
+    const pointerId = this.getPointerId(event)
+    const previous = this._pointerCaptureNodes.get(pointerId) ?? null
+    if (previous === node) return
+
+    this._pointerCaptureNodes.set(pointerId, node)
+    this.pointerCaptureNode = node
+    if (previous) this.callHandler(previous.eventHandlers.lostpointercapture, event ?? new Event('lostpointercapture'))
+    this.callHandler(node.eventHandlers.gotpointercapture, event ?? new Event('gotpointercapture'))
+  }
+
+  /**
+   * Выполняет внутреннюю операцию release pointer capture.
+   */
+  releasePointerCapture(node?: NovaNode<E>, event?: MouseEvent): void {
+    const pointerId = event ? this.getPointerId(event) : undefined
+    const entries = pointerId !== undefined
+      ? ([[pointerId, this._pointerCaptureNodes.get(pointerId)]] as Array<[number, NovaNode<E> | undefined]>)
+      : [...this._pointerCaptureNodes.entries()]
+
+    for (const [capturedPointerId, captured] of entries) {
+      if (!captured || (node && captured !== node)) continue
+
+      this._pointerCaptureNodes.delete(capturedPointerId)
+      this.callHandler(captured.eventHandlers.lostpointercapture, event ?? new Event('lostpointercapture'))
+    }
+
+    this.pointerCaptureNode = this._firstCapturedNode()
+  }
+
+  /**
+   * Проверяет наличие pointer capture.
+   */
+  hasPointerCapture(node: NovaNode<E>, event?: MouseEvent): boolean {
+    if (event) return this._pointerCaptureNodes.get(this.getPointerId(event)) === node
+    for (const captured of this._pointerCaptureNodes.values()) {
+      if (captured === node) return true
+    }
+    return false
+  }
+
+  /**
+   * Выполняет внутреннюю операцию focus.
+   */
+  focus(node: NovaNode<E> | null, event: Event = new Event('focus'), scope = DEFAULT_SCOPE): void {
+    const previous = this.getFocusedScope(scope)
+    if (previous === node) return
+
+    this.focusedNodesByScope.set(scope, node)
+    if (scope === DEFAULT_SCOPE) this.focusedNode = node
+    if (previous) this.callHandler(previous.eventHandlers.blur, event)
+    if (node) this.callHandler(node.eventHandlers.focus, event)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию blur.
+   */
+  blur(node?: NovaNode<E>, event: Event = new Event('blur'), scope = DEFAULT_SCOPE): void {
+    const previous = this.getFocusedScope(scope)
+    if (!previous || (node && previous !== node)) return
+
+    this.focusedNodesByScope.set(scope, null)
+    if (scope === DEFAULT_SCOPE) this.focusedNode = null
+    this.callHandler(previous.eventHandlers.blur, event)
+  }
+
+  /**
+   * Проверяет focused.
+   */
+  isFocused(node: NovaNode<E>, scope = DEFAULT_SCOPE): boolean {
+    return this.getFocusedScope(scope) === node
+  }
+
+  /**
+   * Выполняет внутреннюю операцию select.
+   */
+  select(node: NovaNode<E>, options: { append?: boolean; toggle?: boolean; scope?: string } = {}, event: Event = new Event('select')): void {
+    const scope = options.scope ?? DEFAULT_SCOPE
+    const selectedNodes = this.getSelectionScope(scope)
+    if (options.toggle && selectedNodes.has(node)) {
+      this.deselect(node, event, scope)
+      return
+    }
+
+    if (!options.append) {
+      this.clearSelection(event, scope)
+    }
+    if (selectedNodes.has(node)) return
+
+    selectedNodes.add(node)
+    this.callHandler(node.eventHandlers.select, event)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию deselect.
+   */
+  deselect(node: NovaNode<E>, event: Event = new Event('deselect'), scope = DEFAULT_SCOPE): void {
+    const selectedNodes = this.getSelectionScope(scope)
+    if (!selectedNodes.delete(node)) return
+
+    this.callHandler(node.eventHandlers.deselect, event)
+  }
+
+  /**
+   * Очищает selection.
+   */
+  clearSelection(event: Event = new Event('deselect'), scope = DEFAULT_SCOPE): void {
+    for (const node of [...this.getSelectionScope(scope)]) {
+      this.deselect(node, event, scope)
+    }
+  }
+
+  /**
+   * Проверяет selected.
+   */
+  isSelected(node: NovaNode<E>, scope = DEFAULT_SCOPE): boolean {
+    return this.getSelectionScope(scope).has(node)
+  }
+
+  /**
+   * Возвращает selection scope.
+   */
+  private getSelectionScope(scope: string): Set<NovaNode<E>> {
+    if (scope === DEFAULT_SCOPE) {
+      if (!this.selectedNodesByScope.has(scope)) {
+        this.selectedNodesByScope.set(scope, this.selectedNodes)
+      }
+      return this.selectedNodes
+    }
+
+    let selectedNodes = this.selectedNodesByScope.get(scope)
+    if (!selectedNodes) {
+      selectedNodes = new Set()
+      this.selectedNodesByScope.set(scope, selectedNodes)
+    }
+    return selectedNodes
+  }
+
+  /**
+   * Возвращает focused scope.
+   */
+  private getFocusedScope(scope: string): NovaNode<E> | null {
+    if (scope === DEFAULT_SCOPE) return this.focusedNode
+    return this.focusedNodesByScope.get(scope) ?? null
+  }
+
+  /**
+   * Возвращает hit candidates.
+   */
+  private getHitCandidates(x: number, y: number): Array<NovaNode<E>> {
+    this.lastHitTestMode = this.hitTestMode
+
+    if (this.hitTestMode === 'spatial') {
+      if (this._spatialFullDirty) {
+        this._spatialIndex.rebuild(this.interactiveNodes)
+        this._spatialFullDirty = false
+        this._spatialDirtyNodes.clear()
+      } else if (this._spatialDirtyNodes.size > 0) {
+        for (const node of this._spatialDirtyNodes) {
+          if (this.interactiveNodes.has(node)) {
+            this._spatialIndex.update(node)
+          } else {
+            this._spatialIndex.remove(node)
+          }
+        }
+        this._spatialDirtyNodes.clear()
+      }
+      const candidates = this._spatialIndex.queryPoint(x, y)
+      this.lastHitTestCandidates = candidates.length
+      return candidates
+    }
+
+    const candidates = [...this.interactiveNodes]
+    this.lastHitTestCandidates = candidates.length
+    return candidates
+  }
+
+  /**
+   * Возвращает pointer id.
+   */
+  private getPointerId(event?: MouseEvent): number {
+    const pointerId = (event as NovaPointerDomEvent | undefined)?.pointerId
+    return typeof pointerId === 'number' && Number.isFinite(pointerId) ? pointerId : DEFAULT_POINTER_ID
+  }
+
+  /**
+   * Возвращает pointer state.
+   */
+  private getPointerState(pointerId: number): NovaPointerState<E> {
+    let state = this._pointerStates.get(pointerId)
+    if (!state) {
+      state = {
+        pointerId,
+        startX: 0,
+        startY: 0,
+        lastX: 0,
+        lastY: 0,
+        x: 0,
+        y: 0,
+        isDragging: false,
+        isDraggingEmitted: false,
+        draggedNodes: new Set(),
+      }
+      this._pointerStates.set(pointerId, state)
+    }
+    return state
+  }
+
+  /**
+   * Выполняет внутреннюю операцию sync pointer state.
+   */
+  private syncPointerState(state: NovaPointerState<E>): void {
+    this._activePointerId = state.pointerId
+    this.startMouseX = state.startX
+    this.startMouseY = state.startY
+    this.lastMouseX = state.lastX
+    this.lastMouseY = state.lastY
+    this.mouseX = state.x
+    this.mouseY = state.y
+    this.isDragging = state.isDragging
+    this.isDraggingEmitted = state.isDraggingEmitted
+    this.draggedNodes = state.draggedNodes
+  }
+
+  /**
+   * Возвращает captured node.
+   */
+  private getCapturedNode(event?: MouseEvent): NovaNode<E> | null {
+    return this._pointerCaptureNodes.get(this.getPointerId(event)) ?? null
+  }
+
+  /**
+   * Выполняет внутреннюю операцию first captured node.
+   */
+  private _firstCapturedNode(): NovaNode<E> | null {
+    return this._pointerCaptureNodes.values().next().value ?? null
+  }
+
+  /**
+   * Выполняет внутреннюю операцию dispatch pointer.
+   */
+  private dispatchPointer<K extends keyof NovaNodeEventHandlers>(
+    type: K,
+    event: MouseEvent | WheelEvent,
+    target: NovaNode<E> | null,
+  ): boolean {
+    if (!target) return false
+
+    const path = this.buildEventPath(target)
+    for (const node of path.slice(0, -1)) {
+      this.callHandler(node.captureEventHandlers[type], event)
+      if (event.cancelBubble) return true
+    }
+
+    this.callHandler(target.captureEventHandlers[type], event)
+    if (event.cancelBubble) return true
+
+    this.callHandler(target.eventHandlers[type], event)
+    if (event.cancelBubble) return true
+
+    for (const node of path.slice(0, -1).reverse()) {
+      this.callHandler(node.eventHandlers[type], event)
+      if (event.cancelBubble) return true
+    }
+
+    return true
+  }
+
+  /**
+   * Выполняет внутреннюю операцию build event path.
+   */
+  private buildEventPath(target: NovaNode<E>): Array<NovaNode<E>> {
+    const path: Array<NovaNode<E>> = []
+    let current: unknown = target
+
+    while (current instanceof NovaNode) {
+      path.unshift(current)
+      current = (current as NovaNode<E>).parent
+    }
+
+    return path
+  }
+
+  /**
+   * Выполняет внутреннюю операцию call handler.
+   */
+  private callHandler(handler: unknown, event: MouseEvent | WheelEvent | KeyboardEvent | Event): void {
+    if (typeof handler !== 'function') return
+    ;(handler as (e: typeof event) => void)(event)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию call drag handler.
+   */
+  private callDragHandler(
+    node: NovaNode<E>,
+    type: 'dragstart' | 'dragmove' | 'dragend' | 'dragcancel',
+    event: MouseEvent,
+    meta: NovaDragEventMeta,
+  ): void {
+    const handler = node.eventHandlers[type]
+    if (typeof handler !== 'function') return
+
+    if (type === 'dragmove') {
+      ;(handler as NonNullable<NovaNodeEventHandlers['dragmove']>)(event, meta.dx, meta.dy, meta)
+      return
+    }
+
+    ;(handler as NonNullable<NovaNodeEventHandlers['dragstart']>)(event, meta)
+  }
+
+  /**
+   * Создает drag meta.
+   */
+  private createDragMeta(dx = 0, dy = 0): NovaDragEventMeta {
+    const state = this.getPointerState(this._activePointerId)
+    return {
+      pointerId: state.pointerId,
+      startX: state.startX,
+      startY: state.startY,
+      x: state.x,
+      y: state.y,
+      dx,
+      dy,
+      totalDx: state.x - state.startX,
+      totalDy: state.y - state.startY,
+    }
+  }
+
+  /**
+   * Обрабатывает событие mouse down.
+   */
+  private onMouseDown(event: MouseEvent): boolean {
+    if (event.cancelBubble) return false
+
+    const pointerId = this.getPointerId(event)
+    const state = this.getPointerState(pointerId)
+    const { x, y } = this.getCanvasMousePosition(event)
+    state.startX = x
+    state.startY = y
+    state.x = x
+    state.y = y
+    state.lastX = x
+    state.lastY = y
+    state.isDragging = true
+    state.isDraggingEmitted = false
+    state.draggedNodes.clear()
+    this.syncPointerState(state)
+
+    const target = this.hitTest(x, y)
+    if (target) {
+      this.focus(target, event)
+      state.draggedNodes.add(target)
+      this.syncPointerState(state)
+      this.dispatchPointer('mousedown', event, target)
+      if (!event.cancelBubble && this.app.inputOptions.pointer.capture) this.setPointerCapture(target, event)
+    } else {
+      this.blur(undefined, event)
+      this.clearSelection(event)
+    }
+    return true
+  }
+
+  /**
+   * Обрабатывает событие mouse move.
+   */
+  private onMouseMove(event: MouseEvent): boolean {
+    if (event.cancelBubble) return false
+
+    this._lastMouseMoveEvent = event
+
+    if (!this._mouseMoveQueued) {
+      this._mouseMoveQueued = true
+      requestAnimationFrame(() => {
+        this._mouseMoveQueued = false
+        if (this._lastMouseMoveEvent) {
+          this._handleMouseMove(this._lastMouseMoveEvent)
+        }
+      })
+    }
+
+    return true
+  }
+
+  /**
+   * Выполняет внутреннюю операцию handle mouse move.
+   */
+  private _handleMouseMove(event: NovaPointerDomEvent): boolean {
+    if (event.cancelBubble) return false
+
+    const pointerId = this.getPointerId(event)
+    const state = this.getPointerState(pointerId)
+    const { x, y } = this.getCanvasMousePosition(event)
+    state.x = x
+    state.y = y
+    const dx = state.x - state.lastX
+    const dy = state.y - state.lastY
+    state.lastX = x
+    state.lastY = y
+    this.syncPointerState(state)
+
+    const capturedTarget = this.getCapturedNode(event)
+    if (capturedTarget && !state.draggedNodes.has(capturedTarget)) {
+      state.draggedNodes.add(capturedTarget)
+      this.syncPointerState(state)
+    }
+
+    if (state.isDragging && state.draggedNodes.size > 0) {
+      const meta = this.createDragMeta(dx, dy)
+      if (!state.isDraggingEmitted) {
+        for (const node of state.draggedNodes) {
+          this.callDragHandler(node, 'dragstart', event, meta)
+          if (event.cancelBubble) break
+        }
+        state.isDraggingEmitted = true
+        this.syncPointerState(state)
+      }
+      for (const node of state.draggedNodes) {
+        this.callDragHandler(node, 'dragmove', event, meta)
+        if (event.cancelBubble) break
+      }
+      if (capturedTarget && !event.cancelBubble) {
+        this.dispatchPointer('mousemove', event, capturedTarget)
+      }
+      return true
+    }
+
+    const target = this.hitTest(x, y)
+    const newHovered = new Set<NovaNode<E>>(target ? [target] : [])
+
+    for (const node of this.hoveredNodes) {
+      if (!newHovered.has(node)) {
+        node.eventHandlers['mouseleave']?.(event)
+        node.eventHandlers.hover?.(event, false)
+      }
+    }
+
+    if (target) {
+      if (!this.hoveredNodes.has(target)) {
+        target.eventHandlers['mouseenter']?.(event)
+        target.eventHandlers.hover?.(event, true)
+      }
+      if (!event.cancelBubble) {
+        this.dispatchPointer('mousemove', event, target)
+      }
+    }
+
+    this.hoveredNodes = newHovered
+    return true
+  }
+
+  /**
+   * Обрабатывает событие mouse up.
+   */
+  private onMouseUp(event: MouseEvent): boolean {
+    if (event.cancelBubble) return false
+
+    const pointerId = this.getPointerId(event)
+    const state = this.getPointerState(pointerId)
+    const { x, y } = this.getCanvasMousePosition(event)
+    state.x = x
+    state.y = y
+    this.syncPointerState(state)
+
+    const capturedTarget = this.getCapturedNode(event)
+    if (state.isDraggingEmitted && state.draggedNodes.size > 0) {
+      const meta = this.createDragMeta()
+      for (const node of state.draggedNodes) {
+        this.callDragHandler(node, 'dragend', event, meta)
+        if (event.cancelBubble) break
+      }
+    }
+    state.isDragging = false
+    state.isDraggingEmitted = false
+    state.draggedNodes.clear()
+    this.syncPointerState(state)
+
+    const mouseUpTarget = capturedTarget ?? this.hitTest(this.mouseX, this.mouseY)
+    this.dispatchPointer('mouseup', event, mouseUpTarget)
+
+    if (
+      Math.abs(this.startMouseX - this.mouseX) <= 2 &&
+      Math.abs(this.startMouseY - this.mouseY) <= 2 &&
+      event.button === 0
+    ) {
+      const now = Date.now()
+      const isDoubleClick = now - this.lastClickTime < this.clickTimeoutMs
+      this.lastClickTime = now
+
+      const x = this.mouseX
+      const y = this.mouseY
+
+      if (isDoubleClick) {
+        if (this.clickTimeout) {
+          clearTimeout(this.clickTimeout)
+          this.clickTimeout = null
+        }
+        this.dispatchPointer('dblclick', event, capturedTarget ?? this.hitTest(x, y))
+      } else {
+        this.clickTimeout = window.setTimeout(() => {
+          this.dispatchPointer('click', event, capturedTarget ?? this.hitTest(x, y))
+          this.clickTimeout = null
+        }, this.clickTimeoutMs)
+      }
+    }
+
+    this.releasePointerCapture(capturedTarget ?? undefined, event)
+    this._pointerStates.delete(pointerId)
+    return true
+  }
+
+  /**
+   * Обрабатывает событие wheel.
+   */
+  private onWheel(event: WheelEvent): boolean {
+    if (event.cancelBubble) return false
+
+    if (event.ctrlKey || event.metaKey) {
+      const { x, y } = this.getCanvasMousePosition(event)
+      this.dispatchPointer('zoom', event, this.hitTest(x, y))
+      return true
+    }
+
+    const { x, y } = this.getCanvasMousePosition(event)
+    this.dispatchPointer('wheel', event, this.hitTest(x, y))
+    return true
+  }
+
+  /**
+   * Обрабатывает событие context menu.
+   */
+  private onContextMenu(event: MouseEvent): boolean {
+    if (event.cancelBubble) return false
+
+    const { x, y } = this.getCanvasMousePosition(event)
+    this.dispatchPointer('contextmenu', event, this.hitTest(x, y))
+    return true
+  }
+
+  /**
+   * Обрабатывает событие key down.
+   */
+  private onKeyDown(event: KeyboardEvent): boolean {
+    if (event.cancelBubble || event.repeat) return false
+
+    if (this.focusedNode?.active) {
+      return this.dispatchKeyboard('keydown', event, this.focusedNode)
+    }
+
+    for (const node of this.interactiveNodes) {
+      if (node.active) {
+        this.callHandler(node.eventHandlers['keydown'], event)
+        if (event.cancelBubble || event.defaultPrevented) return true
+      }
+    }
+    return false
+  }
+
+  /**
+   * Обрабатывает событие key up.
+   */
+  private onKeyUp(event: KeyboardEvent): boolean {
+    if (event.cancelBubble) return false
+
+    if (this.focusedNode?.active) {
+      return this.dispatchKeyboard('keyup', event, this.focusedNode)
+    }
+
+    for (const node of this.interactiveNodes) {
+      if (node.active) {
+        this.callHandler(node.eventHandlers['keyup'], event)
+        if (event.cancelBubble || event.defaultPrevented) return true
+      }
+    }
+    return false
+  }
+
+  /**
+   * Обрабатывает событие canvas enter.
+   */
+  private onCanvasEnter(event: MouseEvent): boolean {
+    this.isDragging = false
+    this.isDraggingEmitted = false
+    this.hoveredNodes.clear()
+    this.draggedNodes.clear()
+    this._pointerStates.clear()
+
+    const { x, y } = this.getCanvasMousePosition(event)
+    this.mouseX = x
+    this.mouseY = y
+    this.lastMouseX = x
+    this.lastMouseY = y
+
+    if (event.cancelBubble) return false
+
+    for (const node of this.interactiveNodes) {
+      if (node.active) {
+        node.eventHandlers['canvasenter']?.(event)
+        if (event.cancelBubble) break
+      }
+    }
+    return true
+  }
+
+  /**
+   * Обрабатывает событие canvas leave.
+   */
+  private onCanvasLeave(event: MouseEvent): boolean {
+    if (this._pointerCaptureNodes.size > 0) {
+      return true
+    }
+
+    if (this.isDragging && this.draggedNodes.size > 0) {
+      const meta = this.createDragMeta()
+      for (const node of this.draggedNodes) {
+        this.callDragHandler(node, 'dragcancel', event, meta)
+        if (event.cancelBubble) break
+      }
+    }
+
+    this.isDragging = false
+    this.isDraggingEmitted = false
+    this._pointerStates.clear()
+    for (const node of this.hoveredNodes) {
+      node.eventHandlers.mouseleave?.(event)
+      node.eventHandlers.hover?.(event, false)
+    }
+    this.hoveredNodes.clear()
+    this.draggedNodes.clear()
+    this.releasePointerCapture(undefined, event)
+
+    if (event.cancelBubble) return false
+
+    for (const node of this.interactiveNodes) {
+      if (node.active) {
+        node.eventHandlers['canvasleave']?.(event)
+        if (event.cancelBubble) break
+      }
+    }
+    return true
+  }
+
+  /**
+   * Выполняет внутреннюю операцию dispatch keyboard.
+   */
+  private dispatchKeyboard(type: 'keydown' | 'keyup', event: KeyboardEvent, target: NovaNode<E>): boolean {
+    const path = this.buildEventPath(target)
+    for (const node of path.slice(0, -1)) {
+      this.callHandler(node.captureEventHandlers[type], event)
+      if (event.cancelBubble) return true
+    }
+    this.callHandler(target.eventHandlers[type], event)
+    if (event.cancelBubble || event.defaultPrevented) return true
+    for (const node of path.slice(0, -1).reverse()) {
+      this.callHandler(node.eventHandlers[type], event)
+      if (event.cancelBubble || event.defaultPrevented) return true
+    }
+    return false
+  }
+}

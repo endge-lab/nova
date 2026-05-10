@@ -4,7 +4,7 @@ import type {
   NovaMotionTimelineOptions,
   NovaMotionValue,
   NovaMotionPlayback,
-} from '@/domain/types/motion-types'
+} from '@/domain/types/motion.types'
 
 /**
  * Компилирует nova motion timeline.

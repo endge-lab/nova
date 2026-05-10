@@ -4,7 +4,7 @@ import type {
   NovaSemanticScopeKind,
   NovaSchemaItem,
   RendererType,
-} from '@/domain/types/renderer-types'
+} from '@/domain/types/renderer.types'
 
 /**
  * Описывает тип NovaRenderLayerId.

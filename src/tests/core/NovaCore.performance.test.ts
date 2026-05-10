@@ -110,7 +110,6 @@ function createApp(options: { width?: number; height?: number; input?: boolean; 
     },
     renderer: {
       main: RendererType.Web2D,
-      defaultSurface: RendererType.Web2D,
     },
     scheduler: {
       type: RaphSchedulerType.Sync,

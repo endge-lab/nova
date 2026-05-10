@@ -1,7 +1,7 @@
 import type { RaphLoopLease } from '@endge/raph'
-import type { NovaApp } from '@/model/app/NovaApp'
-import { NovaComponentNode } from '@/model/core/NovaComponentNode'
-import { NovaNode } from '@/model/core/NovaNode'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
 import { clampMotionProgress, resolveNovaMotionEasing } from '@/model/motion/NovaMotionEasing'
 import { interpolateNovaMotionValue } from '@/model/motion/NovaMotionInterpolation'
 import {
@@ -24,7 +24,7 @@ import type {
   NovaMotionTimelineOptions,
   NovaMotionTweenOptions,
   NovaMotionValue,
-} from '@/domain/types/motion-types'
+} from '@/domain/types/motion.types'
 
 const NODE_MOTION_KEYS = new Set([
   'x',

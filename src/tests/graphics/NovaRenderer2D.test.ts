@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { NovaRenderer2D } from '@/model/renderers/web2d/NovaRenderer2D'
-import type { NovaCanvas } from '@/model/renderers/shared/NovaCanvas'
+import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
+import type { NovaCanvas } from '@/model/infrastructure/canvas/NovaCanvas'
 
 function createContextSpy(): CanvasRenderingContext2D & { calls: string[] } {
   const calls: string[] = []

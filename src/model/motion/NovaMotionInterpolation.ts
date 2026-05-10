@@ -1,4 +1,4 @@
-import type { NovaMotionValue } from '@/domain/types/motion-types'
+import type { NovaMotionValue } from '@/domain/types/motion.types'
 
 /**
  * Описывает контракт RgbaColor.

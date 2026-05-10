@@ -1,4 +1,4 @@
-import type { NovaMotionEasingName, NovaMotionOptions } from '@/domain/types/motion-types'
+import type { NovaMotionEasingName, NovaMotionOptions } from '@/domain/types/motion.types'
 
 /**
  * Хранит значение NOVA_MOTION_EASING, используемое runtime-кодом пакета.

@@ -7,7 +7,7 @@ import type {
   NovaMotionTimelineOptions,
   NovaMotionTweenOptions,
   NovaMotionValue,
-} from '@/domain/types/motion-types'
+} from '@/domain/types/motion.types'
 
 /**
  * Описывает тип NovaMotionPresetCategory.

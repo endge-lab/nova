@@ -107,7 +107,7 @@ function createApp(): NovaApp<TestEvents> {
   return Nova.createApp<TestEvents>({
     target: canvas,
     size: { width: 320, height: 180, dpr: 1 },
-    renderer: { main: RendererType.Web2D, defaultSurface: RendererType.Web2D },
+    renderer: { main: RendererType.Web2D },
     scheduler: { type: RaphSchedulerType.AnimationFrame, loop: false },
   })
 }
