@@ -7,7 +7,7 @@ import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
 import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
 
 /**
- * Creates the single app-level backend executor.
+ * Создает единственный app-level backend executor.
  */
 export function createNovaRenderBackend(
   type: RendererType,

@@ -4,19 +4,19 @@ import type { NovaRenderBackend } from '@/model/render/backends/NovaRenderBacken
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 
 /**
- * Coordinates compile/replay of logical surfaces into one root backend pass.
+ * Координирует compile/replay логических surfaces в один root backend pass.
  */
 export class NovaRenderOrchestrator<E extends EventList = EventList> {
   private readonly _frames = new WeakMap<NovaSurface<E>, NovaRenderFrame>()
   private _rootClears = 0
 
   /**
-   * Creates orchestrator for a single app-level backend.
+   * Создает orchestrator для единственного app-level backend.
    */
   constructor(private readonly _backend: NovaRenderBackend) {}
 
   /**
-   * Renders ordered logical surfaces into the root target.
+   * Рендерит упорядоченные логические surfaces в root target.
    */
   render(surfaces: Array<NovaSurface<E>>, dirtySurfaces: ReadonlySet<NovaSurface<E>>): void {
     if (surfaces.length === 0) {
@@ -40,21 +40,21 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   }
 
   /**
-   * Drops retained frame for a destroyed surface.
+   * Удаляет retained frame уничтоженного surface.
    */
   deleteSurface(surface: NovaSurface<E>): void {
     this._frames.delete(surface)
   }
 
   /**
-   * Returns root clear count for tests and diagnostics.
+   * Возвращает количество root clear для тестов и diagnostics.
    */
   get rootClears(): number {
     return this._rootClears
   }
 
   /**
-   * Keeps compiler metrics when backend returns draw metrics.
+   * Сохраняет compiler metrics, когда backend возвращает draw metrics.
    */
   private mergeMetrics(compiler: NovaRenderMetrics, backend: NovaRenderMetrics): NovaRenderMetrics {
     return {

@@ -16,7 +16,7 @@ import type { NovaNodeProperties } from '@/domain/types/base.types'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 /**
- * Logical render boundary inside a Nova app-level render pass.
+ * Логическая render boundary внутри app-level render pass Nova.
  */
 export class NovaSurface<E extends EventList> extends NovaNode<E> {
   readonly name: string
@@ -40,7 +40,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   private readonly _novaApp: NovaApp<E>
 
   /**
-   * Creates a logical surface. Canvas and backend are owned by NovaApp.
+   * Создает logical surface. Canvas и backend принадлежат NovaApp.
    */
   constructor(name: string, app: NovaApp<E>) {
     super(app)
@@ -61,7 +61,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   /**
-   * Updates logical dimensions. The physical canvas is app-owned.
+   * Обновляет logical dimensions. Physical canvas принадлежит приложению.
    */
   override options(opts: Partial<NovaNodeProperties>): this {
     const { width, height } = opts
@@ -74,7 +74,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   /**
-   * Compiles this surface into a retained frame.
+   * Компилирует surface в retained frame.
    */
   compileRenderFrame(): NovaRenderFrame {
     this._renderCompileStats = {
@@ -90,7 +90,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   /**
-   * Runs node render hooks against a recorder context.
+   * Выполняет render hooks нод через recorder context.
    */
   renderWithContext(renderer: NovaRenderer): void {
     const previous = this._activeRenderContext
@@ -103,42 +103,42 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   /**
-   * Updates latest renderer metrics after backend replay.
+   * Обновляет последние renderer metrics после backend replay.
    */
   setRenderMetrics(metrics: NovaRenderMetrics): void {
     this._renderMetrics = metrics
   }
 
   /**
-   * Marks a node as rebuilt during compile.
+   * Помечает node как rebuilt во время compile.
    */
   markRenderNodeRebuilt(): void {
     this._renderCompileStats.rebuiltNodes += 1
   }
 
   /**
-   * Marks a node as tested for culling.
+   * Помечает node как проверенную для culling.
    */
   markRenderNodeTestedForCulling(): void {
     this._renderCullingStats.testedNodes += 1
   }
 
   /**
-   * Marks a node as culled.
+   * Помечает node как culled.
    */
   markRenderNodeCulled(): void {
     this._renderCullingStats.culledNodes += 1
   }
 
   /**
-   * Releases logical surface resources.
+   * Освобождает resources логического surface.
    */
   destroy(): void {
     this._activeRenderContext = null
   }
 
   /**
-   * Creates node under this surface.
+   * Создает node внутри этого surface.
    */
   createNode<T extends NovaNode<E>>(
     NodeClassOrFactory?: ConstructorOrFactory<T, [NovaApp<E>, NovaSurface<E>, ...Array<any>]>,
@@ -154,14 +154,14 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   /**
-   * Returns app-owned canvas.
+   * Возвращает app-owned canvas.
    */
   get canvas(): NovaCanvas {
     return this._novaApp.canvas
   }
 
   /**
-   * Returns current render context. Available only during compile.
+   * Возвращает текущий render context. Доступен только во время compile.
    */
   get renderer(): NovaRenderer {
     if (!this._activeRenderContext) {
@@ -171,42 +171,42 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   }
 
   /**
-   * Returns render graph.
+   * Возвращает render graph.
    */
   get renderGraph(): NovaRenderGraph {
     return this._renderGraph
   }
 
   /**
-   * Returns render culling mode.
+   * Возвращает render culling mode.
    */
   get renderCullingMode(): NovaRenderCullingMode {
     return this._renderCullingMode
   }
 
   /**
-   * Updates render culling mode.
+   * Обновляет render culling mode.
    */
   set renderCullingMode(value: NovaRenderCullingMode) {
     this._renderCullingMode = value
   }
 
   /**
-   * Returns compile stats for the last retained frame compile.
+   * Возвращает compile stats последнего retained frame compile.
    */
   get renderCompileStats(): NovaRenderCompileStats {
     return this._renderCompileStats
   }
 
   /**
-   * Returns render culling stats.
+   * Возвращает render culling stats.
    */
   get renderCullingStats(): NovaRenderCullingStats {
     return this._renderCullingStats
   }
 
   /**
-   * Returns latest retained renderer metrics.
+   * Возвращает последние retained renderer metrics.
    */
   get renderMetrics(): NovaRenderMetrics | null {
     return this._renderMetrics

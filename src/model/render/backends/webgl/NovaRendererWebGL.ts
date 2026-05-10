@@ -80,7 +80,7 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
   }
 
   /**
-   * Clears the root render target once before ordered surface replay.
+   * Очищает root render target один раз перед ordered surface replay.
    */
   clearRoot(): void {
     this.device.clear()

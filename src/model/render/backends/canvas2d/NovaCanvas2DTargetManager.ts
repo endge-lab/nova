@@ -3,13 +3,13 @@ import { NovaRenderTargetManager, type CreateNovaRenderTargetOptions } from '@/m
 import type { NovaRenderTargetResource } from '@/model/render/targets/NovaRenderTargetResource'
 
 /**
- * Allocates Canvas2D resources for offscreen render targets.
+ * Выделяет Canvas2D resources для offscreen render targets.
  */
 export class NovaCanvas2DTargetManager extends NovaRenderTargetManager {
   private readonly _resources = new Map<string, NovaRenderTargetResource>()
 
   /**
-   * Ensures logical target and a matching Canvas2D backing resource.
+   * Создает или обновляет logical target и соответствующий Canvas2D backing resource.
    */
   override ensure(options: CreateNovaRenderTargetOptions): NovaRenderTarget {
     const target = super.ensure(options)
@@ -24,14 +24,14 @@ export class NovaCanvas2DTargetManager extends NovaRenderTargetManager {
   }
 
   /**
-   * Returns physical resource by target id.
+   * Возвращает physical resource по target id.
    */
   resource(id: string): NovaRenderTargetResource | undefined {
     return this._resources.get(id)
   }
 
   /**
-   * Deletes logical target and its backing resource.
+   * Удаляет logical target и его backing resource.
    */
   override delete(id: string): boolean {
     this._resources.get(id)?.destroy()
@@ -40,7 +40,7 @@ export class NovaCanvas2DTargetManager extends NovaRenderTargetManager {
   }
 
   /**
-   * Clears all targets and resources.
+   * Очищает все targets и resources.
    */
   override clear(): void {
     for (const resource of this._resources.values()) {
@@ -51,7 +51,7 @@ export class NovaCanvas2DTargetManager extends NovaRenderTargetManager {
   }
 
   /**
-   * Creates a Canvas2D resource.
+   * Создает Canvas2D resource.
    */
   private createResource(target: NovaRenderTarget): NovaRenderTargetResource {
     const canvas = document.createElement('canvas')

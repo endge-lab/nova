@@ -226,7 +226,7 @@ export class NovaCanvas {
     if (contextType === RendererType.Web2D) {
       instance.getContext2D()
     } else if (contextType === RendererType.WebGL) {
-      // Target WebGL renderer owns WebGL2 context creation and must not bind WebGL1 first.
+      // Целевой WebGL renderer сам создает WebGL2 context и не должен сначала привязывать WebGL1.
     } else {
       throw new Error(`Unsupported context type: ${contextType}`)
     }

@@ -2,7 +2,7 @@ import type { NovaRendererConfig, NovaRenderFrame, NovaRenderMetrics } from '@/d
 import type { RendererType, NovaRendererCanvas } from '@/domain/types/renderer.types'
 
 /**
- * Backend executor for compiled Nova frames.
+ * Исполнитель backend для скомпилированных Nova frames.
  */
 export interface NovaRenderBackend {
   readonly id: string

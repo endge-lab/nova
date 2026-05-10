@@ -1,7 +1,7 @@
 import type { NovaRenderTarget } from '@/domain/types/rendering/index'
 
 /**
- * Backend-owned physical resource behind a logical render target.
+ * Физический ресурс backend за логическим render target.
  */
 export interface NovaRenderTargetResource<TTexture = unknown, TFramebuffer = unknown> {
   readonly target: NovaRenderTarget
