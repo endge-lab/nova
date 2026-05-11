@@ -1,3 +1,4 @@
+import { mat3 } from 'gl-matrix'
 import { describe, expect, it, vi } from 'vitest'
 import {
   NovaRenderGraph,
@@ -853,7 +854,7 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textBudgetExhausted).toBe(1)
   })
 
-  it('culls static rect streams when visible-only benchmark policy is enabled', () => {
+  it('keeps plain rect pan frames in uniform-only mode after warmup', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(
@@ -866,21 +867,30 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
         },
       }),
     )
-    const schema = [] as NovaSchema
-    for (let index = 0; index < 100; index += 1) {
-      schema.push(
-        { type: 'rect', x: 10, y: 10 + index, width: 20, height: 20, styles: { background: '#334155' } },
-        { type: 'rect', x: 2000, y: 2000 + index, width: 20, height: 20, styles: { background: '#64748b' } },
-      )
-    }
+    const schema = createRectSchema(100)
     schema.semanticScope = 'non-overlap-layered'
     schema.contentVersion = 1
 
-    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const frame = createCompiledFrame(canvas, schema)
+    const first = renderer.renderFrame(frame)
+    const warm = renderer.renderFrame(frame)
 
-    expect(metrics.visibleRectItems).toBeGreaterThan(0)
-    expect(metrics.culledRectItems).toBeGreaterThan(0)
-    expect(metrics.instances).toBe(metrics.visibleRectItems)
+    const translated = mat3.create()
+    mat3.fromTranslation(translated, [180, 96])
+    for (const command of frame.commands) {
+      if (command.type === 'setTransform') {
+        command.transform = translated
+      }
+    }
+
+    const panned = renderer.renderFrame(frame)
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.uploadBytes).toBe(0)
+    expect(panned.uploadBytes).toBe(0)
+    expect(panned.bufferDataCalls).toBe(0)
+    expect(panned.bufferSubDataCalls).toBe(0)
+    expect(panned.uniformOnlyFrames).toBe(1)
   })
 
   it('uses atlas pages for text, glyph and texture resources', () => {

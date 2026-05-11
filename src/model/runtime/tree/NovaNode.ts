@@ -619,7 +619,7 @@ export class NovaNode<
     const { matrix, update, render } = opts
     if (update) this.raph.dirty('update', this)
     if (matrix) {
-      this.markRenderDirtyFlags({ transform: true, layout: true, visibility: true })
+      this.markRenderDirtyFlags({ transform: true, visibility: true })
       this.surface.renderGraph?.markTransformDirty(this.renderNodeId)
       this.surface.renderGraph?.markVisibilityDirty(this.renderNodeId)
       if (!this.surface.renderGraph) this.markRenderFrameDirty(true)

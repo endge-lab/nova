@@ -18,7 +18,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Рендерит упорядоченные логические surfaces в root target.
    */
-  render(surfaces: Array<NovaSurface<E>>, dirtySurfaces: ReadonlySet<NovaSurface<E>>): void {
+  render(surfaces: Array<NovaSurface<E>>, _dirtySurfaces: ReadonlySet<NovaSurface<E>>): void {
     if (surfaces.length === 0) {
       this._backend.clearRoot()
       this._rootClears += 1
@@ -31,7 +31,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
 
     for (const surface of surfaces) {
       const previousFrame = this._frames.get(surface)
-      const needsCompile = dirtySurfaces.has(surface) || !previousFrame || surface.renderFrameDirty
+      const needsCompile = !previousFrame || _dirtySurfaces.has(surface) || surface.renderFrameDirty
       const frame = needsCompile ? surface.compileRenderFrame() : previousFrame
       this._frames.set(surface, frame)
       const metrics = this._backend.renderFrame(frame)

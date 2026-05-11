@@ -1865,7 +1865,7 @@ export class NovaWebGLFrameRenderer {
    * Проверяет, включен ли viewport culling для geometry streams.
    */
   private shouldCullGeometryItems(): boolean {
-    return this._textConfig.mode === 'run-atlas' && this._textConfig.visibleOnlyRaster
+    return false
   }
 
   /**
@@ -1873,8 +1873,7 @@ export class NovaWebGLFrameRenderer {
    */
   private resolveBatchVisibilityKey(items: Array<NovaSchemaItem<any>>, transform: mat3): string | undefined {
     const hasText = items.some(item => item.type === 'text' || item.type === 'icon')
-    const hasGeometry = items.some(item => item.type === 'rect')
-    if ((!hasText || !this.shouldCullTextureItems()) && (!hasGeometry || !this.shouldCullGeometryItems())) return undefined
+    if (!hasText || !this.shouldCullTextureItems()) return undefined
 
     return [
       this._viewportWidth,

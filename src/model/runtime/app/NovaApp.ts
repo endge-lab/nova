@@ -207,10 +207,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             }
 
             if (node instanceof NovaSurface) {
-                node.markRenderFrameDirty(true)
                 dirtySurfaces.add(node)
             } else if (node instanceof NovaNode) {
-                node.markRenderFrameDirty(false)
                 dirtySurfaces.add(node.surface)
             }
         }
