@@ -1,15 +1,15 @@
-import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
+import type { NovaRuntimeComponentNode } from '@/domain/types/component.types'
 
 /**
  * Хранит node components и schema components, доступные runtime Nova.
  */
 export class NovaComponentRegistry {
-  private readonly _nodes = new Map<string, NovaComponentNode<any, any, any, any, any>>()
+  private readonly _nodes = new Map<string, NovaRuntimeComponentNode>()
 
   /**
    * Выполняет внутреннюю операцию register.
    */
-  register(node: NovaComponentNode<any, any, any, any, any>): void {
+  register(node: NovaRuntimeComponentNode): void {
     const existing = this._nodes.get(node.componentId)
     if (existing && existing !== node) {
       throw new Error(`[NovaComponentRegistry] Component id "${node.componentId}" is already registered`)
@@ -21,7 +21,7 @@ export class NovaComponentRegistry {
   /**
    * Выполняет внутреннюю операцию unregister.
    */
-  unregister(node: NovaComponentNode<any, any, any, any, any>): void {
+  unregister(node: NovaRuntimeComponentNode): void {
     if (this._nodes.get(node.componentId) === node) {
       this._nodes.delete(node.componentId)
     }
@@ -30,7 +30,7 @@ export class NovaComponentRegistry {
   /**
    * Выполняет внутреннюю операцию get.
    */
-  get<TNode extends NovaComponentNode<any, any, any, any, any> = NovaComponentNode<any, any, any, any, any>>(
+  get<TNode extends NovaRuntimeComponentNode = NovaRuntimeComponentNode>(
     id: string,
   ): TNode | undefined {
     return this._nodes.get(id) as TNode | undefined
@@ -39,7 +39,7 @@ export class NovaComponentRegistry {
   /**
    * Выполняет внутреннюю операцию require.
    */
-  require<TNode extends NovaComponentNode<any, any, any, any, any> = NovaComponentNode<any, any, any, any, any>>(
+  require<TNode extends NovaRuntimeComponentNode = NovaRuntimeComponentNode>(
     id: string,
   ): TNode {
     const node = this.get<TNode>(id)

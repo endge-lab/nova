@@ -20,6 +20,21 @@ export type NovaSchemaRenderMode = 'schema' | 'batched' | 'ordered'
 export type NovaComponentDirtyPhase = 'update' | 'render' | 'matrix'
 
 /**
+ * Constructor runtime-компонента, который может быть создан напрямую без string registry key.
+ */
+export type NovaElementConstructor<E extends EventList = Record<string, any>> = new (
+  app: NovaApp<E>,
+  surface: NovaSurface<E>,
+  props?: Record<string, any>,
+  listeners?: Record<string, (...args: Array<any>) => void>,
+) => NovaNode<E>
+
+/**
+ * Тип компонента в runtime trees: string schema type или прямой constructor.
+ */
+export type NovaElementType<E extends EventList = Record<string, any>> = string | NovaElementConstructor<E>
+
+/**
  * Описывает контракт NovaComponentDirtyPolicy.
  */
 export interface NovaComponentDirtyPolicy<TProps extends Record<string, any> = Record<string, any>> {
@@ -36,6 +51,24 @@ export interface NovaComponentSchema<TSchema = Record<string, any>> {
   id?: string
   props?: Partial<TSchema> & Record<string, any>
   [key: string]: any
+}
+
+/**
+ * Описывает runtime tree schema item, который может ссылаться на string type или constructor.
+ */
+export interface NovaElementSchema<
+  TSchema = Record<string, any>,
+  TType extends NovaElementType = NovaElementType,
+> extends Omit<NovaComponentSchema<TSchema>, 'type'> {
+  type: TType
+}
+
+/**
+ * Описывает runtime component node, доступный через app.components.
+ */
+export interface NovaRuntimeComponentNode {
+  componentId: string
+  getApi: () => unknown
 }
 
 /**

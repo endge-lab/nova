@@ -1,10 +1,18 @@
 import type { EventList } from '@endge/utils'
-import type { NovaComponentSchema } from '@/domain/types/component.types'
+import type {
+  NovaComponentSchema,
+  NovaElementSchema,
+  NovaElementType,
+} from '@/domain/types/component.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import {
+  createDefinedComponentNode,
+  readDefinedComponent,
+} from '@/model/runtime/components/NovaDefinedComponent'
 
 /** Constructor скомпилированного `.nova` компонента. */
 export type NovaCompiledNodeConstructor<E extends EventList = Record<string, any>> = new (
@@ -15,12 +23,10 @@ export type NovaCompiledNodeConstructor<E extends EventList = Record<string, any
 ) => NovaNode<E>
 
 /** Тип компонента в compiled template schema. */
-export type NovaTemplateComponentType<E extends EventList = Record<string, any>> =
-  | string
-  | NovaCompiledNodeConstructor<E>
+export type NovaTemplateComponentType<E extends EventList = Record<string, any>> = NovaElementType<E>
 
 export interface NovaTemplateChildSchema<TProps = Record<string, any>>
-  extends Omit<NovaComponentSchema<TProps>, 'type'> {
+  extends Omit<NovaElementSchema<TProps>, 'type'> {
   type: NovaTemplateComponentType
   key?: string | number
   context?: unknown
@@ -258,7 +264,7 @@ function createTemplateChild<E extends EventList>(
   key: string,
 ): NovaNode<E> {
   if (typeof schema.type !== 'function') {
-    const node = parent.nova.schema.createChild(parent, schema as NovaComponentSchema, {
+    const node = parent.nova.schema.createChild(parent, schema as NovaElementSchema, {
       context: schema.context,
     }) as NovaNode<E>
     NODE_TEMPLATE_KEY.set(node, key)
@@ -266,12 +272,27 @@ function createTemplateChild<E extends EventList>(
   }
 
   const Component = schema.type as NovaCompiledNodeConstructor<E>
-  const node = new Component(
-    parent.nova,
-    parent.surface,
-    schema.props ?? {},
-    schema.events as Record<string, (...args: Array<any>) => void> ?? {},
-  )
+  const node = readDefinedComponent(Component)
+    ? createDefinedComponentNode(Component, {
+      app: parent.nova,
+      surface: parent.surface,
+      registry: parent.nova.schema,
+      parent,
+      context: schema.context,
+    }, {
+      schema: {
+        ...schema,
+        type: Component.name || 'AnonymousComponent',
+      } as NovaComponentSchema<Record<string, any>>,
+      componentId: schema.id,
+      listeners: schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+    })
+    : new Component(
+      parent.nova,
+      parent.surface,
+      schema.props ?? {},
+      schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+    )
   parent.addChild(node, {
     context: schema.context,
   })

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+  NovaComponent,
   NovaComponentNode,
+  NovaNode,
   NovaSchemaRegistry,
   RaphSchedulerType,
   RendererType,
@@ -47,6 +49,11 @@ const COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, CounterApi, Reco
     },
     schema.id,
   ),
+}
+
+@NovaComponent({ tag: 'Inspector' })
+class InspectorNode extends NovaNode<TestEvents> {
+  render(): void {}
 }
 
 function create2DContextStub(): CanvasRenderingContext2D {
@@ -154,6 +161,63 @@ describe('Nova component registry', () => {
 
     expect(app.components.get('child-counter')).toBeUndefined()
     app.destroy()
+  })
+
+  it('creates constructor components directly from schema and exposes generic runtime props api', () => {
+    const app = createApp()
+    const surface = app.createSurface('constructor-components')
+
+    const node = app.schema.createNode(surface, {
+      type: InspectorNode,
+      id: 'inline-inspector',
+      props: { documentId: 'doc-1' },
+    }) as InspectorNode & { props: Record<string, any>; setProps: (patch: Record<string, any>) => InspectorNode }
+
+    expect(app.components.get('inline-inspector')).toBe(node)
+    expect((app.components.api<any>('inline-inspector') as { props: Record<string, any> }).props.documentId).toBe('doc-1')
+
+    node.setProps({ documentId: 'doc-2' })
+
+    expect((app.components.api<any>('inline-inspector') as { props: Record<string, any> }).props.documentId).toBe('doc-2')
+    app.destroy()
+  })
+
+  it('registers decorated class components by global tag and resolves them in O(1) maps', () => {
+    const app = createApp()
+    const surface = app.createSurface('tag-components')
+
+    Nova.registerComponents(app.schema, InspectorNode)
+
+    const node = app.schema.createNode(surface, {
+      type: 'Inspector',
+      id: 'global-inspector',
+      props: { documentId: 'doc-3' },
+    })
+
+    expect(node).toBeInstanceOf(InspectorNode)
+    expect((app.components.api<any>('global-inspector') as { props: Record<string, any> }).props.documentId).toBe('doc-3')
+    expect(app.schema.has('Inspector')).toBe(true)
+    app.destroy()
+  })
+
+  it('rejects duplicate and reserved global tags', () => {
+    const registry = new NovaSchemaRegistry()
+
+    Nova.registerComponents(registry, InspectorNode)
+
+    expect(() => Nova.registerComponents(registry, class DuplicateInspector extends NovaNode<TestEvents> {
+      render(): void {}
+    })).toThrow(/requires a global tag/)
+
+    registry.reserveTag('ReservedInspector')
+    const ReservedInspector = Nova.defineComponent(class ReservedInspectorNode extends NovaNode<TestEvents> {
+      render(): void {}
+    }, { tag: 'ReservedInspector' })
+
+    expect(() => Nova.registerComponents(registry, ReservedInspector)).toThrow(/reserved/)
+    expect(() => Nova.registerComponents(registry, Nova.defineComponent(class AnotherInspectorNode extends NovaNode<TestEvents> {
+      render(): void {}
+    }, { tag: 'Inspector' }))).toThrow(/already registered/)
   })
 
   it('expands schema components through descriptor renderSchema', () => {

@@ -1,7 +1,14 @@
-import type { EventList } from '@endge/utils'
+import type { EventList, OneOrMany } from '@endge/utils'
 import { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaAppCreateOptions } from '@/domain/types/base.types'
+import type { NovaElementConstructor } from '@/domain/types/component.types'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import {
+  defineNovaComponent,
+  registerDefinedComponents,
+  type NovaDefinedComponentInput,
+  type NovaDefinedComponentOptions,
+} from '@/model/runtime/components/NovaDefinedComponent'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
 
@@ -40,6 +47,26 @@ export class Nova {
     }
 
     this.use(this._uiKitPlugin)
+  }
+
+  /**
+   * Привязывает component metadata к class-конструктору без глобальной регистрации.
+   */
+  static defineComponent<E extends EventList = Record<string, any>, T extends NovaElementConstructor<E> = NovaElementConstructor<E>>(
+    component: T,
+    options: NovaDefinedComponentOptions<E> = {},
+  ): T {
+    return defineNovaComponent(component, options)
+  }
+
+  /**
+   * Регистрирует один или несколько class-компонентов в конкретном schema registry.
+   */
+  static registerComponents<E extends EventList = Record<string, any>>(
+    registry: NovaSchemaRegistry,
+    definitions: OneOrMany<NovaElementConstructor<E> | NovaDefinedComponentInput<E>>,
+  ): void {
+    registerDefinedComponents(registry, definitions)
   }
 
   /**

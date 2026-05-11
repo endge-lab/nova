@@ -1,10 +1,21 @@
 import type { EventList } from '@endge/utils'
-import type { NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentSchema, NovaSchemaRenderMode } from '@/domain/types/component.types'
-import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
+import type {
+  NovaComponentCreateContext,
+  NovaComponentDescriptor,
+  NovaComponentSchema,
+  NovaElementConstructor,
+  NovaElementSchema,
+  NovaSchemaRenderMode,
+} from '@/domain/types/component.types'
 import type { NovaRenderer } from '@/domain/types/renderer.types'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaNodeContextOptions } from '@/domain/types/context.types'
+import {
+  createDefinedComponentNode,
+  normalizeDefinedComponent,
+  type NovaDefinedComponentInput,
+} from '@/model/runtime/components/NovaDefinedComponent'
 
 const MAX_SCHEMA_COMPONENT_DEPTH = 32
 
@@ -13,6 +24,8 @@ const MAX_SCHEMA_COMPONENT_DEPTH = 32
  */
 export class NovaSchemaRegistry {
   private readonly _descriptors = new Map<string, NovaComponentDescriptor<any, any, any, any>>()
+  private readonly _tagDescriptors = new Map<string, NovaComponentDescriptor<any, any, any, any>>()
+  private readonly _reservedTags = new Set<string>()
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -39,10 +52,53 @@ export class NovaSchemaRegistry {
   }
 
   /**
+   * Регистрирует class-компонент с optional global tag.
+   */
+  registerDefinedComponent<E extends EventList = Record<string, any>>(
+    input: NovaElementConstructor<E> | NovaDefinedComponentInput<E>,
+    options: { override?: boolean } = {},
+  ): void {
+    const definition = normalizeDefinedComponent(input)
+    const tag = definition.tag
+    if (!tag) {
+      throw new Error(`[NovaSchemaRegistry] Defined component "${definition.name}" requires a global tag for registration`)
+    }
+    if (this._reservedTags.has(tag) && !options.override) {
+      throw new Error(`[NovaSchemaRegistry] Tag "${tag}" is reserved and cannot be registered`)
+    }
+
+    const descriptor: NovaComponentDescriptor<Record<string, any>, unknown, Record<string, unknown>, Record<string, any>> = {
+      type: `nova.component:${tag}`,
+      name: definition.name,
+      version: definition.version,
+      kind: 'node-component',
+      createNode: (context, schema) => createDefinedComponentNode(definition.component as any, context as any, {
+        schema: schema as NovaComponentSchema<Record<string, any>>,
+        componentId: schema.id,
+      }) as any,
+    }
+
+    this.register(descriptor, options)
+
+    const existing = this._tagDescriptors.get(tag)
+    if (existing && existing !== descriptor && !options.override) {
+      throw new Error(`[NovaSchemaRegistry] Tag "${tag}" is already registered`)
+    }
+    this._tagDescriptors.set(tag, descriptor)
+  }
+
+  /**
+   * Помечает tag как занятый builtin-слоем или compiler semantics.
+   */
+  reserveTag(tag: string): void {
+    this._reservedTags.add(tag)
+  }
+
+  /**
    * Выполняет внутреннюю операцию has.
    */
   has(type: string): boolean {
-    return this._descriptors.has(type)
+    return this._descriptors.has(type) || this._tagDescriptors.has(type)
   }
 
   /**
@@ -51,7 +107,7 @@ export class NovaSchemaRegistry {
   resolve<T extends NovaComponentDescriptor<any, any, any, any> = NovaComponentDescriptor<any, any, any, any>>(
     type: string,
   ): T | undefined {
-    return this._descriptors.get(type) as T | undefined
+    return (this._descriptors.get(type) ?? this._tagDescriptors.get(type)) as T | undefined
   }
 
   /**
@@ -82,9 +138,9 @@ export class NovaSchemaRegistry {
    */
   createNode<E extends EventList>(
     surface: NovaSurface<E>,
-    schema: NovaComponentSchema<any>,
+    schema: NovaElementSchema<any>,
     options: NovaNodeContextOptions = {},
-  ): NovaComponentNode<any, any, any, any, E> {
+  ): NovaNode<E> {
     const node = this.createDetachedNode(surface, schema, options)
     surface.addChild(node, options)
     return node
@@ -95,9 +151,9 @@ export class NovaSchemaRegistry {
    */
   createChild<E extends EventList>(
     parent: NovaNode<E>,
-    schema: NovaComponentSchema<any>,
+    schema: NovaElementSchema<any>,
     options: NovaNodeContextOptions = {},
-  ): NovaComponentNode<any, any, any, any, E> {
+  ): NovaNode<E> {
     const node = this.createDetachedNode(parent.surface, schema, {
       ...options,
       parent,
@@ -111,9 +167,25 @@ export class NovaSchemaRegistry {
    */
   private createDetachedNode<E extends EventList>(
     surface: NovaSurface<E>,
-    schema: NovaComponentSchema<any>,
+    schema: NovaElementSchema<any>,
     options: NovaNodeContextOptions & { parent?: NovaNode<E> } = {},
-  ): NovaComponentNode<any, any, any, any, E> {
+  ): NovaNode<E> {
+    if (typeof schema.type !== 'string') {
+      return createDefinedComponentNode(schema.type as any, {
+        app: surface.nova,
+        surface,
+        registry: this,
+        parent: options.parent,
+        context: options.context,
+      } as NovaComponentCreateContext<E>, {
+        schema: {
+          ...schema,
+          type: schema.type.name || 'AnonymousComponent',
+        },
+        componentId: schema.id,
+      })
+    }
+
     const descriptor = this.resolve(schema.type)
     if (!descriptor) {
       throw new Error(`[NovaSchemaRegistry] Schema type "${schema.type}" is not registered`)
@@ -130,7 +202,7 @@ export class NovaSchemaRegistry {
         parent: options.parent,
         context: options.context,
       } as NovaComponentCreateContext<E>,
-      schema,
+      schema as NovaComponentSchema<any>,
     )
     if (Object.prototype.hasOwnProperty.call(options, 'context')) {
       node.setContext(options.context)
@@ -143,6 +215,7 @@ export class NovaSchemaRegistry {
    */
   private registerDefaults(): void {
     for (const type of ['rect', 'border', 'text', 'line', 'circle', 'polygon', 'icon']) {
+      this.reserveTag(type)
       this.register({
         type,
         name: type,
