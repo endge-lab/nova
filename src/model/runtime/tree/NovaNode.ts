@@ -644,9 +644,10 @@ export class NovaNode<
    */
   dirtyRetainedRender(): void {
     this.markRenderDirtyFlags({ paint: true, resource: true, cache: true })
-    if (this.surface.renderGraph) {
-      this.surface.renderGraph.markPaintDirty(this.renderNodeId)
-      this.surface.renderGraph.markResourceDirty(this.renderNodeId)
+    const graph = this.surface.renderGraph
+    if (graph && graph.handlesByNodeId.has(this.renderNodeId)) {
+      graph.markPaintDirty(this.renderNodeId)
+      graph.markResourceDirty(this.renderNodeId)
     } else {
       this.markRenderFrameDirty(true)
     }
