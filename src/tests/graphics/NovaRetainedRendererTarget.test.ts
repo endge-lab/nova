@@ -447,6 +447,28 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(frame.items).toHaveLength(0)
   })
 
+  it('does not compile inactive schema items into large WebGL schema batches', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const schema = Array.from({ length: 100 }, (_, index) => ({
+      active: false,
+      type: 'border' as const,
+      x: index,
+      y: 0,
+      width: 10,
+      height: 10,
+      styles: {
+        color: '#1635ff',
+        width: 3,
+      },
+    }))
+    const frame = createCompiledFrame(canvas, schema)
+
+    expect(frame.commands.filter(command => command.type === 'drawSchemaBatch')).toHaveLength(0)
+    expect(frame.commands.filter(command => command.type === 'drawItem')).toHaveLength(0)
+    expect(frame.items).toHaveLength(0)
+  })
+
   it('keeps semantic scope on compiled schema batch commands', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)

@@ -7,7 +7,7 @@ import type {
 } from '@/domain/types/component.types'
 import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 const NOVA_DEFINED_COMPONENT_SYMBOL = Symbol('nova.defined-component')
 const NOVA_RUNTIME_COMPONENT_SYMBOL = Symbol('nova.runtime-component')

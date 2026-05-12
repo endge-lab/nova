@@ -1421,6 +1421,8 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию draw primitive.
    */
   private drawPrimitive(item: NovaSchemaItem<any>, transform: mat3, stats: RenderStats): void {
+    if (item.active === false) return
+
     switch (item.type) {
       case 'rect':
         this.drawRect(item, transform, stats)

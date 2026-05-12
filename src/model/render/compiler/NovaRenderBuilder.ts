@@ -278,10 +278,14 @@ export class NovaRenderBuilder implements NovaRenderer {
    */
   private schemaBatch(schema: NovaSchema<any>, mode: 'batched' | 'ordered'): boolean {
     const items = Array.isArray(schema) ? schema : [schema]
-    if (items.length < FAST_SCHEMA_BATCH_THRESHOLD) return false
+    const activeItems = items.some(item => item.active === false)
+      ? items.filter(item => item.active !== false)
+      : items
+
+    if (activeItems.length < FAST_SCHEMA_BATCH_THRESHOLD) return false
 
     this._writer.drawSchemaBatch(
-      items as Array<NovaSchemaItem<any>>,
+      activeItems as Array<NovaSchemaItem<any>>,
       mode,
       Array.isArray(schema) ? schema.semanticScope : undefined,
       Array.isArray(schema) ? schema.contentVersion : undefined,
