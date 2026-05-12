@@ -39,16 +39,19 @@ class TemplateHostNode extends NovaNode<Record<string, any>> {
 class CompiledTemplateNode extends NovaNode<Record<string, any>> {
   props: Record<string, unknown>
   listeners: Record<string, (...args: Array<any>) => void>
+  slots: Record<string, (scope?: Record<string, any>) => Array<any>>
 
   constructor(
     app: NovaApp<Record<string, any>>,
     surface: NovaSurface<Record<string, any>>,
     props: Record<string, unknown> = {},
     listeners: Record<string, (...args: Array<any>) => void> = {},
+    slots: Record<string, (scope?: Record<string, any>) => Array<any>> = {},
   ) {
     super(app, surface)
     this.props = props
     this.listeners = listeners
+    this.slots = slots
   }
 
   setProps(patch: Record<string, unknown>): this {
@@ -61,6 +64,11 @@ class CompiledTemplateNode extends NovaNode<Record<string, any>> {
 
   setListeners(listeners: Record<string, (...args: Array<any>) => void>): this {
     this.listeners = listeners
+    return this
+  }
+
+  setSlots(slots: Record<string, (scope?: Record<string, any>) => Array<any>> = {}): this {
+    this.slots = slots
     return this
   }
 }
@@ -185,6 +193,97 @@ describe('Nova template runtime', () => {
     expect(parent.children[0]).toBe(node)
     expect(node.props.label).toBe('second')
     expect(node.listeners.press).toBe(secondListener)
+
+    app.destroy()
+  })
+
+  it('creates compiled constructor children and patches slots without recreating identity', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('compiled-template-slots')
+    const parent = surface.createNode()
+    const runtime = new NovaTemplateRuntime(parent)
+    const firstSlot = vi.fn(() => [{ type: 'test.template', id: 'slot-a', props: { label: 'A' } }])
+    const secondSlot = vi.fn(() => [{ type: 'test.template', id: 'slot-b', props: { label: 'B' } }])
+
+    runtime.reconcile([
+      {
+        type: CompiledTemplateNode,
+        id: 'compiled',
+        slots: { thumb: firstSlot },
+      },
+    ])
+
+    const node = parent.children[0] as CompiledTemplateNode
+    const stats = runtime.reconcile([
+      {
+        type: CompiledTemplateNode,
+        id: 'compiled',
+        slots: { thumb: secondSlot },
+      },
+    ])
+
+    expect(stats.created).toBe(0)
+    expect(stats.reused).toBe(1)
+    expect(parent.children[0]).toBe(node)
+    expect(node.slots.thumb({ value: 1 })).toEqual([{ type: 'test.template', id: 'slot-b', props: { label: 'B' } }])
+
+    runtime.reconcile([{ type: CompiledTemplateNode, id: 'compiled' }])
+
+    expect((parent.children[0] as CompiledTemplateNode).slots).toEqual({})
+
+    app.destroy()
+  })
+
+  it('preserves keyed identity when reconciling slot factory output', () => {
+    const app = createTestApp()
+    app.schema.register(createDescriptor())
+    const surface = app.createSurface('slot-output')
+    const parent = surface.createNode()
+    const runtime = new NovaTemplateRuntime(parent)
+    const slot = (label: string) => [
+      { type: 'test.template', id: 'slot-child', key: 'slot-child', props: { label } },
+    ]
+
+    runtime.reconcile(slot('first'))
+    const node = parent.children[0]
+    const stats = runtime.reconcile(slot('second'))
+
+    expect(stats.created).toBe(0)
+    expect(stats.reused).toBe(1)
+    expect(parent.children[0]).toBe(node)
+    expect((node as TemplateTestNode).getProps().label).toBe('second')
+
+    app.destroy()
+  })
+
+  it('keeps repeated slot output reconcile under budget without node churn', () => {
+    const app = createTestApp()
+    app.schema.register(createDescriptor())
+    const surface = app.createSurface('slot-output-perf')
+    const parent = surface.createNode()
+    const runtime = new NovaTemplateRuntime(parent)
+    const slot = (index: number) => [
+      { type: 'test.template', id: 'slot-track', key: 'slot-track', props: { label: `track-${index}` } },
+      { type: 'test.template', id: 'slot-thumb', key: 'slot-thumb', props: { label: `thumb-${index}` } },
+    ]
+
+    runtime.reconcile(slot(0))
+    const track = parent.children[0]
+    const thumb = parent.children[1]
+    const startedAt = performance.now()
+    let churn = 0
+
+    for (let index = 1; index <= 1_000; index += 1) {
+      const stats = runtime.reconcile(slot(index))
+      churn += stats.created + stats.removed
+    }
+
+    const elapsed = performance.now() - startedAt
+
+    expect(churn).toBe(0)
+    expect(parent.children[0]).toBe(track)
+    expect(parent.children[1]).toBe(thumb)
+    expect(elapsed).toBeLessThan(120)
 
     app.destroy()
   })
