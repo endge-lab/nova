@@ -3,14 +3,42 @@ import { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaAppCreateOptions } from '@/domain/types/base.types'
 import type { NovaElementConstructor } from '@/domain/types/component.types'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import {
   defineNovaComponent,
   registerDefinedComponents,
   type NovaDefinedComponentInput,
   type NovaDefinedComponentOptions,
 } from '@/model/runtime/components/NovaDefinedComponent'
+import {
+  createNovaRef,
+  createNovaRefMap,
+  createNovaScope,
+  type NovaRef,
+  type NovaRefMap,
+  type NovaScope,
+} from '@/model/runtime/refs/NovaRef'
+import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
+
+export interface NovaMountOptions<E extends EventList = Record<string, any>> {
+  app: NovaApp<E>
+  surface: NovaSurface<E>
+  scope?: NovaScope
+  props?: Record<string, unknown>
+  listeners?: Record<string, (...args: Array<any>) => void>
+  slots?: Record<string, (...args: Array<any>) => Array<any>>
+}
+
+export interface NovaMountHandle {
+  node: {
+    setProps?: (patch: Record<string, unknown>) => unknown
+    remove: () => void
+  }
+  updateProps(patch: Record<string, unknown>): void
+  destroy(): void
+}
 
 /**
  * Предоставляет статические фабрики для создания Nova runtime и связанных объектов.
@@ -67,6 +95,59 @@ export class Nova {
     definitions: OneOrMany<NovaElementConstructor<E> | NovaDefinedComponentInput<E>>,
   ): void {
     registerDefinedComponents(registry, definitions)
+  }
+
+  /**
+   * Создает proxy-ref на публичный API Nova component.
+   */
+  static ref<T extends object>(name?: string): NovaRef<T> {
+    return createNovaRef<T>(name)
+  }
+
+  /**
+   * Создает коллекцию refs для keyed template nodes.
+   */
+  static refMap<T extends object>(): NovaRefMap<T> {
+    return createNovaRefMap<T>()
+  }
+
+  /**
+   * Создает scope refs для template runtime.
+   */
+  static createScope(input: Partial<NovaScope> = {}): NovaScope {
+    return createNovaScope(input)
+  }
+
+  /**
+   * Монтирует compiled Nova template в существующий app/surface.
+   */
+  static mount<E extends EventList = Record<string, any>>(
+    component: NovaCompiledNodeConstructor<E>,
+    options: NovaMountOptions<E>,
+  ): NovaMountHandle {
+    const props = {
+      ...(options.props ?? {}),
+      novaRefs: options.scope?.refs ?? {},
+    }
+    const node = options.surface.createNode(
+      component,
+      props,
+      options.listeners ?? {},
+      options.slots ?? {},
+    ) as NovaMountHandle['node']
+
+    return {
+      node,
+      updateProps(patch: Record<string, unknown>): void {
+        node.setProps?.({
+          ...patch,
+          novaRefs: options.scope?.refs ?? {},
+        })
+      },
+      destroy(): void {
+        node.remove()
+      },
+    }
   }
 
   /**

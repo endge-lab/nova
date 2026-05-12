@@ -671,6 +671,39 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(dirty.fullUploads).toBe(0)
   })
 
+  it('refreshes semantic child batches when a retained schema buffer is refilled with new rect objects', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schema = createRectSchema(100)
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const first = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const warm = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    const nextItems = createRectSchema(100)
+    const moved = nextItems[10]
+    if (moved.type === 'rect') moved.x += 48
+
+    schema.length = 0
+    schema.push(...nextItems)
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 2
+    schema.dirtyIndices = [10]
+
+    const dirty = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const settled = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.uploadBytes).toBe(0)
+    expect(dirty.updatedHandles).toBe(1)
+    expect(dirty.uploadBytes).toBeGreaterThan(0)
+    expect(dirty.uploadBytes).toBeLessThan(first.uploadBytes!)
+    expect(dirty.fullUploads).toBe(0)
+    expect(settled.uploadBytes).toBe(0)
+  })
+
   it('renders shader-animation frames through uniforms without stream uploads after warmup', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)

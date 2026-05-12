@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  Nova,
   NovaComponentNode,
   NovaNode,
   NovaTemplateRuntime,
@@ -74,6 +75,32 @@ class CompiledTemplateNode extends NovaNode<Record<string, any>> {
 }
 
 class ReplacementCompiledTemplateNode extends CompiledTemplateNode {}
+
+interface RefTestApi {
+  value: number
+  increment(delta: number): number
+}
+
+class RefApiNode extends NovaNode<Record<string, any>> {
+  readonly api: RefTestApi = {
+    value: 0,
+    increment(delta: number): number {
+      this.value += delta
+      return this.value
+    },
+  }
+
+  constructor(
+    app: NovaApp<Record<string, any>>,
+    surface: NovaSurface<Record<string, any>>,
+  ) {
+    super(app, surface)
+  }
+
+  getApi(): RefTestApi {
+    return this.api
+  }
+}
 
 function createDescriptor(): NovaComponentDescriptor<TestProps, unknown, Record<string, unknown>, TestProps> {
   const descriptor: NovaComponentDescriptor<TestProps, unknown, Record<string, unknown>, TestProps> = {
@@ -302,6 +329,81 @@ describe('Nova template runtime', () => {
     expect(stats.removed).toBe(1)
     expect(parent.children[0]).not.toBe(first)
     expect(parent.children[0]).toBeInstanceOf(ReplacementCompiledTemplateNode)
+
+    app.destroy()
+  })
+
+  it('binds proxy refs, resolves ready promises and preserves method this', async () => {
+    const app = createTestApp()
+    const surface = app.createSurface('compiled-template-ref')
+    const parent = surface.createNode()
+    const ref = Nova.ref<RefTestApi>('counter')
+    const ready = ref.$ready()
+    const runtime = new NovaTemplateRuntime(parent, {
+      refs: { counter: ref },
+    })
+
+    expect(ref.$mounted).toBe(false)
+    expect(() => ref.increment(1)).toThrow('[NovaRef] Ref "counter" is not mounted.')
+
+    runtime.reconcile([{ type: RefApiNode, id: 'counter', ref: 'counter' }])
+
+    await expect(ready).resolves.toBe((parent.children[0] as RefApiNode).api)
+    expect(ref.$mounted).toBe(true)
+    expect(ref.increment(2)).toBe(2)
+    expect((parent.children[0] as RefApiNode).api.value).toBe(2)
+
+    runtime.reconcile([])
+
+    expect(ref.$mounted).toBe(false)
+    expect(() => ref.increment(1)).toThrow('[NovaRef] Ref "counter" is not mounted.')
+
+    app.destroy()
+  })
+
+  it('unbinds proxy refs on parent dispose', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('compiled-template-ref-dispose')
+    const parent = surface.createNode()
+    const ref = Nova.ref<RefTestApi>('counter')
+    const runtime = new NovaTemplateRuntime(parent, {
+      refs: { counter: ref },
+    })
+
+    runtime.reconcile([{ type: RefApiNode, id: 'counter', ref: 'counter' }])
+
+    expect(ref.$mounted).toBe(true)
+
+    parent.remove()
+
+    expect(ref.$mounted).toBe(false)
+
+    app.destroy()
+  })
+
+  it('binds keyed ref maps and unbinds removed keys', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('compiled-template-ref-map')
+    const parent = surface.createNode()
+    const rows = Nova.refMap<RefTestApi>()
+    const runtime = new NovaTemplateRuntime(parent, {
+      refs: { rows },
+    })
+
+    runtime.reconcile([
+      { type: RefApiNode, id: 'row-a', key: 'a', ref: 'rows', refKey: 'a' },
+      { type: RefApiNode, id: 'row-b', key: 'b', ref: 'rows', refKey: 'b' },
+    ])
+
+    expect(rows.get('a').$mounted).toBe(true)
+    expect(rows.get('b').increment(3)).toBe(3)
+
+    runtime.reconcile([
+      { type: RefApiNode, id: 'row-b', key: 'b', ref: 'rows', refKey: 'b' },
+    ])
+
+    expect(rows.get('a').$mounted).toBe(false)
+    expect(rows.get('b').$mounted).toBe(true)
 
     app.destroy()
   })

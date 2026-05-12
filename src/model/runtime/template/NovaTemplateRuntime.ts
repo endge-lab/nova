@@ -15,6 +15,17 @@ import {
   createDefinedComponentNode,
   readDefinedComponent,
 } from '@/model/runtime/components/NovaDefinedComponent'
+import {
+  bindNovaRef,
+  bindNovaRefMap,
+  isNovaRef,
+  isNovaRefMap,
+  unbindNovaRef,
+  unbindNovaRefMap,
+  type NovaRef,
+  type NovaRefMap,
+  type NovaScope,
+} from '@/model/runtime/refs/NovaRef'
 
 /** Constructor скомпилированного `.nova` компонента. */
 export type NovaCompiledNodeConstructor<E extends EventList = Record<string, any>> = new (
@@ -38,6 +49,8 @@ export interface NovaTemplateChildSchema<TProps = Record<string, any>>
   extends Omit<NovaElementSchema<TProps>, 'type'> {
   type: NovaTemplateComponentType
   key?: string | number
+  ref?: string
+  refKey?: string | number
   context?: unknown
   children?: Array<NovaTemplateChildSchema>
   events?: Partial<NovaNodeEventHandlers>
@@ -66,6 +79,15 @@ interface NovaTemplateSlotTarget {
 
 const NODE_EVENT_STATE = new WeakMap<NovaNode<any>, NovaTemplateEventState>()
 const NODE_TEMPLATE_KEY = new WeakMap<NovaNode<any>, string>()
+const NODE_REF_STATE = new WeakMap<NovaNode<any>, NovaTemplateRefBinding>()
+const NODE_TEMPLATE_SCOPE = new WeakMap<NovaNode<any>, NovaScope>()
+
+interface NovaTemplateRefBinding {
+  name: string
+  key?: string | number
+  api: object
+  target: NovaRef<any> | NovaRefMap<any>
+}
 
 /**
  * Runtime для сгенерированных Nova SFC, который сохраняет identity keyed children.
@@ -84,7 +106,20 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
   /**
    * Создает runtime для конкретного generated root node.
    */
-  constructor(private readonly parent: NovaNode<E>) {}
+  constructor(
+    private readonly parent: NovaNode<E>,
+    private scope: NovaScope = { refs: {} },
+  ) {
+    NODE_TEMPLATE_SCOPE.set(parent, scope)
+  }
+
+  /**
+   * Обновляет scope refs для следующих reconcile-проходов.
+   */
+  setScope(scope: NovaScope): void {
+    this.scope = scope
+    NODE_TEMPLATE_SCOPE.set(this.parent, scope)
+  }
 
   /**
    * Применяет новый template snapshot к managed children.
@@ -96,7 +131,7 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
 
     this.reconciling = true
     try {
-      this.stats = reconcileNovaTemplateChildren(this.parent, this.managedChildren, children)
+      this.stats = reconcileNovaTemplateChildren(this.parent, this.managedChildren, children, this.scope)
       this.managedChildren = this.stats.nodes
     } finally {
       this.reconciling = false
@@ -116,7 +151,10 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
    * Удаляет все managed children.
    */
   dispose(): void {
-    for (const child of this.managedChildren) child.remove()
+    for (const child of this.managedChildren) {
+      releaseNovaTemplateRef(child)
+      child.remove()
+    }
     this.managedChildren = []
     this.reconciling = false
     this.stats = {
@@ -136,7 +174,9 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
   parent: NovaNode<E>,
   previousNodes: ReadonlyArray<NovaNode<E>>,
   nextSchemas: ReadonlyArray<NovaTemplateChildSchema>,
+  scope?: NovaScope,
 ): NovaTemplateReconcileResult<E> {
+  const activeScope = scope ?? NODE_TEMPLATE_SCOPE.get(parent) ?? { refs: {} }
   const available = new Map<string, NovaNode<E>>()
   const used = new Set<NovaNode<E>>()
   const nextNodes: Array<NovaNode<E>> = []
@@ -153,7 +193,9 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
     const key = resolveSchemaKey(schema, index)
     const existing = available.get(key)
     if (existing && canPatchTemplateNode(existing, schema)) {
+      NODE_TEMPLATE_SCOPE.set(existing, activeScope)
       patchNovaTemplateNode(existing, schema)
+      syncNovaTemplateRef(existing, schema, activeScope)
       used.add(existing)
       nextNodes.push(existing)
       reused += 1
@@ -162,13 +204,16 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
     }
 
     if (existing) {
+      releaseNovaTemplateRef(existing)
       existing.remove()
       used.add(existing)
       removed += 1
     }
 
     const node = createTemplateChild(parent, schema, key)
+    NODE_TEMPLATE_SCOPE.set(node, activeScope)
     patchNovaTemplateNode(node, schema)
+    syncNovaTemplateRef(node, schema, activeScope)
     used.add(node)
     nextNodes.push(node)
     created += 1
@@ -176,6 +221,7 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
 
   for (const node of previousNodes) {
     if (used.has(node)) continue
+    releaseNovaTemplateRef(node)
     node.remove()
     removed += 1
   }
@@ -323,6 +369,71 @@ function createTemplateChild<E extends EventList>(
   })
   NODE_TEMPLATE_KEY.set(node, key)
   return node
+}
+
+function syncNovaTemplateRef<E extends EventList>(
+  node: NovaNode<E>,
+  schema: NovaTemplateChildSchema,
+  scope: NovaScope,
+): void {
+  const name = schema.ref
+  if (!name) {
+    releaseNovaTemplateRef(node)
+    return
+  }
+
+  const api = resolveNovaTemplateRefApi(node)
+  const current = NODE_REF_STATE.get(node)
+  if (current && current.name === name && current.key === schema.refKey && current.api === api) return
+
+  releaseNovaTemplateRef(node)
+
+  const target = scope.refs[name]
+  if (!target) return
+
+  if (isNovaRefMap(target)) {
+    if (schema.refKey === undefined) {
+      throw new Error(`[NovaTemplateRuntime] Ref map "${name}" requires ref-key.`)
+    }
+    bindNovaRefMap(target, schema.refKey, api)
+  } else if (isNovaRef(target)) {
+    if (schema.refKey !== undefined) {
+      throw new Error(`[NovaTemplateRuntime] Ref "${name}" received ref-key but is not a ref map.`)
+    }
+    bindNovaRef(target, api)
+  } else {
+    throw new Error(`[NovaTemplateRuntime] Ref "${name}" is not a Nova ref.`)
+  }
+
+  NODE_REF_STATE.set(node, {
+    name,
+    key: schema.refKey,
+    api,
+    target,
+  })
+  node.addDisposer(() => releaseNovaTemplateRef(node))
+}
+
+function releaseNovaTemplateRef(node: NovaNode<any>): void {
+  const binding = NODE_REF_STATE.get(node)
+  if (!binding) return
+
+  NODE_REF_STATE.delete(node)
+  if (isNovaRefMap(binding.target)) {
+    if (binding.key !== undefined) unbindNovaRefMap(binding.target, binding.key, binding.api)
+    return
+  }
+
+  unbindNovaRef(binding.target, binding.api)
+}
+
+function resolveNovaTemplateRefApi(node: NovaNode<any>): object {
+  const component = node as unknown as { getApi?: () => unknown }
+  const api = typeof component.getApi === 'function' ? component.getApi() : node
+  if (typeof api !== 'object' || api === null) {
+    throw new Error('[NovaTemplateRuntime] Component API must be an object to bind a ref.')
+  }
+  return api
 }
 
 function resolveSchemaTypeName(type: NovaTemplateComponentType): string {

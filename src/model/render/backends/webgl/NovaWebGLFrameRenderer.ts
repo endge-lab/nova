@@ -236,6 +236,7 @@ interface NonOverlapLayeredBatchCache {
   rectIndexBySourceIndex: Array<number | undefined>
   iconIndexBySourceIndex: Array<number | undefined>
   textIndexBySourceIndex: Array<number | undefined>
+  sourceKinds: Array<'rect' | 'icon' | 'text'>
 }
 
 /**
@@ -863,7 +864,7 @@ export class NovaWebGLFrameRenderer {
    */
   private resolveNonOverlapLayeredBatch(items: Array<NovaSchemaItem<any>>): NonOverlapLayeredBatchCache | null {
     const cached = this._semanticBatchCache.get(items)
-    if (cached) return cached
+    if (cached && this.refreshNonOverlapLayeredBatch(cached, items)) return cached
 
     const rects: Array<NovaSchemaItem<any>> = []
     const icons: Array<NovaSchemaItem<any>> = []
@@ -871,6 +872,7 @@ export class NovaWebGLFrameRenderer {
     const rectIndexBySourceIndex: Array<number | undefined> = []
     const iconIndexBySourceIndex: Array<number | undefined> = []
     const textIndexBySourceIndex: Array<number | undefined> = []
+    const sourceKinds: Array<'rect' | 'icon' | 'text'> = []
 
     for (let sourceIndex = 0; sourceIndex < items.length; sourceIndex += 1) {
       const item = items[sourceIndex]
@@ -879,18 +881,21 @@ export class NovaWebGLFrameRenderer {
 
       if (item.type === 'rect') {
         rectIndexBySourceIndex[sourceIndex] = rects.length
+        sourceKinds[sourceIndex] = 'rect'
         rects.push(item)
         continue
       }
 
       if (item.type === 'icon') {
         iconIndexBySourceIndex[sourceIndex] = icons.length
+        sourceKinds[sourceIndex] = 'icon'
         icons.push(item)
         continue
       }
 
       if (item.type === 'text') {
         textIndexBySourceIndex[sourceIndex] = texts.length
+        sourceKinds[sourceIndex] = 'text'
         texts.push(item)
         continue
       }
@@ -905,9 +910,48 @@ export class NovaWebGLFrameRenderer {
       rectIndexBySourceIndex,
       iconIndexBySourceIndex,
       textIndexBySourceIndex,
+      sourceKinds,
     }
     this._semanticBatchCache.set(items, batch)
     return batch
+  }
+
+  /**
+   * Обновляет cached semantic child arrays свежими item references из mutable source schema.
+   */
+  private refreshNonOverlapLayeredBatch(
+    batch: NonOverlapLayeredBatchCache,
+    items: Array<NovaSchemaItem<any>>,
+  ): boolean {
+    if (batch.sourceKinds.length !== items.length) return false
+
+    for (let sourceIndex = 0; sourceIndex < items.length; sourceIndex += 1) {
+      const item = items[sourceIndex]
+      if (item.active === false || (item.clip !== undefined && item.clip !== true)) return false
+
+      const kind = batch.sourceKinds[sourceIndex]
+      if (item.type !== kind) return false
+
+      if (kind === 'rect') {
+        const targetIndex = batch.rectIndexBySourceIndex[sourceIndex]
+        if (targetIndex === undefined) return false
+        batch.rects[targetIndex] = item
+        continue
+      }
+
+      if (kind === 'icon') {
+        const targetIndex = batch.iconIndexBySourceIndex[sourceIndex]
+        if (targetIndex === undefined) return false
+        batch.icons[targetIndex] = item
+        continue
+      }
+
+      const targetIndex = batch.textIndexBySourceIndex[sourceIndex]
+      if (targetIndex === undefined) return false
+      batch.texts[targetIndex] = item
+    }
+
+    return true
   }
 
   /**
