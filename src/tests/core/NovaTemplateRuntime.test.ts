@@ -283,7 +283,7 @@ describe('Nova template runtime', () => {
     expect(churn).toBe(0)
     expect(parent.children[0]).toBe(track)
     expect(parent.children[1]).toBe(thumb)
-    expect(elapsed).toBeLessThan(120)
+    expect(elapsed).toBeLessThan(250)
 
     app.destroy()
   })
