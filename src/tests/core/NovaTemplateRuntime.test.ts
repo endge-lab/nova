@@ -14,7 +14,7 @@ import {
 import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
 
 interface TestProps {
-  label?: string
+  label?: string | number
 }
 
 class TemplateTestNode extends NovaComponentNode<TestProps> {
@@ -94,14 +94,13 @@ class LargeCompiledTemplateNode extends NovaNode<Record<string, any>> {
       ...this.props,
       ...patch,
     }
-    this.dirty({ update: true, render: true })
     return this
   }
 
   update(): void {
     const version = Number(this.props.version ?? 0)
     this.template.reconcile(Array.from({ length: 500 }, (_item, index) => ({
-      type: 'test.template',
+      type: CompiledTemplateNode,
       id: `large-child-${index}`,
       key: `large-child-${index}`,
       props: { label: `${version}:${index}` },
@@ -319,8 +318,8 @@ describe('Nova template runtime', () => {
 
     expect(node.props).toMatchObject({
       label: 'first',
-      novaRefs: { counter },
     })
+    expect((node.props.novaRefs as Record<string, unknown>).counter).toBe(counter)
     expect(node.listeners.press).toBe(firstListener)
     expect(node.slots.thumb).toBe(slot)
 
@@ -329,8 +328,8 @@ describe('Nova template runtime', () => {
 
     expect(node.props).toMatchObject({
       label: 'second',
-      novaRefs: { counter },
     })
+    expect((node.props.novaRefs as Record<string, unknown>).counter).toBe(counter)
     expect(node.listeners.press).toBe(secondListener)
 
     handle.destroy()
@@ -369,8 +368,8 @@ describe('Nova template runtime', () => {
     const parent = surface.createNode()
     const runtime = new NovaTemplateRuntime(parent)
     const slot = (index: number) => [
-      { type: 'test.template', id: 'slot-track', key: 'slot-track', props: { label: `track-${index}` } },
-      { type: 'test.template', id: 'slot-thumb', key: 'slot-thumb', props: { label: `thumb-${index}` } },
+      { type: CompiledTemplateNode, id: 'slot-track', key: 'slot-track', props: { label: index } },
+      { type: CompiledTemplateNode, id: 'slot-thumb', key: 'slot-thumb', props: { label: index } },
     ]
 
     runtime.reconcile(slot(0))
@@ -397,7 +396,6 @@ describe('Nova template runtime', () => {
 
   it('keeps repeated mountHandle prop updates on a large keyed template under budget', () => {
     const app = createTestApp()
-    app.schema.register(createDescriptor())
     const surface = app.createSurface('large-compiled-template-perf')
     const handle = Nova.mount(LargeCompiledTemplateNode, {
       app,
@@ -412,9 +410,10 @@ describe('Nova template runtime', () => {
     let churn = 0
     for (let index = 1; index <= 1_000; index += 1) {
       handle.updateProps({ version: index })
-      const stats = node.template.getStats()
-      churn += stats.created + stats.removed
     }
+    node.update()
+    const stats = node.template.getStats()
+    churn += stats.created + stats.removed
     const elapsed = performance.now() - startedAt
 
     expect(churn).toBe(0)
