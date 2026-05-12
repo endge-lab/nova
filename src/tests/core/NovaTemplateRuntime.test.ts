@@ -76,6 +76,44 @@ class CompiledTemplateNode extends NovaNode<Record<string, any>> {
 
 class ReplacementCompiledTemplateNode extends CompiledTemplateNode {}
 
+class LargeCompiledTemplateNode extends NovaNode<Record<string, any>> {
+  readonly template = new NovaTemplateRuntime(this)
+  props: Record<string, unknown>
+
+  constructor(
+    app: NovaApp<Record<string, any>>,
+    surface: NovaSurface<Record<string, any>>,
+    props: Record<string, unknown> = {},
+  ) {
+    super(app, surface)
+    this.props = props
+  }
+
+  setProps(patch: Record<string, unknown>): this {
+    this.props = {
+      ...this.props,
+      ...patch,
+    }
+    this.dirty({ update: true, render: true })
+    return this
+  }
+
+  update(): void {
+    const version = Number(this.props.version ?? 0)
+    this.template.reconcile(Array.from({ length: 500 }, (_item, index) => ({
+      type: 'test.template',
+      id: `large-child-${index}`,
+      key: `large-child-${index}`,
+      props: { label: `${version}:${index}` },
+    })))
+  }
+
+  override dispose(): void {
+    this.template.dispose()
+    super.dispose()
+  }
+}
+
 interface RefTestApi {
   value: number
   increment(delta: number): number
@@ -261,6 +299,47 @@ describe('Nova template runtime', () => {
     app.destroy()
   })
 
+  it('mounts compiled templates with props, listeners, slots and scoped refs', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('compiled-template-mount')
+    const counter = Nova.ref<RefTestApi>('counter')
+    const firstListener = vi.fn()
+    const secondListener = vi.fn()
+    const slot = vi.fn(() => [{ type: 'test.template', id: 'slot-mounted', props: { label: 'Mounted' } }])
+
+    const handle = Nova.mount(CompiledTemplateNode, {
+      app,
+      surface,
+      scope: { refs: { counter } },
+      props: { label: 'first' },
+      listeners: { press: firstListener },
+      slots: { thumb: slot },
+    })
+    const node = handle.node as CompiledTemplateNode
+
+    expect(node.props).toMatchObject({
+      label: 'first',
+      novaRefs: { counter },
+    })
+    expect(node.listeners.press).toBe(firstListener)
+    expect(node.slots.thumb).toBe(slot)
+
+    handle.updateProps({ label: 'second' })
+    handle.updateListeners({ press: secondListener })
+
+    expect(node.props).toMatchObject({
+      label: 'second',
+      novaRefs: { counter },
+    })
+    expect(node.listeners.press).toBe(secondListener)
+
+    handle.destroy()
+
+    expect(node.lifecycleState).toBe('destroyed')
+
+    app.destroy()
+  })
+
   it('preserves keyed identity when reconciling slot factory output', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
@@ -311,6 +390,37 @@ describe('Nova template runtime', () => {
     expect(parent.children[0]).toBe(track)
     expect(parent.children[1]).toBe(thumb)
     expect(elapsed).toBeLessThan(250)
+    console.info(`[bench] nova-runtime:keyed-slot-reconcile elapsed=${elapsed.toFixed(2)}ms budget=250ms churn=${churn}`)
+
+    app.destroy()
+  })
+
+  it('keeps repeated mountHandle prop updates on a large keyed template under budget', () => {
+    const app = createTestApp()
+    app.schema.register(createDescriptor())
+    const surface = app.createSurface('large-compiled-template-perf')
+    const handle = Nova.mount(LargeCompiledTemplateNode, {
+      app,
+      surface,
+      props: { version: 0 },
+    })
+    const node = handle.node as LargeCompiledTemplateNode
+
+    expect(node.children).toHaveLength(500)
+
+    const startedAt = performance.now()
+    let churn = 0
+    for (let index = 1; index <= 1_000; index += 1) {
+      handle.updateProps({ version: index })
+      const stats = node.template.getStats()
+      churn += stats.created + stats.removed
+    }
+    const elapsed = performance.now() - startedAt
+
+    expect(churn).toBe(0)
+    expect(node.children).toHaveLength(500)
+    expect(elapsed).toBeLessThan(250)
+    console.info(`[bench] nova-runtime:mount-update-props-500 elapsed=${elapsed.toFixed(2)}ms budget=250ms churn=${churn} childCount=${node.children.length}`)
 
     app.destroy()
   })

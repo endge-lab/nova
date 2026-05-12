@@ -34,9 +34,11 @@ export interface NovaMountOptions<E extends EventList = Record<string, any>> {
 export interface NovaMountHandle {
   node: {
     setProps?: (patch: Record<string, unknown>) => unknown
+    setListeners?: (listeners: Record<string, (...args: Array<any>) => void>) => unknown
     remove: () => void
   }
   updateProps(patch: Record<string, unknown>): void
+  updateListeners(listeners: Record<string, (...args: Array<any>) => void>): void
   destroy(): void
 }
 
@@ -143,6 +145,9 @@ export class Nova {
           ...patch,
           novaRefs: options.scope?.refs ?? {},
         })
+      },
+      updateListeners(listeners: Record<string, (...args: Array<any>) => void>): void {
+        node.setListeners?.(listeners)
       },
       destroy(): void {
         node.remove()
