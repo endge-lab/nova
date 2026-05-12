@@ -2,6 +2,8 @@ import type { EventList } from '@endge/utils'
 import type {
   NovaComponentSchema,
   NovaElementSchema,
+  NovaElementSlotFactory,
+  NovaElementSlots,
   NovaElementType,
 } from '@/domain/types/component.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
@@ -20,10 +22,17 @@ export type NovaCompiledNodeConstructor<E extends EventList = Record<string, any
   surface: NovaSurface<E>,
   props?: Record<string, any>,
   listeners?: Record<string, (...args: Array<any>) => void>,
+  slots?: NovaTemplateSlots,
 ) => NovaNode<E>
 
 /** Тип компонента в compiled template schema. */
 export type NovaTemplateComponentType<E extends EventList = Record<string, any>> = NovaElementType<E>
+
+/** Фабрика compiled slot, которая возвращает schema snapshot по публичному scope. */
+export type NovaTemplateSlotFactory<TScope = Record<string, any>> = NovaElementSlotFactory<TScope>
+
+/** Набор named slots в compiled template schema. */
+export type NovaTemplateSlots = NovaElementSlots
 
 export interface NovaTemplateChildSchema<TProps = Record<string, any>>
   extends Omit<NovaElementSchema<TProps>, 'type'> {
@@ -32,6 +41,7 @@ export interface NovaTemplateChildSchema<TProps = Record<string, any>>
   context?: unknown
   children?: Array<NovaTemplateChildSchema>
   events?: Partial<NovaNodeEventHandlers>
+  slots?: NovaTemplateSlots
 }
 
 export interface NovaTemplateReconcileResult<E extends EventList = Record<string, any>> {
@@ -48,6 +58,10 @@ interface NovaTemplateEventState {
 
 interface NovaTemplateListenerTarget {
   setListeners: (listeners: Record<string, (...args: Array<any>) => void>) => void
+}
+
+interface NovaTemplateSlotTarget {
+  setSlots: (slots: NovaTemplateSlots) => void
 }
 
 const NODE_EVENT_STATE = new WeakMap<NovaNode<any>, NovaTemplateEventState>()
@@ -210,6 +224,15 @@ export function patchNovaTemplateNode<E extends EventList>(
       api.setChildren(schema.children)
     }
   }
+
+  const slots = schema.slots ?? {}
+  const slotTarget = node as unknown as Partial<NovaTemplateSlotTarget>
+  if (typeof slotTarget.setSlots === 'function') {
+    slotTarget.setSlots(slots)
+  } else if (typeof (node as NovaComponentNode<any>).getApi === 'function') {
+    const api = (node as NovaComponentNode<any>).getApi() as Partial<NovaTemplateSlotTarget>
+    if (typeof api?.setSlots === 'function') api.setSlots(slots)
+  }
 }
 
 /**
@@ -286,12 +309,14 @@ function createTemplateChild<E extends EventList>(
       } as NovaComponentSchema<Record<string, any>>,
       componentId: schema.id,
       listeners: schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+      slots: schema.slots ?? {},
     })
     : new Component(
       parent.nova,
       parent.surface,
       schema.props ?? {},
       schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+      schema.slots ?? {},
     )
   parent.addChild(node, {
     context: schema.context,

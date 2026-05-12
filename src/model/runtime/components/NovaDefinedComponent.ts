@@ -3,6 +3,7 @@ import type {
   NovaComponentCreateContext,
   NovaComponentSchema,
   NovaElementConstructor,
+  NovaElementSlots,
   NovaRuntimeComponentNode,
 } from '@/domain/types/component.types'
 import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
@@ -44,8 +45,10 @@ export interface NovaNormalizedDefinedComponent<E extends EventList = Record<str
 interface NovaRuntimeComponentState extends NovaRuntimeComponentNode {
   props: Record<string, any>
   listeners: NovaComponentListeners
+  slots: NovaElementSlots
   setProps: (patch: Record<string, any>) => NovaNode<any>
   setListeners: (listeners?: NovaComponentListeners) => NovaNode<any>
+  setSlots: (slots?: NovaElementSlots) => NovaNode<any>
   emit: (name: string, ...args: Array<any>) => void
   [NOVA_RUNTIME_COMPONENT_SYMBOL]?: true
 }
@@ -127,6 +130,7 @@ export function createDefinedComponentNode<E extends EventList = Record<string, 
     schema?: NovaComponentSchema<Record<string, any>>
     componentId?: string
     listeners?: NovaComponentListeners
+    slots?: NovaElementSlots
   } = {},
 ): NovaNode<E> {
   const schema = options.schema ?? {
@@ -144,6 +148,7 @@ export function createDefinedComponentNode<E extends EventList = Record<string, 
         context.surface,
         schema.props ?? {},
         options.listeners ?? {},
+        options.slots ?? {},
       )
 
   if (context.context !== undefined) {
@@ -154,6 +159,7 @@ export function createDefinedComponentNode<E extends EventList = Record<string, 
     componentId: options.componentId ?? schema.id,
     props: schema.props ?? {},
     listeners: options.listeners ?? {},
+    slots: options.slots ?? {},
   })
 
   return node
@@ -168,6 +174,7 @@ export function attachRuntimeComponentState(
     componentId?: string
     props?: Record<string, any>
     listeners?: NovaComponentListeners
+    slots?: NovaElementSlots
   } = {},
 ): void {
   if (node instanceof NovaComponentNode) return
@@ -180,6 +187,10 @@ export function attachRuntimeComponentState(
   target.listeners = {
     ...(target.listeners ?? {}),
     ...(options.listeners ?? {}),
+  }
+  target.slots = {
+    ...(target.slots ?? {}),
+    ...(options.slots ?? {}),
   }
 
   if (typeof target.emit !== 'function') {
@@ -197,6 +208,14 @@ export function attachRuntimeComponentState(
   if (typeof target.setListeners !== 'function') {
     target.setListeners = function setListeners(listeners: NovaComponentListeners = {}): NovaNode<any> {
       this.listeners = { ...listeners }
+      return this as NovaNode<any>
+    }
+  }
+
+  if (typeof target.setSlots !== 'function') {
+    target.setSlots = function setSlots(slots: NovaElementSlots = {}): NovaNode<any> {
+      this.slots = { ...slots }
+      ;(this as NovaNode<any>).dirty({ update: true, render: true })
       return this as NovaNode<any>
     }
   }

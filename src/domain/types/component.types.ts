@@ -27,7 +27,18 @@ export type NovaElementConstructor<E extends EventList = Record<string, any>> = 
   surface: NovaSurface<E>,
   props?: Record<string, any>,
   listeners?: Record<string, (...args: Array<any>) => void>,
+  slots?: NovaElementSlots,
 ) => NovaNode<E>
+
+/**
+ * Фабрика named slot, которая строит schema snapshot по публичному scope.
+ */
+export type NovaElementSlotFactory<TScope = Record<string, any>> = (scope?: TScope) => Array<NovaElementSchema<any>>
+
+/**
+ * Набор named slots для runtime component schema.
+ */
+export type NovaElementSlots = Record<string, NovaElementSlotFactory<any>>
 
 /**
  * Тип компонента в runtime trees: string schema type или прямой constructor.
@@ -50,6 +61,7 @@ export interface NovaComponentSchema<TSchema = Record<string, any>> {
   type: string
   id?: string
   props?: Partial<TSchema> & Record<string, any>
+  slots?: NovaElementSlots
   [key: string]: any
 }
 

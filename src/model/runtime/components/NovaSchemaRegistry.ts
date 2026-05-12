@@ -183,6 +183,7 @@ export class NovaSchemaRegistry {
           type: schema.type.name || 'AnonymousComponent',
         },
         componentId: schema.id,
+        slots: schema.slots,
       })
     }
 
