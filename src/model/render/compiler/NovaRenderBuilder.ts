@@ -7,6 +7,7 @@ import type {
   NovaParticleBatch,
   NovaPolygon,
   NovaRect,
+  NovaRectBatch,
   NovaRenderer,
   NovaRendererCapabilities,
   NovaSchema,
@@ -37,6 +38,7 @@ export class NovaRenderBuilder implements NovaRenderer {
     icon: true,
     text: true,
     particles: true,
+    rectBatches: true,
     measureText: true,
   }
 
@@ -170,6 +172,14 @@ export class NovaRenderBuilder implements NovaRenderer {
    */
   icon(params: NovaIcon): void {
     this.schemaItem({ ...params, type: 'icon' })
+  }
+
+  /**
+   * Записывает retained rect batch без разворачивания в schema items.
+   */
+  rects(batch: NovaRectBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawRectBatch(batch)
   }
 
   /**

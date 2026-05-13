@@ -12,6 +12,7 @@ import {
   resolveNovaRendererConfig,
   type NovaCanvas,
   type NovaParticleBatch,
+  type NovaRectBatch,
   type NovaSchema,
 } from '@/index'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
@@ -420,6 +421,59 @@ function createParticleFrame(canvas: NovaCanvas, batch: NovaParticleBatch) {
   }
 }
 
+function createRectBatch(count: number): NovaRectBatch {
+  const x = new Float32Array(count)
+  const y = new Float32Array(count)
+  const width = new Float32Array(count)
+  const height = new Float32Array(count)
+  const colors = new Float32Array(count * 4)
+  const states = new Float32Array(count)
+
+  for (let index = 0; index < count; index += 1) {
+    x[index] = (index % 10) * 12
+    y[index] = Math.floor(index / 10) * 8
+    width[index] = 10
+    height[index] = 6
+    colors[index * 4] = 0.2
+    colors[index * 4 + 1] = 0.4
+    colors[index * 4 + 2] = 0.8
+    colors[index * 4 + 3] = 1
+    states[index] = index % 2
+  }
+
+  return {
+    count,
+    x,
+    y,
+    width,
+    height,
+    colors,
+    states,
+    revision: 1,
+    staticRevision: 1,
+  }
+}
+
+function createRectBatchFrame(canvas: NovaCanvas, batch: NovaRectBatch) {
+  const frameBuilder = new NovaRenderFrameBuilder('rect-batch-test', {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    dpr: canvas.dpr,
+  })
+  const graph = new NovaRenderGraph('rect-batch-test', frameBuilder.rootGroup)
+  const writer = new NovaRenderCommandWriter(frameBuilder, frameBuilder.rootGroup, graph)
+  const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+  writer.setCurrentNode('rect-batch-node')
+  builder.rects(batch)
+
+  return {
+    frame: frameBuilder.build(),
+    graph,
+  }
+}
+
 describe('Nova retained WebGL2 renderer target contract matrix', () => {
   it('keeps retained-renderer contract case ids unique', () => {
     expect(new Set(ids(RETAINED_CONTRACT_CASES)).size).toBe(RETAINED_CONTRACT_CASES.length)
@@ -543,6 +597,19 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(handles).toHaveLength(1)
     expect(handles[0].streamKind).toBe('particle-circle')
     expect(handles[0].count).toBe(16)
+  })
+
+  it('compiles ctx.rects into retained rect batch stream handles', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const batch = createRectBatch(32)
+    const { frame, graph } = createRectBatchFrame(canvas, batch)
+    const handles = graph.handlesByNodeId.get('rect-batch-node') ?? []
+
+    expect(frame.commands.filter(command => command.type === 'drawRectBatch')).toHaveLength(1)
+    expect(handles).toHaveLength(1)
+    expect(handles[0].streamKind).toBe('rect-batch')
+    expect(handles[0].count).toBe(32)
   })
 
   it('routes plain rect batches through the smaller solid stream instead of the rounded stream', () => {

@@ -6,7 +6,7 @@ import type {
   NovaRenderGroup,
   NovaRenderItem,
 } from '@/domain/types/rendering/index'
-import type { NovaParticleBatch, NovaSchemaItem, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
+import type { NovaParticleBatch, NovaRectBatch, NovaSchemaItem, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
 import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/NovaRenderItem'
 import type { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
 import type { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
@@ -211,6 +211,36 @@ export class NovaRenderCommandWriter {
   }
 
   /**
+   * Записывает retained rect batch как отдельный stream command.
+   */
+  drawRectBatch(batch: NovaRectBatch, nodeId = this._currentNodeId): NovaRenderCommand {
+    const order = this._frameBuilder.nextOrder()
+    const item = createNovaRenderItem({
+      id: `item:${++this._itemId}`,
+      nodeId,
+      groupId: this._group.id,
+      layerId: this._group.layerId,
+      kind: 'rect-batch',
+      order,
+      batchKey: 'rect-batch:plain',
+      bounds: 'x' in batch && 'y' in batch && 'width' in batch && 'height' in batch
+        ? { x: batch.x[0] ?? 0, y: batch.y[0] ?? 0, width: batch.width[0] ?? 0, height: batch.height[0] ?? 0 }
+        : undefined,
+      clip: this.currentClip,
+    })
+
+    this._frameBuilder.addItem(item)
+    this.addRectBatchHandle(item, batch, nodeId)
+
+    return this.command({
+      type: 'drawRectBatch',
+      itemId: item.id,
+      rectBatch: batch,
+      order,
+    })
+  }
+
+  /**
    * Выполняет внутреннюю операцию cursor.
    */
   cursor(type: string): NovaRenderCommand {
@@ -287,6 +317,38 @@ export class NovaRenderCommandWriter {
       versions: {
         transform: 0,
         layout: 0,
+        paint: batch.staticRevision ?? 0,
+        children: 0,
+        resource: 0,
+        cache: 0,
+        visibility: 0,
+      },
+      localBounds: renderItem.bounds,
+    }
+
+    this._graph.addHandle(handle)
+  }
+
+  /**
+   * Добавляет handle для retained rect stream.
+   */
+  private addRectBatchHandle(renderItem: NovaRenderItem, batch: NovaRectBatch, nodeId: string): void {
+    if (!this._graph) return
+
+    const handle: NovaRenderHandle = {
+      id: `handle:${++this._handleId}`,
+      nodeId,
+      itemId: renderItem.id,
+      groupId: renderItem.groupId,
+      layerId: renderItem.layerId,
+      streamId: `${renderItem.groupId}:rect-batch`,
+      streamKind: 'rect-batch',
+      offset: 0,
+      count: batch.count,
+      batchKey: renderItem.batchKey,
+      versions: {
+        transform: 0,
+        layout: batch.revision ?? 0,
         paint: batch.staticRevision ?? 0,
         children: 0,
         resource: 0,

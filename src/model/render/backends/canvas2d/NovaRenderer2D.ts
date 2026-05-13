@@ -9,6 +9,7 @@ import type {
   NovaParticleBatch,
   NovaPolygon,
   NovaRect,
+  NovaRectBatch,
   NovaRenderer,
   NovaSchema,
   NovaText,
@@ -39,6 +40,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     icon: true,
     text: true,
     particles: true,
+    rectBatches: true,
     measureText: true,
   }
 
@@ -136,6 +138,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         case 'drawParticles':
           if (command.particleBatch) {
             this.particles(command.particleBatch)
+            drawCalls += 1
+          }
+          break
+        case 'drawRectBatch':
+          if (command.rectBatch) {
+            this.rects(command.rectBatch)
             drawCalls += 1
           }
           break
@@ -518,6 +526,32 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         ctx.strokeStyle = `rgba(${Math.round((strokeColors[strokeOffset] ?? 1) * 255)}, ${Math.round((strokeColors[strokeOffset + 1] ?? 1) * 255)}, ${Math.round((strokeColors[strokeOffset + 2] ?? 1) * 255)}, ${strokeAlpha})`
         ctx.stroke()
       }
+    }
+
+    ctx.restore()
+  }
+
+  /**
+   * Рисует retained rect batch через Canvas2D fallback.
+   */
+  rects(batch: NovaRectBatch): void {
+    const ctx = this.ctx
+    const opacity = batch.opacity ?? 1
+
+    ctx.save()
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const colorOffset = index * 4
+      const alpha = (batch.colors[colorOffset + 3] ?? 1) * opacity
+      if (alpha <= 0) continue
+
+      ctx.fillStyle = `rgba(${Math.round((batch.colors[colorOffset] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 1] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 2] ?? 0) * 255)}, ${alpha})`
+      ctx.fillRect(
+        batch.x[index] ?? 0,
+        batch.y[index] ?? 0,
+        batch.width[index] ?? 0,
+        batch.height[index] ?? 0,
+      )
     }
 
     ctx.restore()

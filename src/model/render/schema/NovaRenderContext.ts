@@ -6,6 +6,7 @@ import type {
   NovaLine,
   NovaPolygon,
   NovaRect,
+  NovaRectBatch,
   NovaSchema,
   NovaSchemaItem,
   NovaText,
@@ -80,6 +81,14 @@ export class NovaRenderContext {
    */
   icon(params: NovaIcon): void {
     this.schemaItem({ ...params, type: 'icon' })
+  }
+
+  /**
+   * Записывает retained rect batch.
+   */
+  rects(batch: NovaRectBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawRectBatch(batch)
   }
 
   /**

@@ -8,6 +8,7 @@ import type {
   NovaParticleBatch,
   NovaPolygon,
   NovaRect,
+  NovaRectBatch,
   NovaRenderer,
   NovaRendererCapabilities,
   NovaSchema,
@@ -44,6 +45,7 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
     icon: true,
     text: true,
     particles: true,
+    rectBatches: true,
     measureText: true,
   }
 
@@ -189,6 +191,13 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
    */
   particles(_batch: NovaParticleBatch): void {
     this.throwImmediateApiError('particles')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию rects.
+   */
+  rects(_batch: NovaRectBatch): void {
+    this.throwImmediateApiError('rects')
   }
 
   /**

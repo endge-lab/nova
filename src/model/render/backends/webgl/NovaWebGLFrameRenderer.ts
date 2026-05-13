@@ -14,6 +14,7 @@ import type {
   NovaParticleBatch,
   NovaPolygon,
   NovaRect,
+  NovaRectBatch,
   NovaSchemaItem,
   NovaSemanticScopeKind,
   NovaText,
@@ -44,6 +45,8 @@ const TEXTURE_STRIDE = 8
 const PARTICLE_POSITION_STRIDE = 2
 const PARTICLE_CIRCLE_STATIC_STRIDE = 10
 const PARTICLE_SPRITE_STATIC_STRIDE = 2
+const RECT_BATCH_GEOMETRY_STRIDE = 4
+const RECT_BATCH_STATIC_STRIDE = 5
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
 const TEXT_ATLAS_PAGE_SIZE = 2048
 
@@ -289,6 +292,22 @@ interface ParticleSpriteBatchCache {
 }
 
 /**
+ * Описывает cache для instanced rect batch.
+ */
+interface RectStreamBatchCache {
+  geometryData: Float32Array
+  staticData: Float32Array
+  count: number
+  revision?: number
+  staticRevision?: number
+  geometryUpload: WebGLUploadState
+  staticUpload: WebGLUploadState
+  geometryBuffer: WebGLBuffer
+  staticBuffer: WebGLBuffer
+  vao: WebGLVertexArrayObject
+}
+
+/**
  * Описывает контракт FloatDirtyRange.
  */
 interface FloatDirtyRange {
@@ -361,6 +380,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _textureProgram: NovaWebGLProgram
   private readonly _particleCircleProgram: NovaWebGLProgram
   private readonly _particleSpriteProgram: NovaWebGLProgram
+  private readonly _rectBatchProgram: NovaWebGLProgram
   private readonly _roundedBuffer: WebGLBuffer
   private readonly _solidBuffer: WebGLBuffer
   private readonly _textureBuffer: WebGLBuffer
@@ -381,9 +401,11 @@ export class NovaWebGLFrameRenderer {
   private readonly _semanticBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, NonOverlapLayeredBatchCache>()
   private readonly _particleCircleBatchCache = new WeakMap<NovaParticleBatch, ParticleCircleBatchCache>()
   private readonly _particleSpriteBatchCache = new WeakMap<NovaParticleBatch, ParticleSpriteBatchCache>()
+  private readonly _rectStreamBatchCache = new WeakMap<NovaRectBatch, RectStreamBatchCache>()
   private readonly _ownedTextureBatchCaches = new Set<TextureBatchCache>()
   private readonly _ownedParticleCircleBatchCaches = new Set<ParticleCircleBatchCache>()
   private readonly _ownedParticleSpriteBatchCaches = new Set<ParticleSpriteBatchCache>()
+  private readonly _ownedRectStreamBatchCaches = new Set<RectStreamBatchCache>()
   private readonly _roundedUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _solidUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _textureUpload: WebGLUploadState = createWebGLUploadState()
@@ -421,6 +443,7 @@ export class NovaWebGLFrameRenderer {
     this._textureProgram = NovaWebGLProgram.create(this._gl, TEXTURE_VERTEX_SHADER, TEXTURE_FRAGMENT_SHADER)
     this._particleCircleProgram = NovaWebGLProgram.create(this._gl, PARTICLE_CIRCLE_VERTEX_SHADER, PARTICLE_CIRCLE_FRAGMENT_SHADER)
     this._particleSpriteProgram = NovaWebGLProgram.create(this._gl, PARTICLE_SPRITE_VERTEX_SHADER, PARTICLE_SPRITE_FRAGMENT_SHADER)
+    this._rectBatchProgram = NovaWebGLProgram.create(this._gl, RECT_BATCH_VERTEX_SHADER, RECT_BATCH_FRAGMENT_SHADER)
     this._roundedBuffer = this.createBuffer()
     this._solidBuffer = this.createBuffer()
     this._textureBuffer = this.createBuffer()
@@ -541,6 +564,9 @@ export class NovaWebGLFrameRenderer {
         case 'drawParticles':
           if (command.particleBatch) this.drawParticleBatch(command.particleBatch, currentTransform, stats)
           break
+        case 'drawRectBatch':
+          if (command.rectBatch) this.drawRectBatch(command.rectBatch, currentTransform, stats)
+          break
         case 'cursor':
         case 'beginGroup':
         case 'endGroup':
@@ -634,6 +660,12 @@ export class NovaWebGLFrameRenderer {
       this._gl.deleteVertexArray(cache.vao)
     }
     this._ownedParticleSpriteBatchCaches.clear()
+    for (const cache of this._ownedRectStreamBatchCaches) {
+      this._gl.deleteBuffer(cache.geometryBuffer)
+      this._gl.deleteBuffer(cache.staticBuffer)
+      this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedRectStreamBatchCaches.clear()
     this._gl.deleteBuffer(this._roundedBuffer)
     this._gl.deleteBuffer(this._solidBuffer)
     this._gl.deleteBuffer(this._textureBuffer)
@@ -646,6 +678,7 @@ export class NovaWebGLFrameRenderer {
     this._textureProgram.destroy()
     this._particleCircleProgram.destroy()
     this._particleSpriteProgram.destroy()
+    this._rectBatchProgram.destroy()
   }
 
   /**
@@ -1991,6 +2024,60 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Рисует retained rect batch через specialized instanced stream.
+   */
+  private drawRectBatch(batch: NovaRectBatch, transform: mat3, stats: RenderStats): void {
+    if (batch.active === false || batch.count <= 0) return
+
+    let cache = this._rectStreamBatchCache.get(batch)
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+    let geometryDirty: Array<FloatDirtyRange> | null = null
+    let staticDirty: Array<FloatDirtyRange> | null = null
+
+    if (!cache || cache.count !== batch.count) {
+      cache = this.createRectStreamBatchCache(batch)
+      this._rectStreamBatchCache.set(batch, cache)
+      this._ownedRectStreamBatchCaches.add(cache)
+    }
+
+    if (cache.revision !== revision) {
+      this.writeRectBatchGeometry(batch, cache.geometryData)
+      cache.revision = revision
+      geometryDirty = [{ start: 0, end: batch.count * RECT_BATCH_GEOMETRY_STRIDE }]
+    }
+
+    if (cache.staticRevision !== staticRevision) {
+      this.writeRectBatchStaticData(batch, cache.staticData)
+      cache.staticRevision = staticRevision
+      staticDirty = [{ start: 0, end: batch.count * RECT_BATCH_STATIC_STRIDE }]
+    }
+
+    this.flush(stats)
+    const uploadStartedAt = performance.now()
+    const gl = this._gl
+    gl.bindVertexArray(cache.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.geometryBuffer)
+    this.uploadArrayBuffer(cache.geometryData, cache.geometryUpload, stats, geometryDirty)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.staticBuffer)
+    this.uploadArrayBuffer(cache.staticData, cache.staticUpload, stats, staticDirty)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    this._rectBatchProgram.use()
+    gl.uniform2f(this._rectBatchProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._rectBatchProgram.uniformLocation('u_transform'), false, transform)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.count)
+
+    stats.instances += batch.count
+    stats.drawCalls += 1
+    stats.batches += 1
+    if (geometryDirty || staticDirty) {
+      stats.updatedHandles += batch.count
+      stats.dirtyStreamRanges += Number(Boolean(geometryDirty)) + Number(Boolean(staticDirty))
+    }
+  }
+
+  /**
    * Рисует retained particle batch через specialized instanced stream.
    */
   private drawParticleBatch(batch: NovaParticleBatch, transform: mat3, stats: RenderStats): void {
@@ -2182,6 +2269,58 @@ export class NovaWebGLFrameRenderer {
     this.writeParticlePositions(batch, cache.positionData)
     this.writeSpriteParticleStaticData(batch, cache.staticData)
     return cache
+  }
+
+  /**
+   * Создает cache для instanced rect batch.
+   */
+  private createRectStreamBatchCache(batch: NovaRectBatch): RectStreamBatchCache {
+    const geometryBuffer = this.createBuffer()
+    const staticBuffer = this.createBuffer()
+    const cache: RectStreamBatchCache = {
+      geometryData: new Float32Array(batch.count * RECT_BATCH_GEOMETRY_STRIDE),
+      staticData: new Float32Array(batch.count * RECT_BATCH_STATIC_STRIDE),
+      count: batch.count,
+      geometryUpload: createWebGLUploadState(),
+      staticUpload: createWebGLUploadState(),
+      geometryBuffer,
+      staticBuffer,
+      vao: this.createRectBatchVao(geometryBuffer, staticBuffer),
+    }
+
+    this.writeRectBatchGeometry(batch, cache.geometryData)
+    this.writeRectBatchStaticData(batch, cache.staticData)
+    return cache
+  }
+
+  /**
+   * Записывает dynamic rect geometry.
+   */
+  private writeRectBatchGeometry(batch: NovaRectBatch, target: Float32Array): void {
+    for (let index = 0; index < batch.count; index += 1) {
+      const offset = index * RECT_BATCH_GEOMETRY_STRIDE
+      target[offset] = batch.x[index] ?? 0
+      target[offset + 1] = batch.y[index] ?? 0
+      target[offset + 2] = batch.width[index] ?? 0
+      target[offset + 3] = batch.height[index] ?? 0
+    }
+  }
+
+  /**
+   * Записывает static rect paint/state attributes.
+   */
+  private writeRectBatchStaticData(batch: NovaRectBatch, target: Float32Array): void {
+    const opacity = batch.opacity ?? 1
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const colorOffset = index * 4
+      const targetOffset = index * RECT_BATCH_STATIC_STRIDE
+      target[targetOffset] = batch.colors[colorOffset] ?? 0
+      target[targetOffset + 1] = batch.colors[colorOffset + 1] ?? 0
+      target[targetOffset + 2] = batch.colors[colorOffset + 2] ?? 0
+      target[targetOffset + 3] = (batch.colors[colorOffset + 3] ?? 1) * opacity
+      target[targetOffset + 4] = batch.states?.[index] ?? 0
+    }
   }
 
   /**
@@ -2952,6 +3091,29 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Создает VAO для rect batch stream.
+   */
+  private createRectBatchVao(geometryBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttribDivisor(this._rectBatchProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer)
+    this.bindAttribDivisor(this._rectBatchProgram, 'a_rect', 4, RECT_BATCH_GEOMETRY_STRIDE * FLOAT_BYTES, 0, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
+    const stride = RECT_BATCH_STATIC_STRIDE * FLOAT_BYTES
+    this.bindAttribDivisor(this._rectBatchProgram, 'a_color', 4, stride, 0, 1)
+    this.bindAttribDivisor(this._rectBatchProgram, 'a_state', 1, stride, 4, 1)
+
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
    * Создает vao.
    */
   private createVao(): WebGLVertexArrayObject {
@@ -3485,6 +3647,42 @@ in vec4 v_color;
 out vec4 outColor;
 void main() {
   outColor = texture(u_texture, v_uv) * v_color;
+}
+`
+
+const RECT_BATCH_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec4 a_rect;
+in vec4 a_color;
+in float a_state;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec4 v_color;
+flat out float v_state;
+void main() {
+  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = a_rect.xy + uv * a_rect.zw;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_color = a_color;
+  v_state = a_state;
+}
+`
+
+const RECT_BATCH_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec4 v_color;
+flat in float v_state;
+out vec4 outColor;
+void main() {
+  vec4 color = v_color;
+  if (v_state > 0.5) {
+    color.rgb = min(color.rgb * 1.08 + vec3(0.03), vec3(1.0));
+  }
+  outColor = color;
 }
 `
 

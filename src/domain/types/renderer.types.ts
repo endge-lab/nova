@@ -206,6 +206,27 @@ export type NovaParticleBatchKind = 'circle' | 'sprite'
 export type NovaParticleNumberData = Float32Array | ReadonlyArray<number>
 
 /**
+ * Описывает массив числовых данных rect stream.
+ */
+export type NovaRectNumberData = Float32Array | ReadonlyArray<number>
+
+/**
+ * Описывает retained rect batch для плотных прямоугольных сцен.
+ */
+export interface NovaRectBatch extends NovaUIBase {
+  count: number
+  x: NovaRectNumberData
+  y: NovaRectNumberData
+  width: NovaRectNumberData
+  height: NovaRectNumberData
+  colors: NovaRectNumberData
+  states?: NovaRectNumberData
+  opacity?: number
+  revision?: number
+  staticRevision?: number
+}
+
+/**
  * Описывает retained particle batch для массовых dynamic-сцен.
  */
 export interface NovaParticleBatch extends NovaUIBase {
@@ -287,6 +308,7 @@ export interface NovaRendererCapabilities {
   icon: boolean
   text: boolean
   particles: boolean
+  rectBatches: boolean
   measureText: boolean
 }
 
@@ -377,6 +399,7 @@ export interface NovaRenderer {
   circle(params: NovaCircle): void
   polygon(params: NovaPolygon): void
   icon(params: NovaIcon): void
+  rects(batch: NovaRectBatch): void
   particles(batch: NovaParticleBatch): void
 
   measureText(params: NovaText): { width: number; height: number }
