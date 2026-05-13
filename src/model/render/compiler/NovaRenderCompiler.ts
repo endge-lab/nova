@@ -8,8 +8,8 @@ import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
-import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/NovaRenderPolicy'
-import { collectVisibleNovaRenderGroups } from '@/model/render/graph/NovaRenderCulling'
+import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/nova-render-policy'
+import { collectVisibleNovaRenderGroups } from '@/model/render/graph/nova-render-culling'
 
 /**
  * Описывает контракт NovaRenderCompilerOptions.

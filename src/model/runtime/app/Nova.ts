@@ -9,7 +9,7 @@ import {
   registerDefinedComponents,
   type NovaDefinedComponentInput,
   type NovaDefinedComponentOptions,
-} from '@/model/runtime/components/NovaDefinedComponent'
+} from '@/model/runtime/components/nova-defined-component'
 import {
   createNovaRef,
   createNovaRefMap,
@@ -17,7 +17,7 @@ import {
   type NovaRef,
   type NovaRefMap,
   type NovaScope,
-} from '@/model/runtime/refs/NovaRef'
+} from '@/model/runtime/refs/nova-ref'
 import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void

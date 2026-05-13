@@ -7,7 +7,7 @@ import type {
   NovaRenderItem,
 } from '@/domain/types/rendering/index'
 import type { NovaParticleBatch, NovaRectBatch, NovaSchemaItem, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
-import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/NovaRenderItem'
+import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/nova-render-item'
 import type { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
 import type { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
 

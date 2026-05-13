@@ -1,5 +1,5 @@
 import type { DataPathDef, RaphObserveDataOptions, Traversal } from '@endge/raph'
-import type { NovaPhaseName } from '@/domain/constants/NovaPhase'
+import type { NovaPhaseName } from '@/domain/constants/nova-phase'
 
 /**
  * Описывает типизированный token scoped dependency в Nova tree.

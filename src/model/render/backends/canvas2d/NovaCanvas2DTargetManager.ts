@@ -1,6 +1,6 @@
 import type { NovaRenderTarget } from '@/domain/types/rendering/index'
 import { NovaRenderTargetManager, type CreateNovaRenderTargetOptions } from '@/model/render/targets/NovaRenderTargetManager'
-import type { NovaRenderTargetResource } from '@/model/render/targets/NovaRenderTargetResource'
+import type { NovaRenderTargetResource } from '@/model/render/targets/nova-render-target-resource'
 
 /**
  * Выделяет Canvas2D resources для offscreen render targets.

@@ -15,7 +15,7 @@ import {
   createDefinedComponentNode,
   normalizeDefinedComponent,
   type NovaDefinedComponentInput,
-} from '@/model/runtime/components/NovaDefinedComponent'
+} from '@/model/runtime/components/nova-defined-component'
 
 const MAX_SCHEMA_COMPONENT_DEPTH = 32
 

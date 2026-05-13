@@ -2,7 +2,7 @@ import type { ConstructorOrFactory, EventList } from '@endge/utils'
 import { createInstance } from '@endge/utils'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
-import { createNovaRenderLayer } from '@/model/render/graph/NovaRenderLayer'
+import { createNovaRenderLayer } from '@/model/render/graph/nova-render-layer'
 import { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
 import { NovaRenderCompiler } from '@/model/render/compiler/NovaRenderCompiler'
 import type {

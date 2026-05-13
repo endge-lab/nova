@@ -1,6 +1,6 @@
 import type { EventList } from '@endge/utils'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
-import type { NovaRenderBackend } from '@/model/render/backends/NovaRenderBackend'
+import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 
 /**

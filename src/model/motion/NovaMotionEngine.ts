@@ -2,8 +2,8 @@ import type { RaphLoopLease } from '@endge/raph'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
-import { clampMotionProgress, resolveNovaMotionEasing } from '@/model/motion/NovaMotionEasing'
-import { interpolateNovaMotionValue } from '@/model/motion/NovaMotionInterpolation'
+import { clampMotionProgress, resolveNovaMotionEasing } from '@/model/motion/nova-motion-easing'
+import { interpolateNovaMotionValue } from '@/model/motion/nova-motion-interpolation'
 import {
   runNovaMotionPattern,
   runNovaMotionPreset,
@@ -11,8 +11,8 @@ import {
   type NovaMotionPatternOptions,
   type NovaMotionPresetName,
   type NovaMotionPresetOptions,
-} from '@/model/motion/NovaMotionPresets'
-import { compileNovaMotionTimeline } from '@/model/motion/NovaMotionTimeline'
+} from '@/model/motion/nova-motion-presets'
+import { compileNovaMotionTimeline } from '@/model/motion/nova-motion-timeline'
 import type {
   NovaMotionOptions,
   NovaMotionPatch,

@@ -9,7 +9,7 @@ import type {
   NovaRenderTarget,
   NovaRenderViewport,
 } from '@/domain/types/rendering/index'
-import { createNovaRenderLayer } from '@/model/render/graph/NovaRenderLayer'
+import { createNovaRenderLayer } from '@/model/render/graph/nova-render-layer'
 
 let frameId = 0
 

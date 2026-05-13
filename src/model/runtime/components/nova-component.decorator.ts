@@ -3,7 +3,7 @@ import type { NovaElementConstructor } from '@/domain/types/component.types'
 import {
   defineNovaComponent,
   type NovaDefinedComponentOptions,
-} from '@/model/runtime/components/NovaDefinedComponent'
+} from '@/model/runtime/components/nova-defined-component'
 
 /**
  * Помечает class-компонент metadata для DSL и явной registry-регистрации.

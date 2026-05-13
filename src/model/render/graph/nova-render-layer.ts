@@ -1,5 +1,5 @@
 import type { NovaRenderLayer, NovaRenderLayerId } from '@/domain/types/rendering/index'
-import { createNovaRenderGroup } from '@/model/render/graph/NovaRenderGroup'
+import { createNovaRenderGroup } from '@/model/render/graph/nova-render-group'
 
 /**
  * Создает nova render layer.

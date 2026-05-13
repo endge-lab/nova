@@ -26,8 +26,8 @@ import {
   createRenderVersions,
   mergeRenderDirtyFlags,
   resolveNovaRenderPolicy,
-} from '@/model/render/policy/NovaRenderPolicy'
-import { NovaPhase } from '@/domain/constants/NovaPhase'
+} from '@/model/render/policy/nova-render-policy'
+import { NovaPhase } from '@/domain/constants/nova-phase'
 import type {
   NovaAddChildOptions,
   NovaContextToken,

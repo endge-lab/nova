@@ -7,7 +7,7 @@ import type {
 import {
   createCleanRenderDirtyFlags,
   createRenderVersions,
-} from '@/model/render/policy/NovaRenderPolicy'
+} from '@/model/render/policy/nova-render-policy'
 
 /**
  * Описывает контракт CreateNovaRenderGroupOptions.

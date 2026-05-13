@@ -26,8 +26,8 @@ import { NovaWebGLProgram } from '@/model/render/backends/webgl/NovaWebGLProgram
 import {
   DEFAULT_NOVA_RENDERER_CONFIG,
   resolveNovaTextRasterScale,
-} from '@/model/render/policy/NovaRenderPolicy'
-import type { NovaParsedColor } from '@/model/render/schema/NovaColorParser'
+} from '@/model/render/policy/nova-render-policy'
+import type { NovaParsedColor } from '@/model/render/schema/nova-color-parser'
 import {
   compileNovaBorderStyle,
   compileNovaCircleStyle,
@@ -36,7 +36,7 @@ import {
   compileNovaRectStyle,
   compileNovaTextStyle,
   type NovaCompiledTextStyle,
-} from '@/model/render/schema/NovaStyleCompiler'
+} from '@/model/render/schema/nova-style-compiler'
 
 const FLOAT_BYTES = 4
 const RECT_STRIDE = 21

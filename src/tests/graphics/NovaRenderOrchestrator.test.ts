@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
-import type { NovaRenderBackend } from '@/model/render/backends/NovaRenderBackend'
+import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 

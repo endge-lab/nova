@@ -19,7 +19,7 @@ import { RendererType } from '@/domain/types/renderer.types'
 import { NovaGraphics } from '@/model/platform/NovaGraphics'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
-import type { NovaRenderBackend } from '@/model/render/backends/NovaRenderBackend'
+import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 
 /**
  * Рисует compiled Nova render frame через Canvas2D backend.

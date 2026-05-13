@@ -14,7 +14,7 @@ import {
   createNovaBatchPlan,
   createNovaRenderStreamId,
   NovaTypedRenderStream,
-} from '@/model/render/graph/NovaRenderStream'
+} from '@/model/render/graph/nova-render-stream'
 
 /**
  * Описывает retained handle update without rebuilding render graph.

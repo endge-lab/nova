@@ -1,5 +1,5 @@
 import type { EventList } from '@endge/utils'
-import { NovaPhase } from '@/domain/constants/NovaPhase'
+import { NovaPhase } from '@/domain/constants/nova-phase'
 import type {
     NovaThemeCreateOptions,
     NovaThemeDefinition,

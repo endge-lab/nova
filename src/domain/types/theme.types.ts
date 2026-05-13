@@ -1,4 +1,4 @@
-import type { NovaPhaseName } from '@/domain/constants/NovaPhase'
+import type { NovaPhaseName } from '@/domain/constants/nova-phase'
 
 /**
  * Описывает идентификатор темы Nova.

@@ -1,5 +1,5 @@
 import type { NovaBounds } from '@/domain/types/renderer.types'
-import { novaBoundsIntersects } from '@/model/render/graph/NovaRenderCulling'
+import { novaBoundsIntersects } from '@/model/render/graph/nova-render-culling'
 
 /**
  * Описывает тип NovaRenderHitIndexPolicy.

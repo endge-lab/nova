@@ -7,7 +7,7 @@ import type {
   NovaStylePadding,
   NovaText,
 } from '@/domain/types/renderer.types'
-import { parseNovaColor, type NovaParsedColor } from '@/model/render/schema/NovaColorParser'
+import { parseNovaColor, type NovaParsedColor } from '@/model/render/schema/nova-color-parser'
 
 /**
  * Описывает контракт NovaCompiledBoxStyle.

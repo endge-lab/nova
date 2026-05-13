@@ -14,7 +14,7 @@ import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import {
   createDefinedComponentNode,
   readDefinedComponent,
-} from '@/model/runtime/components/NovaDefinedComponent'
+} from '@/model/runtime/components/nova-defined-component'
 import {
   bindNovaRef,
   bindNovaRefMap,
@@ -25,7 +25,7 @@ import {
   type NovaRef,
   type NovaRefMap,
   type NovaScope,
-} from '@/model/runtime/refs/NovaRef'
+} from '@/model/runtime/refs/nova-ref'
 
 /** Constructor скомпилированного `.nova` компонента. */
 export type NovaCompiledNodeConstructor<E extends EventList = Record<string, any>> = new (
