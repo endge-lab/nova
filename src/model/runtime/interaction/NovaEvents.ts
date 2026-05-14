@@ -836,7 +836,7 @@ export class NovaEvents<E extends EventList> {
     this.mouseY = y
     this.lastMouseX = x
     this.lastMouseY = y
-    this.app.cursors.syncPointer({ x, y, target: this.hitTest(x, y) })
+    this.app.cursors.syncPointer({ x, y, target: null })
 
     if (event.cancelBubble) return false
 
