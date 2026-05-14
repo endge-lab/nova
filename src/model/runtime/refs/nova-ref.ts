@@ -13,6 +13,13 @@ interface NovaRefMapState<T extends object> {
 
 const NOVA_REF_STATE = new WeakMap<object, NovaRefState<any>>()
 const NOVA_REF_MAP_STATE = new WeakMap<object, NovaRefMapState<any>>()
+const VUE_REACTIVITY_FLAGS = new Set<PropertyKey>([
+  '__v_isRef',
+  '__v_isReadonly',
+  '__v_isReactive',
+  '__v_isShallow',
+  '__v_raw',
+])
 
 /**
  * Proxy-ref на публичный API Nova component без `.current`.
@@ -64,6 +71,8 @@ export function createNovaRef<T extends object>(name?: string): NovaRef<T> {
 
   const proxy = new Proxy({}, {
     get(_target, property) {
+      if (VUE_REACTIVITY_FLAGS.has(property)) return false
+      if (property === Symbol.toStringTag) return 'NovaRef'
       if (property === '$mounted') return state.api !== null
       if (property === '$ready') {
         return () => {
@@ -95,6 +104,7 @@ export function createNovaRef<T extends object>(name?: string): NovaRef<T> {
     },
 
     has(_target, property) {
+      if (VUE_REACTIVITY_FLAGS.has(property)) return false
       if (property === '$mounted' || property === '$ready') return true
       return state.api !== null && property in state.api
     },
