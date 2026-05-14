@@ -7,6 +7,7 @@ import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRe
 import type { NovaSoundOptions } from '@/domain/types/sound.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
 import type { NovaThemeCreateOptions } from '@/domain/types/theme.types'
+import type { NovaSyncScope } from '@/model/runtime/sync/NovaSyncScope'
 
 /**
  * Описывает контракт NovaNodeProperties.
@@ -173,6 +174,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   theme?: NovaThemeCreateOptions
   debug?: NovaDebugOptions
   raph?: NovaRaphOptions
+  syncScope?: NovaSyncScope
   predefinedEvents?: Array<keyof E>
   schemaRegistry?: NovaSchemaRegistry
 }

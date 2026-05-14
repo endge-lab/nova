@@ -1,0 +1,262 @@
+import type { EventList } from '@endge/utils'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type {
+  NovaSyncEndpointInput,
+  NovaSyncLink,
+  NovaSyncLinkConfig,
+  NovaSyncPort,
+  NovaSyncPortMap,
+  NovaSyncRegisteredPort,
+  NovaSyncSchedule,
+  NovaSyncScopeOptions,
+  NovaSyncTransaction,
+} from '@/model/runtime/sync/nova-sync.types'
+
+interface InternalLink extends NovaSyncLink {
+  config: NovaSyncLinkConfig<any, any>
+}
+
+interface QueuedWrite {
+  link: InternalLink
+  sourceEndpoint: string
+  targetEndpoint: string
+  value: unknown
+  transaction: NovaSyncTransaction
+}
+
+let nextScopeId = 1
+let nextLinkId = 1
+let nextTransactionId = 1
+
+export class NovaSyncScope {
+  readonly id: string
+  readonly scheduler: NovaSyncSchedule
+
+  private readonly ports = new Map<string, NovaSyncRegisteredPort>()
+  private readonly nodeEndpoints = new WeakMap<NovaNode<EventList>, Set<string>>()
+  private readonly links = new Map<string, InternalLink>()
+  private readonly microtaskQueue = new Map<string, QueuedWrite>()
+  private readonly frameQueue = new Map<string, QueuedWrite>()
+  private microtaskScheduled = false
+  private frameScheduled = false
+  private applyDepth = 0
+
+  constructor(options: NovaSyncScopeOptions = {}) {
+    this.id = options.id ?? `nova-sync-${nextScopeId++}`
+    this.scheduler = options.scheduler ?? 'immediate'
+  }
+
+  registerNode(node: NovaNode<EventList>, ports: NovaSyncPortMap): () => void {
+    const endpoints = new Set<string>()
+    for (const [name, port] of Object.entries(ports)) {
+      const endpoint = this.endpointFor(node, name)
+      if (this.ports.has(endpoint)) {
+        throw new Error(`[NovaSyncScope] Port "${endpoint}" is already registered`)
+      }
+      port.id = endpoint
+      port.owner = node
+      this.ports.set(endpoint, { endpoint, name, node, port })
+      endpoints.add(endpoint)
+    }
+
+    this.nodeEndpoints.set(node, endpoints)
+    return () => this.unregisterNode(node)
+  }
+
+  unregisterNode(node: NovaNode<EventList>): void {
+    const endpoints = this.nodeEndpoints.get(node)
+    if (!endpoints) return
+
+    for (const endpoint of endpoints) {
+      this.ports.delete(endpoint)
+      for (const [linkId, link] of this.links) {
+        if (link.from === endpoint || link.to === endpoint) {
+          this.links.delete(linkId)
+        }
+      }
+    }
+    this.nodeEndpoints.delete(node)
+  }
+
+  link(config: NovaSyncLinkConfig): NovaSyncLink {
+    const from = this.resolveEndpoint(config.from)
+    const to = this.resolveEndpoint(config.to)
+    this.requirePort(from)
+    this.requirePort(to)
+
+    const id = config.id ?? `sync-link-${nextLinkId++}`
+    if (this.links.has(id)) {
+      throw new Error(`[NovaSyncScope] Link "${id}" is already registered`)
+    }
+
+    const schedule = config.schedule ?? this.requirePort(from).port.schedule ?? this.scheduler
+    const link: InternalLink = {
+      id,
+      from,
+      to,
+      schedule,
+      bidirectional: config.bidirectional ?? false,
+      config,
+      dispose: () => this.unlink(id),
+    }
+    this.links.set(id, link)
+    return link
+  }
+
+  unlink(id: string): void {
+    this.links.delete(id)
+  }
+
+  resolvePort<T = unknown>(endpoint: NovaSyncEndpointInput): NovaSyncPort<T> {
+    return this.requirePort(this.resolveEndpoint(endpoint)).port as NovaSyncPort<T>
+  }
+
+  notify(endpoint: NovaSyncEndpointInput, value?: unknown, transaction?: NovaSyncTransaction): void {
+    if (this.applyDepth > 0) return
+
+    const sourceEndpoint = this.resolveEndpoint(endpoint)
+    const source = this.requirePort(sourceEndpoint)
+    const nextValue = arguments.length >= 2 ? value : source.port.read()
+    const tx = transaction ?? this.createTransaction(sourceEndpoint)
+    this.propagate(sourceEndpoint, nextValue, tx)
+  }
+
+  notifyPortChanged(node: NovaNode<EventList>, name: string, value?: unknown): void {
+    const endpoint = this.endpointFor(node, name)
+    if (!this.ports.has(endpoint)) return
+    if (arguments.length >= 3) this.notify(endpoint, value)
+    else this.notify(endpoint)
+  }
+
+  dispose(): void {
+    this.ports.clear()
+    this.links.clear()
+    this.microtaskQueue.clear()
+    this.frameQueue.clear()
+    this.microtaskScheduled = false
+    this.frameScheduled = false
+  }
+
+  private propagate(sourceEndpoint: string, value: unknown, transaction: NovaSyncTransaction): void {
+    if (transaction.path.has(sourceEndpoint)) return
+    transaction.path.add(sourceEndpoint)
+
+    for (const link of this.links.values()) {
+      if (link.from === sourceEndpoint) {
+        this.queueLinkedWrite(link, sourceEndpoint, link.to, value, transaction)
+      } else if (link.bidirectional && link.to === sourceEndpoint) {
+        this.queueLinkedWrite(link, sourceEndpoint, link.from, value, transaction)
+      }
+    }
+  }
+
+  private queueLinkedWrite(
+    link: InternalLink,
+    sourceEndpoint: string,
+    targetEndpoint: string,
+    value: unknown,
+    transaction: NovaSyncTransaction,
+  ): void {
+    if (transaction.path.has(targetEndpoint)) return
+    if (link.config.filter && !link.config.filter(value, transaction)) return
+
+    const nextValue = link.config.transform ? link.config.transform(value, transaction) : value
+    const schedule = link.config.schedule ?? link.schedule
+    const queued: QueuedWrite = { link, sourceEndpoint, targetEndpoint, value: nextValue, transaction }
+
+    if (schedule === 'microtask') {
+      this.microtaskQueue.set(`${link.id}:${sourceEndpoint}:${targetEndpoint}`, queued)
+      this.scheduleMicrotaskFlush()
+      return
+    }
+
+    if (schedule === 'frame') {
+      this.frameQueue.set(`${link.id}:${sourceEndpoint}:${targetEndpoint}`, queued)
+      this.scheduleFrameFlush()
+      return
+    }
+
+    this.applyQueuedWrite(queued)
+  }
+
+  private applyQueuedWrite(write: QueuedWrite): void {
+    const target = this.ports.get(write.targetEndpoint)
+    if (!target) return
+    if (target.port.writable === false) {
+      throw new Error(`[NovaSyncScope] Port "${write.targetEndpoint}" is readonly`)
+    }
+
+    const equals = write.link.config.equals ?? target.port.equals ?? Object.is
+    if (equals(target.port.read(), write.value)) return
+
+    this.applyDepth += 1
+    try {
+      target.port.write(write.value, write.transaction)
+    } finally {
+      this.applyDepth -= 1
+    }
+
+    this.propagate(write.targetEndpoint, write.value, write.transaction)
+  }
+
+  private scheduleMicrotaskFlush(): void {
+    if (this.microtaskScheduled) return
+    this.microtaskScheduled = true
+    queueMicrotask(() => {
+      this.microtaskScheduled = false
+      this.flushQueue(this.microtaskQueue)
+    })
+  }
+
+  private scheduleFrameFlush(): void {
+    if (this.frameScheduled) return
+    this.frameScheduled = true
+    const requestFrame = globalThis.requestAnimationFrame ?? ((callback: FrameRequestCallback) => {
+      return globalThis.setTimeout(() => callback(performance.now()), 16) as unknown as number
+    })
+    requestFrame(() => {
+      this.frameScheduled = false
+      this.flushQueue(this.frameQueue)
+    })
+  }
+
+  private flushQueue(queue: Map<string, QueuedWrite>): void {
+    const writes = [...queue.values()]
+    queue.clear()
+    for (const write of writes) {
+      this.applyQueuedWrite(write)
+    }
+  }
+
+  private createTransaction(origin: string): NovaSyncTransaction {
+    return {
+      id: nextTransactionId++,
+      origin,
+      path: new Set(),
+    }
+  }
+
+  private requirePort(endpoint: string): NovaSyncRegisteredPort {
+    const port = this.ports.get(endpoint)
+    if (!port) {
+      throw new Error(`[NovaSyncScope] Port "${endpoint}" is not registered`)
+    }
+    return port
+  }
+
+  private resolveEndpoint(endpoint: NovaSyncEndpointInput): string {
+    if (typeof endpoint !== 'string') {
+      if (!endpoint.id) throw new Error('[NovaSyncScope] Anonymous port cannot be used as an endpoint')
+      return endpoint.id
+    }
+    return endpoint.startsWith('#') ? endpoint.slice(1) : endpoint
+  }
+
+  private endpointFor(node: NovaNode<EventList>, name: string): string {
+    const componentId = (node as unknown as { componentId?: string }).componentId
+    if (!componentId) {
+      throw new Error('[NovaSyncScope] Only component nodes with componentId can register sync ports')
+    }
+    return `${componentId}.${name}`
+  }
+}

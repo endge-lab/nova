@@ -29,6 +29,7 @@ import { NovaComponentRegistry } from '@/model/runtime/components/NovaComponentR
 import { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
 import { NovaSoundEngine } from '@/model/sound/NovaSoundEngine'
 import { NovaThemeService } from '@/model/theme/NovaThemeService'
+import { NovaSyncScope } from '@/model/runtime/sync/NovaSyncScope'
 import type { NovaRendererConfig, NovaRendererConfigInput } from '@/domain/types/rendering/index'
 import { resolveNovaRendererConfig } from '@/model/render/policy/nova-render-policy'
 import { NovaPhase } from '@/domain/constants/nova-phase'
@@ -77,6 +78,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly bus: EventBus<E>
     readonly metrics: NovaMetrics
     readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this.invalidate())
+    readonly sync: NovaSyncScope
 
     //
     // Текущее состояние debug-конфигурации.
@@ -88,6 +90,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     private _keyboardActive = false
     private _keyboardHovered = false
     private _contextVersion = 0
+    private readonly _ownsSyncScope: boolean
 
     /**
      * Создает приложение, подключает canvas, input, renderer и Raph-loop.
@@ -112,6 +115,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         //
         // Создаем registry, backend и event system, которые дальше используют surfaces и nodes.
         this.schema = options.schemaRegistry ?? new NovaSchemaRegistry()
+        this._ownsSyncScope = !options.syncScope
+        this.sync = options.syncScope ?? new NovaSyncScope()
         this._backend = createNovaRenderBackend(this._mainRendererType, this._canvas, this.schema, this._rendererConfig, this.assets)
         this._orchestrator = new NovaRenderOrchestrator(this._backend)
         this._events = new NovaEvents(this)
@@ -670,6 +675,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         }
         this._backend.destroy()
         this._canvas.destroy()
+        if (this._ownsSyncScope) {
+            this.sync.dispose()
+        }
 
         this.raph.clear()
         if (this._ownsRaphKernel) {

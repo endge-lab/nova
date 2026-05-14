@@ -4,6 +4,8 @@ import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaComponentDescriptor } from '@/domain/types/component.types'
 import type { NovaMotionOptions, NovaMotionPlayback } from '@/domain/types/motion.types'
+import { createNovaComponentPropSyncPorts } from '@/model/runtime/sync/nova-sync-ports'
+import type { NovaSyncPortMap } from '@/model/runtime/sync/nova-sync.types'
 
 /**
  * Описывает runtime-сущность NovaComponentNode.
@@ -21,6 +23,7 @@ export abstract class NovaComponentNode<
   readonly componentId: string
 
   protected props: TProps
+  private unregisterSyncPorts?: () => void
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -58,6 +61,7 @@ export abstract class NovaComponentNode<
 
     this.onPropsChanged(changedKeys)
     this.dirty(this.resolveDirty(changedKeys))
+    this.notifySyncPortsChanged(changedKeys)
     return this
   }
 
@@ -79,14 +83,55 @@ export abstract class NovaComponentNode<
    * Выполняет внутреннюю операцию dispose.
    */
   override dispose(): void {
+    this.unregisterSyncPorts?.()
+    this.unregisterSyncPorts = undefined
     this.nova.components.unregister(this)
     super.dispose()
+  }
+
+  /**
+   * Возвращает sync-порты runtime component. По умолчанию descriptor fields
+   * становятся безопасными prop-портами.
+   */
+  getSyncPorts(): NovaSyncPortMap {
+    return createNovaComponentPropSyncPorts(this as never)
+  }
+
+  /**
+   * Регистрирует component ports в app-level sync scope после mount.
+   */
+  protected override onMount(): void {
+    super.onMount()
+    this.unregisterSyncPorts = this.nova.sync.registerNode(this, this.getSyncPorts())
+  }
+
+  /**
+   * Снимает component ports при unmount.
+   */
+  protected override onUnmount(): void {
+    this.unregisterSyncPorts?.()
+    this.unregisterSyncPorts = undefined
+    super.onUnmount()
+  }
+
+  /**
+   * Уведомляет sync scope об изменении конкретного порта.
+   */
+  notifySyncPortChanged(name: string, value?: unknown): void {
+    if (arguments.length >= 2) this.nova.sync.notifyPortChanged(this, name, value)
+    else this.nova.sync.notifyPortChanged(this, name)
   }
 
   /**
    * Обрабатывает событие props changed.
    */
   protected onPropsChanged(_changedKeys: Array<keyof TProps>): void {}
+
+  private notifySyncPortsChanged(changedKeys: Array<keyof TProps>): void {
+    for (const key of changedKeys) {
+      this.notifySyncPortChanged(String(key), this.props[key])
+    }
+  }
 
   /**
    * Выполняет внутреннюю операцию transition to.
