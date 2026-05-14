@@ -8,6 +8,7 @@ import type {
   NovaSchemaItem,
   NovaStripeRectBatch,
   NovaTextBatch,
+  NovaTextRenderMode,
   RendererType,
 } from '@/domain/types/renderer.types'
 
@@ -90,7 +91,8 @@ export interface NovaRendererBatchingConfig {
  */
 export interface NovaRendererTextConfig {
   quality: 'performance' | 'balanced' | 'quality'
-  mode: 'auto' | 'run-atlas' | 'glyph-atlas' | 'msdf'
+  mode: NovaTextRenderMode
+  modes: NovaRendererTextZoneModes
   maxAtlasMemoryMB: number
   zoomBuckets: Array<number>
   dynamicBuckets: boolean
@@ -100,6 +102,15 @@ export interface NovaRendererTextConfig {
   visibleOnlyRaster: boolean
   fallbackPreviousScale: boolean
   maxRasterScale: number
+}
+
+/**
+ * Описывает зональные режимы текста для продуктовых canvas.
+ */
+export interface NovaRendererTextZoneModes {
+  timeScale: NovaTextRenderMode
+  taskLabels: NovaTextRenderMode
+  uiLabels: NovaTextRenderMode
 }
 
 /**
@@ -136,7 +147,9 @@ export interface NovaRendererConfig {
  */
 export type NovaRendererConfigInput = {
   batching?: Partial<NovaRendererBatchingConfig>
-  text?: Partial<NovaRendererTextConfig>
+  text?: Partial<Omit<NovaRendererTextConfig, 'modes'>> & {
+    modes?: Partial<NovaRendererTextZoneModes>
+  }
   cache?: Partial<NovaRendererCacheConfig>
   diagnostics?: Partial<NovaRendererDiagnosticsConfig>
 }
@@ -500,6 +513,13 @@ export interface NovaRenderMetrics {
   effectiveTextRasterScale?: number
   visibleTextRuns?: number
   culledTextRuns?: number
+  glyphCacheHits?: number
+  glyphCacheMisses?: number
+  glyphRasterCount?: number
+  glyphAtlasPages?: number
+  glyphQuads?: number
+  msdfGlyphCount?: number
+  textModeFallbacks?: number
   textureBatchFallbacks?: number
   textBucketChanges?: number
   textBudgetExhausted?: number

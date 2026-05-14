@@ -21,9 +21,11 @@ import type {
   NovaStripeRectBatch,
   NovaText,
   NovaTextBatch,
+  type NovaTextRenderMode,
+  type NovaTextRenderRole,
 } from '@/domain/types/renderer.types'
-import type { NovaAssetDrawableInput, NovaAssetRegistry } from '@/model/runtime/assets/NovaAssetRegistry'
-import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaAssetDrawableInput, NovaAssetRegistry, NovaStripeAssetDescriptor } from '@/model/runtime/assets/NovaAssetRegistry'
+import { isNovaAssetRef, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import type { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'
 import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
 import { NovaWebGLProgram } from '@/model/render/backends/webgl/NovaWebGLProgram'
@@ -31,7 +33,7 @@ import {
   DEFAULT_NOVA_RENDERER_CONFIG,
   resolveNovaTextRasterScale,
 } from '@/model/render/policy/nova-render-policy'
-import type { NovaParsedColor } from '@/model/render/schema/nova-color-parser'
+import { parseNovaColor, type NovaParsedColor } from '@/model/render/schema/nova-color-parser'
 import {
   compileNovaBorderStyle,
   compileNovaCircleStyle,
@@ -51,6 +53,10 @@ const PARTICLE_CIRCLE_STATIC_STRIDE = 10
 const PARTICLE_SPRITE_STATIC_STRIDE = 2
 const RECT_BATCH_GEOMETRY_STRIDE = 4
 const RECT_BATCH_STATIC_STRIDE = 5
+const TEXTURE_RECT_BATCH_GEOMETRY_STRIDE = 4
+const TEXTURE_RECT_BATCH_STATIC_STRIDE = 5
+const STRIPE_BATCH_GEOMETRY_STRIDE = 4
+const STRIPE_BATCH_STATIC_STRIDE = 10
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
 const TEXT_ATLAS_PAGE_SIZE = 2048
 
@@ -79,6 +85,13 @@ interface RenderStats {
   effectiveTextRasterScale: number
   visibleTextRuns: number
   culledTextRuns: number
+  glyphCacheHits: number
+  glyphCacheMisses: number
+  glyphRasterCount: number
+  glyphAtlasPages: number
+  glyphQuads: number
+  msdfGlyphCount: number
+  textModeFallbacks: number
   textureBatchFallbacks: number
   textBucketChanges: number
   textBudgetExhausted: number
@@ -184,6 +197,38 @@ interface TextAtlasEntry {
   scale: number
   bytes: number
   lastUsed: number
+}
+
+/**
+ * Описывает entry rasterized glyph внутри atlas page.
+ */
+interface GlyphAtlasEntry {
+  key: string
+  page: TextAtlasPage
+  x: number
+  y: number
+  width: number
+  height: number
+  drawWidth: number
+  drawHeight: number
+  advance: number
+  scale: number
+  mode: 'glyph-atlas' | 'msdf'
+  bytes: number
+  lastUsed: number
+}
+
+/**
+ * Описывает результат rasterize glyph.
+ */
+interface RasterizedGlyph {
+  canvas: HTMLCanvasElement
+  width: number
+  height: number
+  drawWidth: number
+  drawHeight: number
+  advance: number
+  scale: number
 }
 
 /**
@@ -312,6 +357,52 @@ interface RectStreamBatchCache {
 }
 
 /**
+ * Описывает группу instanced texture rects с одним WebGL texture.
+ */
+interface TextureRectStreamGroupCache {
+  texture: TextureEntry
+  indices: Uint32Array
+  geometryData: Float32Array
+  staticData: Float32Array
+  count: number
+  revision?: number
+  staticRevision?: number
+  geometryUpload: WebGLUploadState
+  staticUpload: WebGLUploadState
+  geometryBuffer: WebGLBuffer
+  staticBuffer: WebGLBuffer
+  vao: WebGLVertexArrayObject
+}
+
+/**
+ * Описывает cache retained texture rect batch.
+ */
+interface TextureRectStreamBatchCache {
+  count: number
+  revision?: number
+  staticRevision?: number
+  rasterScale?: number
+  incomplete?: boolean
+  groups: Array<TextureRectStreamGroupCache>
+}
+
+/**
+ * Описывает cache retained analytic stripe batch.
+ */
+interface StripeStreamBatchCache {
+  geometryData: Float32Array
+  staticData: Float32Array
+  count: number
+  revision?: number
+  staticRevision?: number
+  geometryUpload: WebGLUploadState
+  staticUpload: WebGLUploadState
+  geometryBuffer: WebGLBuffer
+  staticBuffer: WebGLBuffer
+  vao: WebGLVertexArrayObject
+}
+
+/**
  * Описывает контракт FloatDirtyRange.
  */
 interface FloatDirtyRange {
@@ -385,6 +476,8 @@ export class NovaWebGLFrameRenderer {
   private readonly _particleCircleProgram: NovaWebGLProgram
   private readonly _particleSpriteProgram: NovaWebGLProgram
   private readonly _rectBatchProgram: NovaWebGLProgram
+  private readonly _textureRectBatchProgram: NovaWebGLProgram
+  private readonly _stripeBatchProgram: NovaWebGLProgram
   private readonly _roundedBuffer: WebGLBuffer
   private readonly _solidBuffer: WebGLBuffer
   private readonly _textureBuffer: WebGLBuffer
@@ -398,6 +491,8 @@ export class NovaWebGLFrameRenderer {
   private readonly _textAtlasPages: Array<TextAtlasPage> = []
   private readonly _textAtlasEntries = new Map<string, TextAtlasEntry>()
   private readonly _textFallbackKeys = new Map<string, string>()
+  private readonly _glyphAtlasPages: Array<TextAtlasPage> = []
+  private readonly _glyphAtlasEntries = new Map<string, GlyphAtlasEntry>()
   private readonly _sourceTextureKeys = new WeakMap<object, string>()
   private readonly _plainRectBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, RectBatchCache>()
   private readonly _rectBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, RectBatchCache>()
@@ -406,10 +501,15 @@ export class NovaWebGLFrameRenderer {
   private readonly _particleCircleBatchCache = new WeakMap<NovaParticleBatch, ParticleCircleBatchCache>()
   private readonly _particleSpriteBatchCache = new WeakMap<NovaParticleBatch, ParticleSpriteBatchCache>()
   private readonly _rectStreamBatchCache = new WeakMap<NovaRectBatch, RectStreamBatchCache>()
+  private readonly _iconStreamBatchCache = new WeakMap<NovaIconBatch, TextureRectStreamBatchCache>()
+  private readonly _textStreamBatchCache = new WeakMap<NovaTextBatch, TextureRectStreamBatchCache>()
+  private readonly _stripeStreamBatchCache = new WeakMap<NovaStripeRectBatch, StripeStreamBatchCache>()
   private readonly _ownedTextureBatchCaches = new Set<TextureBatchCache>()
   private readonly _ownedParticleCircleBatchCaches = new Set<ParticleCircleBatchCache>()
   private readonly _ownedParticleSpriteBatchCaches = new Set<ParticleSpriteBatchCache>()
   private readonly _ownedRectStreamBatchCaches = new Set<RectStreamBatchCache>()
+  private readonly _ownedTextureRectStreamGroupCaches = new Set<TextureRectStreamGroupCache>()
+  private readonly _ownedStripeStreamBatchCaches = new Set<StripeStreamBatchCache>()
   private readonly _roundedUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _solidUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _textureUpload: WebGLUploadState = createWebGLUploadState()
@@ -449,6 +549,8 @@ export class NovaWebGLFrameRenderer {
     this._particleCircleProgram = NovaWebGLProgram.create(this._gl, PARTICLE_CIRCLE_VERTEX_SHADER, PARTICLE_CIRCLE_FRAGMENT_SHADER)
     this._particleSpriteProgram = NovaWebGLProgram.create(this._gl, PARTICLE_SPRITE_VERTEX_SHADER, PARTICLE_SPRITE_FRAGMENT_SHADER)
     this._rectBatchProgram = NovaWebGLProgram.create(this._gl, RECT_BATCH_VERTEX_SHADER, RECT_BATCH_FRAGMENT_SHADER)
+    this._textureRectBatchProgram = NovaWebGLProgram.create(this._gl, TEXTURE_RECT_BATCH_VERTEX_SHADER, TEXTURE_RECT_BATCH_FRAGMENT_SHADER)
+    this._stripeBatchProgram = NovaWebGLProgram.create(this._gl, STRIPE_BATCH_VERTEX_SHADER, STRIPE_BATCH_FRAGMENT_SHADER)
     this._roundedBuffer = this.createBuffer()
     this._solidBuffer = this.createBuffer()
     this._textureBuffer = this.createBuffer()
@@ -486,6 +588,13 @@ export class NovaWebGLFrameRenderer {
       effectiveTextRasterScale: 0,
       visibleTextRuns: 0,
       culledTextRuns: 0,
+      glyphCacheHits: 0,
+      glyphCacheMisses: 0,
+      glyphRasterCount: 0,
+      glyphAtlasPages: this._glyphAtlasPages.length,
+      glyphQuads: 0,
+      msdfGlyphCount: 0,
+      textModeFallbacks: 0,
       textureBatchFallbacks: 0,
       textBucketChanges: 0,
       textBudgetExhausted: 0,
@@ -618,6 +727,13 @@ export class NovaWebGLFrameRenderer {
       effectiveTextRasterScale: stats.effectiveTextRasterScale,
       visibleTextRuns: stats.visibleTextRuns,
       culledTextRuns: stats.culledTextRuns,
+      glyphCacheHits: stats.glyphCacheHits,
+      glyphCacheMisses: stats.glyphCacheMisses,
+      glyphRasterCount: stats.glyphRasterCount,
+      glyphAtlasPages: this._glyphAtlasPages.length,
+      glyphQuads: stats.glyphQuads,
+      msdfGlyphCount: stats.msdfGlyphCount,
+      textModeFallbacks: stats.textModeFallbacks,
       textureBatchFallbacks: stats.textureBatchFallbacks,
       textBucketChanges: stats.textBucketChanges,
       textBudgetExhausted: stats.textBudgetExhausted,
@@ -657,6 +773,7 @@ export class NovaWebGLFrameRenderer {
     for (const texture of this._textures.values()) this._gl.deleteTexture(texture.texture)
     this._textures.clear()
     this.destroyTextAtlas()
+    this.destroyGlyphAtlas()
     for (const cache of this._ownedTextureBatchCaches) {
       if (cache.buffer) this._gl.deleteBuffer(cache.buffer)
       if (cache.vao) this._gl.deleteVertexArray(cache.vao)
@@ -680,6 +797,18 @@ export class NovaWebGLFrameRenderer {
       this._gl.deleteVertexArray(cache.vao)
     }
     this._ownedRectStreamBatchCaches.clear()
+    for (const cache of this._ownedTextureRectStreamGroupCaches) {
+      this._gl.deleteBuffer(cache.geometryBuffer)
+      this._gl.deleteBuffer(cache.staticBuffer)
+      this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedTextureRectStreamGroupCaches.clear()
+    for (const cache of this._ownedStripeStreamBatchCaches) {
+      this._gl.deleteBuffer(cache.geometryBuffer)
+      this._gl.deleteBuffer(cache.staticBuffer)
+      this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedStripeStreamBatchCaches.clear()
     this._gl.deleteBuffer(this._roundedBuffer)
     this._gl.deleteBuffer(this._solidBuffer)
     this._gl.deleteBuffer(this._textureBuffer)
@@ -693,6 +822,8 @@ export class NovaWebGLFrameRenderer {
     this._particleCircleProgram.destroy()
     this._particleSpriteProgram.destroy()
     this._rectBatchProgram.destroy()
+    this._textureRectBatchProgram.destroy()
+    this._stripeBatchProgram.destroy()
   }
 
   /**
@@ -1381,9 +1512,12 @@ export class NovaWebGLFrameRenderer {
     }
 
     if (item.type === 'text') {
+      const mode = this.resolveTextRenderMode(item)
+      if (mode !== 'run-atlas') return null
+
       if (
         transform
-        && this.shouldCullTextRuns()
+        && this.shouldCullTextRuns(mode)
         && !this.isRectVisible(transform, item.x, item.y, item.width, item.height)
       ) {
         stats.culledTextRuns += 1
@@ -1599,13 +1733,20 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию draw text.
    */
   private drawText(text: NovaText, transform: mat3, stats: RenderStats): void {
-    if (this.shouldCullTextRuns() && !this.isRectVisible(transform, text.x, text.y, text.width, text.height)) {
+    const mode = this.resolveTextRenderMode(text)
+
+    if (this.shouldCullTextRuns(mode) && !this.isRectVisible(transform, text.x, text.y, text.width, text.height)) {
       stats.culledTextRuns += 1
       return
     }
     stats.visibleTextRuns += 1
 
     const style = compileNovaTextStyle(text)
+    if (mode === 'glyph-atlas' || mode === 'msdf') {
+      if (this.drawGlyphText(text, style, mode, transform, stats)) return
+      stats.textModeFallbacks += 1
+    }
+
     const scale = this.resolveTextRasterScale(transform, stats)
     const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats)
     if (!atlasItem) return
@@ -1624,6 +1765,360 @@ export class NovaWebGLFrameRenderer {
       atlasItem.u1,
       atlasItem.v1,
     )
+  }
+
+  /**
+   * Рисует текст как последовательность glyph quads.
+   */
+  private drawGlyphText(
+    text: NovaText,
+    style: NovaCompiledTextStyle,
+    mode: 'glyph-atlas' | 'msdf',
+    transform: mat3,
+    stats: RenderStats,
+  ): boolean {
+    if (!this.isGlyphTextSupported(text)) return false
+
+    const scale = mode === 'msdf'
+      ? Math.min(this._textConfig.maxRasterScale, Math.max(0.1, this._device.canvas.dpr))
+      : this.resolveTextRasterScale(transform, stats)
+    const measureContext = this.measureContext(style.font)
+    const contentWidth = Math.max(0, text.width - style.padding.left - style.padding.right)
+    const contentHeight = Math.max(0, text.height - style.padding.top - style.padding.bottom)
+    const renderedText = style.ellipsis ? ellipsizeText(measureContext, text.text, contentWidth) : text.text
+    if (!renderedText) return true
+
+    const glyphs = Array.from(renderedText)
+    const advances = glyphs.map(glyph => this.measureGlyphAdvance(measureContext, glyph))
+    const lineWidth = advances.reduce((sum, advance) => sum + advance, 0)
+    let cursorX = text.x + style.padding.left
+    if (style.horizontalAlign === 'center') cursorX = text.x + style.padding.left + (contentWidth - lineWidth) / 2
+    if (style.horizontalAlign === 'right') cursorX = text.x + text.width - style.padding.right - lineWidth
+
+    let y = text.y + style.padding.top
+    if (style.verticalAlign === 'middle') y = text.y + style.padding.top + (contentHeight - style.lineHeight) / 2
+    if (style.verticalAlign === 'bottom') y = text.y + text.height - style.padding.bottom - style.lineHeight
+
+    const color = colorToCss(style.color)
+    for (let index = 0; index < glyphs.length; index += 1) {
+      const glyph = glyphs[index] ?? ''
+      const advance = advances[index] ?? 0
+      if (glyph.trim().length === 0) {
+        cursorX += advance
+        continue
+      }
+
+      const entry = this.resolveGlyphAtlasEntry(glyph, style, color, scale, mode, stats)
+      if (!entry) return false
+
+      this.queueTextureQuad(
+        entry.page.texture,
+        cursorX,
+        y,
+        entry.drawWidth,
+        entry.drawHeight,
+        transform,
+        style.opacity,
+        stats,
+        entry.x / entry.page.width,
+        entry.y / entry.page.height,
+        (entry.x + entry.width) / entry.page.width,
+        (entry.y + entry.height) / entry.page.height,
+      )
+      stats.glyphQuads += 1
+      cursorX += entry.advance
+    }
+
+    return true
+  }
+
+  /**
+   * Возвращает glyph entry из atlas или rasterize-ит новый glyph.
+   */
+  private resolveGlyphAtlasEntry(
+    glyph: string,
+    style: NovaCompiledTextStyle,
+    color: string,
+    scale: number,
+    mode: 'glyph-atlas' | 'msdf',
+    stats: RenderStats,
+  ): GlyphAtlasEntry | null {
+    const keyScale = mode === 'msdf' ? Math.max(0.1, this._device.canvas.dpr).toFixed(3) : scale.toFixed(3)
+    const key = ['glyph', mode, keyScale, style.font, style.lineHeight, color, glyph].join(':')
+    const current = this._glyphAtlasEntries.get(key)
+    if (current) {
+      stats.glyphCacheHits += 1
+      current.lastUsed = this._time
+      current.page.lastUsed = this._time
+      if (mode === 'msdf') stats.msdfGlyphCount += 1
+      return current
+    }
+
+    const rasterBudgetMs = Math.max(0, this._textConfig.rasterBudgetMs)
+    if (stats.textRasterMs >= rasterBudgetMs) {
+      stats.textRasterDeferred += 1
+      stats.textBudgetExhausted += 1
+      return null
+    }
+
+    stats.glyphCacheMisses += 1
+    const rasterStartedAt = performance.now()
+    const raster = this.rasterizeGlyph(glyph, style, color, scale)
+    stats.textRasterMs += performance.now() - rasterStartedAt
+    stats.glyphRasterCount += 1
+    if (mode === 'msdf') stats.msdfGlyphCount += 1
+
+    const entry = this.uploadGlyphAtlasEntry(key, raster, mode, stats)
+    stats.glyphAtlasPages = this._glyphAtlasPages.length
+    return entry
+  }
+
+  /**
+   * Выполняет rasterize одного glyph в alpha texture.
+   */
+  private rasterizeGlyph(glyph: string, style: NovaCompiledTextStyle, color: string, scale: number): RasterizedGlyph {
+    const canvas = this._textRasterCanvas
+    const measureContext = this.measureContext(style.font)
+    const advance = this.measureGlyphAdvance(measureContext, glyph)
+    const padding = 2
+    const drawWidth = Math.max(1, Math.ceil(advance + padding * 2))
+    const drawHeight = Math.max(1, Math.ceil(style.lineHeight + padding * 2))
+    const width = Math.max(1, Math.ceil(drawWidth * scale))
+    const height = Math.max(1, Math.ceil(drawHeight * scale))
+    canvas.width = width
+    canvas.height = height
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return { canvas, width, height, drawWidth, drawHeight, advance, scale }
+
+    ctx.setTransform(scale, 0, 0, scale, 0, 0)
+    ctx.clearRect(0, 0, drawWidth, drawHeight)
+    ctx.font = style.font
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillStyle = color
+    ctx.fillText(glyph, padding, padding + style.fontSize, Math.max(1, advance + padding))
+    return { canvas, width, height, drawWidth, drawHeight, advance, scale }
+  }
+
+  /**
+   * Загружает rasterized glyph в glyph atlas.
+   */
+  private uploadGlyphAtlasEntry(
+    key: string,
+    raster: RasterizedGlyph,
+    mode: 'glyph-atlas' | 'msdf',
+    stats: RenderStats,
+  ): GlyphAtlasEntry {
+    const page = this.resolveGlyphAtlasPage(raster.width, raster.height, stats)
+    const x = page.cursorX
+    const y = page.cursorY
+
+    page.cursorX += raster.width
+    page.rowHeight = Math.max(page.rowHeight, raster.height)
+    page.entries.add(key)
+    page.lastUsed = this._time
+
+    const uploadStartedAt = performance.now()
+    this._gl.bindTexture(this._gl.TEXTURE_2D, page.texture.texture)
+    this._gl.pixelStorei(this._gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+    if (typeof this._gl.texSubImage2D === 'function') {
+      this._gl.texSubImage2D(
+        this._gl.TEXTURE_2D,
+        0,
+        x,
+        y,
+        this._gl.RGBA,
+        this._gl.UNSIGNED_BYTE,
+        raster.canvas as TexImageSource,
+      )
+    }
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    const bytes = Math.max(1, raster.width * raster.height * 4)
+    stats.uploadBytes += bytes
+    stats.atlasUploads += 1
+
+    const entry: GlyphAtlasEntry = {
+      key,
+      page,
+      x,
+      y,
+      width: raster.width,
+      height: raster.height,
+      drawWidth: raster.drawWidth,
+      drawHeight: raster.drawHeight,
+      advance: raster.advance,
+      scale: raster.scale,
+      mode,
+      bytes,
+      lastUsed: this._time,
+    }
+    this._glyphAtlasEntries.set(key, entry)
+    return entry
+  }
+
+  /**
+   * Возвращает страницу glyph atlas с местом под glyph.
+   */
+  private resolveGlyphAtlasPage(width: number, height: number, stats: RenderStats): TextAtlasPage {
+    const w = Math.max(1, Math.ceil(width))
+    const h = Math.max(1, Math.ceil(height))
+
+    for (const page of this._glyphAtlasPages) {
+      const region = this.tryFitTextAtlasPage(page, w, h)
+      if (region) return region
+    }
+
+    const pageWidth = Math.max(TEXT_ATLAS_PAGE_SIZE, w)
+    const pageHeight = Math.max(TEXT_ATLAS_PAGE_SIZE, h)
+    const pageBytes = pageWidth * pageHeight * 4
+    this.evictGlyphAtlasPagesFor(pageBytes)
+
+    const texture = this.createEmptyGlyphAtlasTexture(pageWidth, pageHeight, stats)
+    const page: TextAtlasPage = {
+      key: texture.key,
+      texture,
+      width: pageWidth,
+      height: pageHeight,
+      cursorX: 0,
+      cursorY: 0,
+      rowHeight: 0,
+      entries: new Set(),
+      lastUsed: this._time,
+    }
+    this._glyphAtlasPages.push(page)
+    return page
+  }
+
+  /**
+   * Создает пустую WebGL texture для glyph atlas page.
+   */
+  private createEmptyGlyphAtlasTexture(width: number, height: number, stats: RenderStats): TextureEntry {
+    const gl = this._gl
+    const texture = gl.createTexture()
+    if (!texture) throw new Error('Failed to create WebGL2 glyph atlas texture')
+
+    const uploadStartedAt = performance.now()
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    const bytes = Math.max(1, width * height * 4)
+    stats.uploadBytes += bytes
+    stats.atlasUploads += 1
+    return {
+      key: `glyph-atlas:${this._glyphAtlasPages.length + 1}:${this._time}`,
+      texture,
+      width,
+      height,
+      bytes,
+      lastUsed: this._time,
+    }
+  }
+
+  /**
+   * Освобождает старые glyph atlas pages под memory budget.
+   */
+  private evictGlyphAtlasPagesFor(nextPageBytes: number): void {
+    const budgetBytes = Math.max(1, this._textConfig.maxAtlasMemoryMB) * 1024 * 1024
+    let bytes = this.glyphAtlasMemoryBytes()
+    if (bytes + nextPageBytes <= budgetBytes || this._glyphAtlasPages.length === 0) return
+
+    const pages = [...this._glyphAtlasPages].sort((a, b) => a.lastUsed - b.lastUsed)
+    for (const page of pages) {
+      if (bytes + nextPageBytes <= budgetBytes && this._glyphAtlasPages.length > 0) break
+
+      this._gl.deleteTexture(page.texture.texture)
+      const index = this._glyphAtlasPages.indexOf(page)
+      if (index >= 0) this._glyphAtlasPages.splice(index, 1)
+      for (const key of page.entries) this._glyphAtlasEntries.delete(key)
+      bytes -= page.texture.bytes
+    }
+  }
+
+  /**
+   * Проверяет поддержку glyph path для text item.
+   */
+  private isGlyphTextSupported(text: NovaText): boolean {
+    if (text.parser === 'markdown') return false
+    if (text.styles?.font?.style === 'italic') return false
+
+    for (const glyph of Array.from(text.text)) {
+      const code = glyph.codePointAt(0) ?? 0
+      if (code > 0xffff) return false
+    }
+
+    return true
+  }
+
+  /**
+   * Вычисляет эффективный режим текста с учетом item metadata и зон.
+   */
+  private resolveTextRenderMode(text: NovaText): NovaTextRenderMode {
+    const meta = text.meta
+    const override = this.normalizeTextRenderMode(meta?.textMode)
+    if (override && override !== 'auto') return override
+
+    const role = this.normalizeTextRenderRole(meta?.textRole)
+    const roleMode = role ? this.resolveTextRoleMode(role) : undefined
+    if (roleMode && roleMode !== 'auto') return roleMode
+
+    const globalMode = this.normalizeTextRenderMode(this._textConfig.mode) ?? 'run-atlas'
+    if (globalMode !== 'auto') return globalMode
+
+    if (role === 'timescale') return 'msdf'
+    if (role === 'task-label') return 'glyph-atlas'
+    if (role === 'debug') return 'run-atlas'
+    return 'run-atlas'
+  }
+
+  /**
+   * Возвращает режим текста для продуктовой роли.
+   */
+  private resolveTextRoleMode(role: NovaTextRenderRole): NovaTextRenderMode | undefined {
+    if (role === 'timescale') return this._textConfig.modes.timeScale
+    if (role === 'task-label') return this._textConfig.modes.taskLabels
+    if (role === 'ui-label') return this._textConfig.modes.uiLabels
+    return undefined
+  }
+
+  /**
+   * Нормализует режим текста из metadata.
+   */
+  private normalizeTextRenderMode(value: unknown): NovaTextRenderMode | undefined {
+    return value === 'auto' || value === 'run-atlas' || value === 'glyph-atlas' || value === 'msdf'
+      ? value
+      : undefined
+  }
+
+  /**
+   * Нормализует роль текста из metadata.
+   */
+  private normalizeTextRenderRole(value: unknown): NovaTextRenderRole | undefined {
+    return value === 'timescale' || value === 'task-label' || value === 'ui-label' || value === 'debug'
+      ? value
+      : undefined
+  }
+
+  /**
+   * Возвращает context для измерения glyph.
+   */
+  private measureContext(font: string): CanvasRenderingContext2D {
+    const ctx = this._measureCanvas.getContext('2d')
+    if (!ctx) throw new Error('Failed to create text measure context')
+    ctx.font = font
+    return ctx
+  }
+
+  /**
+   * Измеряет advance glyph.
+   */
+  private measureGlyphAdvance(ctx: CanvasRenderingContext2D, glyph: string): number {
+    return Math.max(1, ctx.measureText(glyph).width)
   }
 
   /**
@@ -1956,15 +2451,15 @@ export class NovaWebGLFrameRenderer {
   /**
    * Проверяет, включена ли policy-driven culling для text runs.
    */
-  private shouldCullTextRuns(): boolean {
-    return this._textConfig.mode === 'run-atlas' && this._textConfig.visibleOnlyRaster
+  private shouldCullTextRuns(mode: NovaTextRenderMode = 'run-atlas'): boolean {
+    return mode !== 'auto' && this._textConfig.visibleOnlyRaster
   }
 
   /**
    * Проверяет, включен ли culling для texture stream.
    */
   private shouldCullTextureItems(): boolean {
-    return this._textConfig.mode === 'run-atlas' && this._textConfig.visibleOnlyRaster
+    return this._textConfig.visibleOnlyRaster
   }
 
   /**
@@ -1997,7 +2492,7 @@ export class NovaWebGLFrameRenderer {
    * Проверяет, включен ли frame budget для text rasterization.
    */
   private shouldBudgetTextRaster(): boolean {
-    return this._textConfig.mode === 'run-atlas'
+    return true
   }
 
   /**
@@ -2110,32 +2605,13 @@ export class NovaWebGLFrameRenderer {
   private drawStripeBatch(batch: NovaStripeRectBatch, transform: mat3, stats: RenderStats): void {
     if (batch.active === false || batch.count <= 0) return
 
-    const opacity = batch.opacity ?? 1
-    for (let index = 0; index < batch.count; index += 1) {
-      const x = batch.x[index] ?? 0
-      const y = batch.y[index] ?? 0
-      const width = batch.width[index] ?? 0
-      const height = batch.height[index] ?? 0
-      if (width <= 0 || height <= 0 || opacity <= 0) continue
-      if (this.shouldCullTextureItems() && !this.isRectVisible(transform, x, y, width, height)) continue
-
-      const texture = this.resolveTextureEntry('stripe', batch.fills[index], stats, true)
-      if (!texture) continue
-      this.queueTextureQuad(
-        texture,
-        x,
-        y,
-        width,
-        height,
-        transform,
-        opacity,
-        stats,
-        0,
-        0,
-        width / Math.max(1, texture.width),
-        height / Math.max(1, texture.height),
-      )
+    const cache = this.resolveStripeStreamBatchCache(batch)
+    if (cache) {
+      this.drawStripeStreamBatchCache(cache, transform, stats)
+      return
     }
+
+    this.drawStripeTextureFallbackBatch(batch, transform, stats)
   }
 
   /**
@@ -2144,19 +2620,10 @@ export class NovaWebGLFrameRenderer {
   private drawIconBatch(batch: NovaIconBatch, transform: mat3, stats: RenderStats): void {
     if (batch.active === false || batch.count <= 0) return
 
-    const opacity = batch.opacity ?? 1
-    for (let index = 0; index < batch.count; index += 1) {
-      const x = batch.x[index] ?? 0
-      const y = batch.y[index] ?? 0
-      const width = batch.width[index] ?? 0
-      const height = batch.height[index] ?? 0
-      if (width <= 0 || height <= 0 || opacity <= 0) continue
-      if (this.shouldCullTextureItems() && !this.isRectVisible(transform, x, y, width, height)) continue
+    const cache = this.resolveIconStreamBatchCache(batch, stats)
+    if (!cache) return
 
-      const texture = this.resolveTextureEntry('icon', batch.icons[index], stats)
-      if (!texture) continue
-      this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats)
-    }
+    this.drawTextureRectStreamBatchCache(cache, transform, stats)
   }
 
   /**
@@ -2165,25 +2632,10 @@ export class NovaWebGLFrameRenderer {
   private drawTextBatch(batch: NovaTextBatch, transform: mat3, stats: RenderStats): void {
     if (batch.active === false || batch.count <= 0) return
 
-    for (let index = 0; index < batch.count; index += 1) {
-      const color = Array.isArray(batch.color) ? batch.color[index] : batch.color
-      this.drawText({
-        text: batch.text[index] ?? '',
-        x: batch.x[index] ?? 0,
-        y: batch.y[index] ?? 0,
-        width: batch.width[index] ?? 0,
-        height: batch.height[index] ?? 0,
-        styles: {
-          color: color ?? '#000',
-          font: batch.font,
-          align: batch.align,
-          lineHeight: batch.lineHeight,
-          padding: batch.padding,
-          ellipsis: batch.ellipsis,
-          opacity: batch.opacity,
-        },
-      }, transform, stats)
-    }
+    const cache = this.resolveTextStreamBatchCache(batch, transform, stats)
+    if (!cache) return
+
+    this.drawTextureRectStreamBatchCache(cache, transform, stats)
   }
 
   /**
@@ -3467,6 +3919,7 @@ export class NovaWebGLFrameRenderer {
     let bytes = 0
     for (const texture of this._textures.values()) bytes += texture.bytes
     bytes += this.textAtlasMemoryBytes()
+    bytes += this.glyphAtlasMemoryBytes()
     return bytes / 1024 / 1024
   }
 
@@ -3480,6 +3933,15 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Возвращает memory bytes glyph atlas pages.
+   */
+  private glyphAtlasMemoryBytes(): number {
+    let bytes = 0
+    for (const page of this._glyphAtlasPages) bytes += page.texture.bytes
+    return bytes
+  }
+
+  /**
    * Освобождает все text atlas pages.
    */
   private destroyTextAtlas(): void {
@@ -3489,6 +3951,17 @@ export class NovaWebGLFrameRenderer {
     this._textAtlasPages.length = 0
     this._textAtlasEntries.clear()
     this._textFallbackKeys.clear()
+  }
+
+  /**
+   * Освобождает все glyph atlas pages.
+   */
+  private destroyGlyphAtlas(): void {
+    for (const page of this._glyphAtlasPages) {
+      this._gl.deleteTexture(page.texture.texture)
+    }
+    this._glyphAtlasPages.length = 0
+    this._glyphAtlasEntries.clear()
   }
 
   /**

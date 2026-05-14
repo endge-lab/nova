@@ -34,6 +34,11 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
   text: Object.freeze({
     quality: 'balanced',
     mode: 'auto',
+    modes: Object.freeze({
+      timeScale: 'msdf',
+      taskLabels: 'glyph-atlas',
+      uiLabels: 'run-atlas',
+    }),
     maxAtlasMemoryMB: 128,
     zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as Array<number>,
     dynamicBuckets: true,
@@ -82,6 +87,10 @@ export function resolveNovaRendererConfig(
     text: {
       ...base.text,
       ...input.text,
+      modes: {
+        ...base.text.modes,
+        ...input.text?.modes,
+      },
       zoomBuckets: [...(input.text?.zoomBuckets ?? base.text.zoomBuckets)],
     },
     cache: {

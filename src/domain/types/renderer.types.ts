@@ -39,7 +39,26 @@ export type NovaStyleBackground = string | ImageBitmap | HTMLCanvasElement | Off
 export interface NovaUIBase {
   active?: boolean
   clip?: DataRect | true
-  meta?: any
+  meta?: NovaSchemaItemMeta
+}
+
+/**
+ * Описывает режим рендеринга текста.
+ */
+export type NovaTextRenderMode = 'auto' | 'run-atlas' | 'glyph-atlas' | 'msdf'
+
+/**
+ * Описывает роль текста внутри продуктового canvas.
+ */
+export type NovaTextRenderRole = 'timescale' | 'task-label' | 'ui-label' | 'debug'
+
+/**
+ * Описывает общие metadata schema item.
+ */
+export interface NovaSchemaItemMeta {
+  textMode?: NovaTextRenderMode
+  textRole?: NovaTextRenderRole
+  [key: string]: any
 }
 
 /**
