@@ -10,6 +10,7 @@ import type {
   NovaBorder,
   NovaCircle,
   NovaIcon,
+  NovaIconBatch,
   NovaLine,
   NovaParticleBatch,
   NovaPolygon,
@@ -17,9 +18,12 @@ import type {
   NovaRectBatch,
   NovaSchemaItem,
   NovaSemanticScopeKind,
+  NovaStripeRectBatch,
   NovaText,
+  NovaTextBatch,
 } from '@/domain/types/renderer.types'
-import { NovaGraphics } from '@/model/platform/NovaGraphics'
+import type { NovaAssetDrawableInput, NovaAssetRegistry } from '@/model/runtime/assets/NovaAssetRegistry'
+import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import type { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'
 import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
 import { NovaWebGLProgram } from '@/model/render/backends/webgl/NovaWebGLProgram'
@@ -436,6 +440,7 @@ export class NovaWebGLFrameRenderer {
   constructor(
     private readonly _device: NovaWebGLDevice,
     private readonly _textConfig: NovaRendererTextConfig = DEFAULT_NOVA_RENDERER_CONFIG.text,
+    private readonly _assets: NovaAssetRegistry = NovaAssets.global,
   ) {
     this._gl = _device.gl
     this._roundedProgram = NovaWebGLProgram.create(this._gl, ROUNDED_RECT_VERTEX_SHADER, ROUNDED_RECT_FRAGMENT_SHADER)
@@ -566,6 +571,15 @@ export class NovaWebGLFrameRenderer {
           break
         case 'drawRectBatch':
           if (command.rectBatch) this.drawRectBatch(command.rectBatch, currentTransform, stats)
+          break
+        case 'drawStripeBatch':
+          if (command.stripeBatch) this.drawStripeBatch(command.stripeBatch, currentTransform, stats)
+          break
+        case 'drawIconBatch':
+          if (command.iconBatch) this.drawIconBatch(command.iconBatch, currentTransform, stats)
+          break
+        case 'drawTextBatch':
+          if (command.textBatch) this.drawTextBatch(command.textBatch, currentTransform, stats)
           break
         case 'cursor':
         case 'beginGroup':
@@ -1344,9 +1358,9 @@ export class NovaWebGLFrameRenderer {
         }
       }
 
-      const source = typeof item.icon === 'string' ? NovaGraphics.getAsset(item.icon) : item.icon
+      const source = this._assets.resolveDrawable(item.icon)
       if (!source) return null
-      const key = typeof item.icon === 'string' ? `icon:${item.icon}` : `icon:${this.resolveSourceKey(source)}`
+      const key = this._assets.resolveDrawableKey('icon', item.icon, source => this.resolveSourceKey(source))
       let texture = this._textures.get(key)
       if (!texture) texture = this.createTextureFromSource(key, source, stats)
       texture.lastUsed = this._time
@@ -1535,7 +1549,20 @@ export class NovaWebGLFrameRenderer {
     const background = rect.styles?.background
 
     if (background && typeof background !== 'string') {
-      this.drawTextureSource(`rect-bg:${this.resolveSourceKey(background)}`, background, rect.x, rect.y, rect.width, rect.height, transform, rect.styles?.opacity ?? 1, stats)
+      const source = this._assets.resolveDrawable(background)
+      if (source) {
+        this.drawTextureSource(
+          this._assets.resolveDrawableKey('rect-bg', background, source => this.resolveSourceKey(source)),
+          source,
+          rect.x,
+          rect.y,
+          rect.width,
+          rect.height,
+          transform,
+          rect.styles?.opacity ?? 1,
+          stats,
+        )
+      }
     }
 
     if (!background || typeof background === 'string' || style.borderWidth > 0) {
@@ -2017,9 +2044,9 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию draw icon.
    */
   private drawIcon(icon: NovaIcon, transform: mat3, stats: RenderStats): void {
-    const source = typeof icon.icon === 'string' ? NovaGraphics.getAsset(icon.icon) : icon.icon
+    const source = this._assets.resolveDrawable(icon.icon)
     if (!source) return
-    const key = typeof icon.icon === 'string' ? `icon:${icon.icon}` : `icon:${this.resolveSourceKey(source)}`
+    const key = this._assets.resolveDrawableKey('icon', icon.icon, source => this.resolveSourceKey(source))
     this.drawTextureSource(key, source, icon.x, icon.y, icon.width, icon.height, transform, icon.styles?.opacity ?? 1, stats)
   }
 
@@ -2074,6 +2101,88 @@ export class NovaWebGLFrameRenderer {
     if (geometryDirty || staticDirty) {
       stats.updatedHandles += batch.count
       stats.dirtyStreamRanges += Number(Boolean(geometryDirty)) + Number(Boolean(staticDirty))
+    }
+  }
+
+  /**
+   * Рисует retained stripe batch через texture repeat stream.
+   */
+  private drawStripeBatch(batch: NovaStripeRectBatch, transform: mat3, stats: RenderStats): void {
+    if (batch.active === false || batch.count <= 0) return
+
+    const opacity = batch.opacity ?? 1
+    for (let index = 0; index < batch.count; index += 1) {
+      const x = batch.x[index] ?? 0
+      const y = batch.y[index] ?? 0
+      const width = batch.width[index] ?? 0
+      const height = batch.height[index] ?? 0
+      if (width <= 0 || height <= 0 || opacity <= 0) continue
+      if (this.shouldCullTextureItems() && !this.isRectVisible(transform, x, y, width, height)) continue
+
+      const texture = this.resolveTextureEntry('stripe', batch.fills[index], stats, true)
+      if (!texture) continue
+      this.queueTextureQuad(
+        texture,
+        x,
+        y,
+        width,
+        height,
+        transform,
+        opacity,
+        stats,
+        0,
+        0,
+        width / Math.max(1, texture.width),
+        height / Math.max(1, texture.height),
+      )
+    }
+  }
+
+  /**
+   * Рисует retained icon batch через texture stream.
+   */
+  private drawIconBatch(batch: NovaIconBatch, transform: mat3, stats: RenderStats): void {
+    if (batch.active === false || batch.count <= 0) return
+
+    const opacity = batch.opacity ?? 1
+    for (let index = 0; index < batch.count; index += 1) {
+      const x = batch.x[index] ?? 0
+      const y = batch.y[index] ?? 0
+      const width = batch.width[index] ?? 0
+      const height = batch.height[index] ?? 0
+      if (width <= 0 || height <= 0 || opacity <= 0) continue
+      if (this.shouldCullTextureItems() && !this.isRectVisible(transform, x, y, width, height)) continue
+
+      const texture = this.resolveTextureEntry('icon', batch.icons[index], stats)
+      if (!texture) continue
+      this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats)
+    }
+  }
+
+  /**
+   * Рисует retained text batch через retained text atlas.
+   */
+  private drawTextBatch(batch: NovaTextBatch, transform: mat3, stats: RenderStats): void {
+    if (batch.active === false || batch.count <= 0) return
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const color = Array.isArray(batch.color) ? batch.color[index] : batch.color
+      this.drawText({
+        text: batch.text[index] ?? '',
+        x: batch.x[index] ?? 0,
+        y: batch.y[index] ?? 0,
+        width: batch.width[index] ?? 0,
+        height: batch.height[index] ?? 0,
+        styles: {
+          color: color ?? '#000',
+          font: batch.font,
+          align: batch.align,
+          lineHeight: batch.lineHeight,
+          padding: batch.padding,
+          ellipsis: batch.ellipsis,
+          opacity: batch.opacity,
+        },
+      }, transform, stats)
     }
   }
 
@@ -2147,10 +2256,10 @@ export class NovaWebGLFrameRenderer {
    * Рисует sprite particles через texture instancing.
    */
   private drawSpriteParticleBatch(batch: NovaParticleBatch, transform: mat3, stats: RenderStats): void {
-    const source = typeof batch.texture === 'string' ? NovaGraphics.getAsset(batch.texture) : batch.texture
+    const source = this._assets.resolveDrawable(batch.texture)
     if (!source) return
 
-    const textureKey = typeof batch.texture === 'string' ? `particle:${batch.texture}` : `particle:${this.resolveSourceKey(source)}`
+    const textureKey = this._assets.resolveDrawableKey('particle', batch.texture, source => this.resolveSourceKey(source))
     let texture = this._textures.get(textureKey)
     if (!texture) texture = this.createTextureFromSource(textureKey, source, stats)
     texture.lastUsed = this._time
@@ -2224,6 +2333,24 @@ export class NovaWebGLFrameRenderer {
     if (!texture) texture = this.createTextureFromSource(key, source, stats)
     texture.lastUsed = this._time
     this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats)
+  }
+
+  /**
+   * Возвращает texture entry для drawable asset/source.
+   */
+  private resolveTextureEntry(
+    prefix: string,
+    input: NovaAssetDrawableInput,
+    stats: RenderStats,
+    repeat = false,
+  ): TextureEntry | null {
+    const source = this._assets.resolveDrawable(input)
+    if (!source) return null
+    const key = this._assets.resolveDrawableKey(prefix, input, source => this.resolveSourceKey(source))
+    let texture = this._textures.get(key)
+    if (!texture) texture = this.createTextureFromSource(key, source, stats, { repeat })
+    texture.lastUsed = this._time
+    return texture
   }
 
   /**
@@ -3184,7 +3311,12 @@ export class NovaWebGLFrameRenderer {
   /**
    * Создает texture from source.
    */
-  private createTextureFromSource(key: string, source: CanvasImageSource, stats: RenderStats): TextureEntry {
+  private createTextureFromSource(
+    key: string,
+    source: CanvasImageSource,
+    stats: RenderStats,
+    options: { repeat?: boolean } = {},
+  ): TextureEntry {
     const gl = this._gl
     const texture = gl.createTexture()
     if (!texture) throw new Error('Failed to create WebGL2 texture')
@@ -3195,8 +3327,8 @@ export class NovaWebGLFrameRenderer {
     gl.bindTexture(gl.TEXTURE_2D, texture)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, options.repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, options.repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE)
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source as TexImageSource)
     stats.uploadMs += performance.now() - uploadStartedAt

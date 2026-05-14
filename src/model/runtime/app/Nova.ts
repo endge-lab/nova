@@ -19,6 +19,7 @@ import {
   type NovaScope,
 } from '@/model/runtime/refs/nova-ref'
 import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
+import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
 
@@ -46,6 +47,11 @@ export interface NovaMountHandle {
  * Предоставляет статические фабрики для создания Nova runtime и связанных объектов.
  */
 export class Nova {
+  /**
+   * Глобальный facade для typed assets.
+   */
+  static readonly assets = NovaAssets
+
   //
   // Глобальные schema-плагины, которые применяются к каждому новому NovaApp.
   private static readonly _schemaPlugins = new Set<NovaSchemaPlugin>()

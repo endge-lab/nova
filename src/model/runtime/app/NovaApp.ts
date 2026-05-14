@@ -36,6 +36,7 @@ import { createNovaRaphRuntime } from '@/model/runtime/app/createNovaRaphRuntime
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 import { createNovaRenderBackend } from '@/model/render/backends/nova-render-backend-factory'
 import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
+import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 
 /**
  * Управляет жизненным циклом Nova runtime, canvas, input, surfaces и фазами Raph.
@@ -75,6 +76,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly cursors: NovaCursorManager<E>
     readonly bus: EventBus<E>
     readonly metrics: NovaMetrics
+    readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this.invalidate())
 
     //
     // Текущее состояние debug-конфигурации.
@@ -110,7 +112,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         //
         // Создаем registry, backend и event system, которые дальше используют surfaces и nodes.
         this.schema = options.schemaRegistry ?? new NovaSchemaRegistry()
-        this._backend = createNovaRenderBackend(this._mainRendererType, this._canvas, this.schema, this._rendererConfig)
+        this._backend = createNovaRenderBackend(this._mainRendererType, this._canvas, this.schema, this._rendererConfig, this.assets)
         this._orchestrator = new NovaRenderOrchestrator(this._backend)
         this._events = new NovaEvents(this)
         this.sound = new NovaSoundEngine(this, options.sound)

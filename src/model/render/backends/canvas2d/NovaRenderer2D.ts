@@ -5,6 +5,7 @@ import type {
   NovaBorder,
   NovaCircle,
   NovaIcon,
+  NovaIconBatch,
   NovaLine,
   NovaParticleBatch,
   NovaPolygon,
@@ -12,14 +13,16 @@ import type {
   NovaRectBatch,
   NovaRenderer,
   NovaSchema,
+  NovaStripeRectBatch,
   NovaText,
+  NovaTextBatch,
   NovaTextChunk,
 } from '@/domain/types/renderer.types'
 import { RendererType } from '@/domain/types/renderer.types'
-import { NovaGraphics } from '@/model/platform/NovaGraphics'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
+import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 
 /**
  * Рисует compiled Nova render frame через Canvas2D backend.
@@ -41,6 +44,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     text: true,
     particles: true,
     rectBatches: true,
+    stripeBatches: true,
+    iconBatches: true,
+    textBatches: true,
     measureText: true,
   }
 
@@ -51,7 +57,11 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Создает instance и подготавливает внутреннее состояние.
    */
-  constructor(canvas: NovaCanvas, schemaRegistry = new NovaSchemaRegistry()) {
+  constructor(
+    canvas: NovaCanvas,
+    schemaRegistry = new NovaSchemaRegistry(),
+    private readonly _assets: NovaAssetRegistry = NovaAssets.global,
+  ) {
     this.novaCanvas = canvas
     this._schemaRegistry = schemaRegistry
   }
@@ -144,6 +154,24 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         case 'drawRectBatch':
           if (command.rectBatch) {
             this.rects(command.rectBatch)
+            drawCalls += 1
+          }
+          break
+        case 'drawStripeBatch':
+          if (command.stripeBatch) {
+            this.stripes(command.stripeBatch)
+            drawCalls += 1
+          }
+          break
+        case 'drawIconBatch':
+          if (command.iconBatch) {
+            this.icons(command.iconBatch)
+            drawCalls += 1
+          }
+          break
+        case 'drawTextBatch':
+          if (command.textBatch) {
+            this.texts(command.textBatch)
             drawCalls += 1
           }
           break
@@ -296,10 +324,14 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     // Фон
     if (p.styles?.background) {
+      const background = p.styles.background
+      const source = this._assets.resolveDrawable(background)
       ctx.fillStyle =
-        typeof p.styles.background === 'string'
-          ? p.styles.background
-          : ctx.createPattern(p.styles.background, 'repeat')!
+        typeof background === 'string'
+          ? background
+          : source
+            ? ctx.createPattern(source, 'repeat')!
+            : 'transparent'
       this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.border?.radius || 0)
       ctx.fill()
     }
@@ -471,8 +503,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       ctx.globalAlpha = p.styles.opacity
     }
 
-    const iconObject: CanvasImageSource | undefined =
-      typeof p.icon === 'string' ? NovaGraphics.getAsset(p.icon) : p.icon
+    const iconObject = this._assets.resolveDrawable(p.icon)
     if (!iconObject) {
       console.warn(`Icon not found: ${p.icon}`)
       ctx.restore()
@@ -504,7 +535,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       const size = sizes[index] ?? 1
 
       if (batch.kind === 'sprite') {
-        const source = typeof batch.texture === 'string' ? NovaGraphics.getAsset(batch.texture) : batch.texture
+        const source = this._assets.resolveDrawable(batch.texture)
         if (source) ctx.drawImage(source, x, y, size, size)
         continue
       }
@@ -555,6 +586,81 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     }
 
     ctx.restore()
+  }
+
+  /**
+   * Рисует retained stripe batch через Canvas2D fallback.
+   */
+  stripes(batch: NovaStripeRectBatch): void {
+    const ctx = this.ctx
+    const opacity = batch.opacity ?? 1
+
+    ctx.save()
+    ctx.globalAlpha = opacity
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const source = this._assets.resolveDrawable(batch.fills[index])
+      const x = batch.x[index] ?? 0
+      const y = batch.y[index] ?? 0
+      const width = batch.width[index] ?? 0
+      const height = batch.height[index] ?? 0
+      if (!source || width <= 0 || height <= 0) continue
+
+      ctx.fillStyle = ctx.createPattern(source, 'repeat')!
+      ctx.fillRect(x, y, width, height)
+    }
+
+    ctx.restore()
+  }
+
+  /**
+   * Рисует retained icon batch через Canvas2D fallback.
+   */
+  icons(batch: NovaIconBatch): void {
+    const ctx = this.ctx
+    const opacity = batch.opacity ?? 1
+
+    ctx.save()
+    ctx.globalAlpha = opacity
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const source = this._assets.resolveDrawable(batch.icons[index])
+      if (!source) continue
+      ctx.drawImage(
+        source,
+        batch.x[index] ?? 0,
+        batch.y[index] ?? 0,
+        batch.width[index] ?? 0,
+        batch.height[index] ?? 0,
+      )
+    }
+
+    ctx.restore()
+  }
+
+  /**
+   * Рисует retained text batch через Canvas2D fallback.
+   */
+  texts(batch: NovaTextBatch): void {
+    for (let index = 0; index < batch.count; index += 1) {
+      const color = Array.isArray(batch.color) ? batch.color[index] : batch.color
+      this.text({
+        text: batch.text[index] ?? '',
+        x: batch.x[index] ?? 0,
+        y: batch.y[index] ?? 0,
+        width: batch.width[index] ?? 0,
+        height: batch.height[index] ?? 0,
+        styles: {
+          color: color ?? '#000',
+          font: batch.font,
+          align: batch.align,
+          lineHeight: batch.lineHeight,
+          padding: batch.padding,
+          ellipsis: batch.ellipsis,
+          opacity: batch.opacity,
+        },
+      })
+    }
   }
 
   /**

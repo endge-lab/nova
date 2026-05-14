@@ -4,6 +4,7 @@ import type {
   NovaBorder,
   NovaCircle,
   NovaIcon,
+  NovaIconBatch,
   NovaLine,
   NovaParticleBatch,
   NovaPolygon,
@@ -12,7 +13,9 @@ import type {
   NovaRenderer,
   NovaRendererCapabilities,
   NovaSchema,
+  NovaStripeRectBatch,
   NovaText,
+  NovaTextBatch,
 } from '@/domain/types/renderer.types'
 import { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
@@ -26,6 +29,7 @@ import { NovaWebGLFrameRenderer } from '@/model/render/backends/webgl/NovaWebGLF
 import { NovaWebGLTargetManager } from '@/model/render/backends/webgl/NovaWebGLTargetManager'
 import { NovaWebGLTextRenderer } from '@/model/render/backends/webgl/NovaWebGLTextRenderer'
 import { NovaWebGLTextureManager } from '@/model/render/backends/webgl/NovaWebGLTextureManager'
+import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 
 /**
  * Реализует WebGL renderer для compiled Nova render frames.
@@ -46,6 +50,9 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
     text: true,
     particles: true,
     rectBatches: true,
+    stripeBatches: true,
+    iconBatches: true,
+    textBatches: true,
     measureText: true,
   }
 
@@ -64,12 +71,13 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
     readonly novaCanvas: NovaCanvas,
     _schemaRegistry: NovaSchemaRegistry,
     rendererConfig: NovaRendererConfig = DEFAULT_NOVA_RENDERER_CONFIG,
+    assets: NovaAssetRegistry = NovaAssets.global,
   ) {
     this.device = new NovaWebGLDevice(novaCanvas)
     this.targets = new NovaWebGLTargetManager(this.device.gl)
     this.textures = new NovaWebGLTextureManager(this.device.gl)
     this.textRenderer = new NovaWebGLTextRenderer(rendererConfig.text)
-    this._frameRenderer = new NovaWebGLFrameRenderer(this.device, rendererConfig.text)
+    this._frameRenderer = new NovaWebGLFrameRenderer(this.device, rendererConfig.text, assets)
   }
 
   /**
@@ -198,6 +206,27 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
    */
   rects(_batch: NovaRectBatch): void {
     this.throwImmediateApiError('rects')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию stripes.
+   */
+  stripes(_batch: NovaStripeRectBatch): void {
+    this.throwImmediateApiError('stripes')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию icons.
+   */
+  icons(_batch: NovaIconBatch): void {
+    this.throwImmediateApiError('icons')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию texts.
+   */
+  texts(_batch: NovaTextBatch): void {
+    this.throwImmediateApiError('texts')
   }
 
   /**

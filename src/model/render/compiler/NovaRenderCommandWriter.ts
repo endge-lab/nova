@@ -6,7 +6,15 @@ import type {
   NovaRenderGroup,
   NovaRenderItem,
 } from '@/domain/types/rendering/index'
-import type { NovaParticleBatch, NovaRectBatch, NovaSchemaItem, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
+import type {
+  NovaIconBatch,
+  NovaParticleBatch,
+  NovaRectBatch,
+  NovaSchemaItem,
+  NovaSemanticScopeKind,
+  NovaStripeRectBatch,
+  NovaTextBatch,
+} from '@/domain/types/renderer.types'
 import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/nova-render-item'
 import type { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
 import type { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
@@ -241,6 +249,27 @@ export class NovaRenderCommandWriter {
   }
 
   /**
+   * Записывает retained stripe batch как отдельный stream command.
+   */
+  drawStripeBatch(batch: NovaStripeRectBatch, nodeId = this._currentNodeId): NovaRenderCommand {
+    return this.drawGenericBatch('drawStripeBatch', 'stripe-batch', 'stripe-batch:fill', batch, nodeId)
+  }
+
+  /**
+   * Записывает retained icon batch как отдельный stream command.
+   */
+  drawIconBatch(batch: NovaIconBatch, nodeId = this._currentNodeId): NovaRenderCommand {
+    return this.drawGenericBatch('drawIconBatch', 'icon-batch', 'icon-batch:texture', batch, nodeId)
+  }
+
+  /**
+   * Записывает retained text batch как отдельный stream command.
+   */
+  drawTextBatch(batch: NovaTextBatch, nodeId = this._currentNodeId): NovaRenderCommand {
+    return this.drawGenericBatch('drawTextBatch', 'text-batch', 'text-batch:atlas', batch, nodeId)
+  }
+
+  /**
    * Выполняет внутреннюю операцию cursor.
    */
   cursor(type: string): NovaRenderCommand {
@@ -343,6 +372,81 @@ export class NovaRenderCommandWriter {
       layerId: renderItem.layerId,
       streamId: `${renderItem.groupId}:rect-batch`,
       streamKind: 'rect-batch',
+      offset: 0,
+      count: batch.count,
+      batchKey: renderItem.batchKey,
+      versions: {
+        transform: 0,
+        layout: batch.revision ?? 0,
+        paint: batch.staticRevision ?? 0,
+        children: 0,
+        resource: 0,
+        cache: 0,
+        visibility: 0,
+      },
+      localBounds: renderItem.bounds,
+    }
+
+    this._graph.addHandle(handle)
+  }
+
+  /**
+   * Записывает retained generic batch command.
+   */
+  private drawGenericBatch(
+    type: 'drawStripeBatch' | 'drawIconBatch' | 'drawTextBatch',
+    streamKind: 'stripe-batch' | 'icon-batch' | 'text-batch',
+    batchKey: string,
+    batch: NovaStripeRectBatch | NovaIconBatch | NovaTextBatch,
+    nodeId: string,
+  ): NovaRenderCommand {
+    const order = this._frameBuilder.nextOrder()
+    const item = createNovaRenderItem({
+      id: `item:${++this._itemId}`,
+      nodeId,
+      groupId: this._group.id,
+      layerId: this._group.layerId,
+      kind: streamKind,
+      order,
+      batchKey,
+      bounds: 'x' in batch && 'y' in batch && 'width' in batch && 'height' in batch
+        ? { x: batch.x[0] ?? 0, y: batch.y[0] ?? 0, width: batch.width[0] ?? 0, height: batch.height[0] ?? 0 }
+        : undefined,
+      clip: this.currentClip,
+    })
+
+    this._frameBuilder.addItem(item)
+    this.addGenericBatchHandle(item, batch, nodeId, streamKind)
+
+    return this.command({
+      type,
+      itemId: item.id,
+      stripeBatch: type === 'drawStripeBatch' ? batch as NovaStripeRectBatch : undefined,
+      iconBatch: type === 'drawIconBatch' ? batch as NovaIconBatch : undefined,
+      textBatch: type === 'drawTextBatch' ? batch as NovaTextBatch : undefined,
+      order,
+    })
+  }
+
+  /**
+   * Добавляет handle для retained generic stream.
+   */
+  private addGenericBatchHandle(
+    renderItem: NovaRenderItem,
+    batch: NovaStripeRectBatch | NovaIconBatch | NovaTextBatch,
+    nodeId: string,
+    streamKind: 'stripe-batch' | 'icon-batch' | 'text-batch',
+  ): void {
+    if (!this._graph) return
+
+    const handle: NovaRenderHandle = {
+      id: `handle:${++this._handleId}`,
+      nodeId,
+      itemId: renderItem.id,
+      groupId: renderItem.groupId,
+      layerId: renderItem.layerId,
+      streamId: `${renderItem.groupId}:${streamKind}`,
+      streamKind,
       offset: 0,
       count: batch.count,
       batchKey: renderItem.batchKey,

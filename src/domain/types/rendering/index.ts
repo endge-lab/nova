@@ -1,10 +1,13 @@
 import type { mat3 } from 'gl-matrix'
 import type {
   NovaBounds,
+  NovaIconBatch,
   NovaParticleBatch,
   NovaRectBatch,
   NovaSemanticScopeKind,
   NovaSchemaItem,
+  NovaStripeRectBatch,
+  NovaTextBatch,
   RendererType,
 } from '@/domain/types/renderer.types'
 
@@ -230,6 +233,9 @@ export type NovaRenderItemKind =
   | 'particle-circle'
   | 'particle-sprite'
   | 'rect-batch'
+  | 'stripe-batch'
+  | 'icon-batch'
+  | 'text-batch'
   | 'custom'
 
 /**
@@ -268,6 +274,9 @@ export type NovaRenderStreamKind =
   | 'particle-circle'
   | 'particle-sprite'
   | 'rect-batch'
+  | 'stripe-batch'
+  | 'icon-batch'
+  | 'text-batch'
 
 /**
  * Описывает тип NovaRenderSemanticLayer.
@@ -369,6 +378,9 @@ export type NovaRenderCommandType =
   | 'drawSchemaBatch'
   | 'drawParticles'
   | 'drawRectBatch'
+  | 'drawStripeBatch'
+  | 'drawIconBatch'
+  | 'drawTextBatch'
   | 'cursor'
   | 'beginGroup'
   | 'endGroup'
@@ -390,6 +402,9 @@ export interface NovaRenderCommand {
   schemaContentVersion?: number
   particleBatch?: NovaParticleBatch
   rectBatch?: NovaRectBatch
+  stripeBatch?: NovaStripeRectBatch
+  iconBatch?: NovaIconBatch
+  textBatch?: NovaTextBatch
   transform?: mat3
   clip?: NovaRenderClip
   cursor?: string

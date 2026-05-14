@@ -3,6 +3,7 @@ import type {
   NovaBorder,
   NovaCircle,
   NovaIcon,
+  NovaIconBatch,
   NovaLine,
   NovaParticleBatch,
   NovaPolygon,
@@ -12,7 +13,9 @@ import type {
   NovaRendererCapabilities,
   NovaSchema,
   NovaSchemaItem,
+  NovaStripeRectBatch,
   NovaText,
+  NovaTextBatch,
 } from '@/domain/types/renderer.types'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
@@ -39,6 +42,9 @@ export class NovaRenderBuilder implements NovaRenderer {
     text: true,
     particles: true,
     rectBatches: true,
+    stripeBatches: true,
+    iconBatches: true,
+    textBatches: true,
     measureText: true,
   }
 
@@ -180,6 +186,30 @@ export class NovaRenderBuilder implements NovaRenderer {
   rects(batch: NovaRectBatch): void {
     if (batch.active === false || batch.count <= 0) return
     this._writer.drawRectBatch(batch)
+  }
+
+  /**
+   * Записывает retained stripe batch без разворачивания в schema items.
+   */
+  stripes(batch: NovaStripeRectBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawStripeBatch(batch)
+  }
+
+  /**
+   * Записывает retained icon batch без разворачивания в schema items.
+   */
+  icons(batch: NovaIconBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawIconBatch(batch)
+  }
+
+  /**
+   * Записывает retained text batch без разворачивания в schema items.
+   */
+  texts(batch: NovaTextBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawTextBatch(batch)
   }
 
   /**

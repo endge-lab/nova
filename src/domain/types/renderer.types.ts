@@ -1,5 +1,6 @@
 import type { mat3 } from 'gl-matrix'
 import type { DataRect } from '@endge/utils'
+import type { NovaAssetDrawableInput, NovaAssetRef } from '@/model/runtime/assets/NovaAssetRegistry'
 
 /**
  * Описывает набор значений RendererType.
@@ -30,7 +31,7 @@ export type NovaStylePadding =
 /**
  * HEX/RGBA/ImageBitmap
  */
-export type NovaStyleBackground = string | ImageBitmap | HTMLCanvasElement
+export type NovaStyleBackground = string | ImageBitmap | HTMLCanvasElement | OffscreenCanvas | NovaAssetRef<'fill' | 'image'>
 
 /**
  * Описывает контракт NovaUIBase.
@@ -122,6 +123,16 @@ export interface NovaText extends NovaUIBase {
 }
 
 /**
+ * Описывает тип font стилей текста.
+ */
+export type NovaTextFont = NonNullable<NovaText['styles']>['font']
+
+/**
+ * Описывает тип align стилей текста.
+ */
+export type NovaTextAlign = NonNullable<NovaText['styles']>['align']
+
+/**
  * Описывает контракт NovaLine.
  */
 export interface NovaLine extends NovaUIBase {
@@ -174,8 +185,8 @@ export interface NovaIcon extends NovaUIBase {
   width: number
   height: number
 
-  // Либо название загруженной иконки, либо готовый canvas/image источник.
-  icon: CanvasImageSource | string
+  // Либо Nova asset ref, либо готовый canvas/image источник.
+  icon: CanvasImageSource | NovaAssetRef<'icon' | 'image'> | string
 
   styles?: {
     opacity?: number
@@ -221,6 +232,57 @@ export interface NovaRectBatch extends NovaUIBase {
   height: NovaRectNumberData
   colors: NovaRectNumberData
   states?: NovaRectNumberData
+  opacity?: number
+  revision?: number
+  staticRevision?: number
+}
+
+/**
+ * Описывает retained stripe batch.
+ */
+export interface NovaStripeRectBatch extends NovaUIBase {
+  count: number
+  x: NovaRectNumberData
+  y: NovaRectNumberData
+  width: NovaRectNumberData
+  height: NovaRectNumberData
+  fills: ReadonlyArray<NovaAssetDrawableInput>
+  opacity?: number
+  revision?: number
+  staticRevision?: number
+}
+
+/**
+ * Описывает retained icon batch.
+ */
+export interface NovaIconBatch extends NovaUIBase {
+  count: number
+  x: NovaRectNumberData
+  y: NovaRectNumberData
+  width: NovaRectNumberData
+  height: NovaRectNumberData
+  icons: ReadonlyArray<NovaAssetDrawableInput>
+  opacity?: number
+  revision?: number
+  staticRevision?: number
+}
+
+/**
+ * Описывает retained text batch.
+ */
+export interface NovaTextBatch extends NovaUIBase {
+  count: number
+  text: ReadonlyArray<string>
+  x: NovaRectNumberData
+  y: NovaRectNumberData
+  width: NovaRectNumberData
+  height: NovaRectNumberData
+  color?: string | ReadonlyArray<string>
+  font?: NovaTextFont
+  align?: NovaTextAlign
+  lineHeight?: number
+  padding?: NovaStylePadding
+  ellipsis?: boolean
   opacity?: number
   revision?: number
   staticRevision?: number
@@ -309,6 +371,9 @@ export interface NovaRendererCapabilities {
   text: boolean
   particles: boolean
   rectBatches: boolean
+  stripeBatches: boolean
+  iconBatches: boolean
+  textBatches: boolean
   measureText: boolean
 }
 
@@ -400,6 +465,9 @@ export interface NovaRenderer {
   polygon(params: NovaPolygon): void
   icon(params: NovaIcon): void
   rects(batch: NovaRectBatch): void
+  stripes(batch: NovaStripeRectBatch): void
+  icons(batch: NovaIconBatch): void
+  texts(batch: NovaTextBatch): void
   particles(batch: NovaParticleBatch): void
 
   measureText(params: NovaText): { width: number; height: number }
