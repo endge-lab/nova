@@ -819,6 +819,8 @@ export class NovaNode<
     this._soundEventBindings?.delete(type)
     if (Object.keys(this.eventHandlers).length === 0 && Object.keys(this.captureEventHandlers).length === 0) {
       this.nova.unregisterInteractiveNode(this)
+    } else {
+      this.nova.registerInteractiveNode(this)
     }
   }
 
@@ -829,6 +831,8 @@ export class NovaNode<
     delete this.captureEventHandlers[type]
     if (Object.keys(this.eventHandlers).length === 0 && Object.keys(this.captureEventHandlers).length === 0) {
       this.nova.unregisterInteractiveNode(this)
+    } else {
+      this.nova.registerInteractiveNode(this)
     }
   }
 

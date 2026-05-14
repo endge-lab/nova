@@ -380,6 +380,36 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
+  it('routes canvas lifecycle events only through nodes that subscribe to them', () => {
+    const app = createApp()
+    const canvasNode = createInteractiveNode(app)
+    const moveNode = createInteractiveNode(app)
+    const onCanvasLeave = vi.fn()
+    const onMouseMove = vi.fn()
+
+    canvasNode.on('canvasleave', onCanvasLeave)
+    moveNode.on('mousemove', onMouseMove)
+
+    expect((app as any)._events.interactiveNodes.size).toBe(2)
+    expect((app as any)._events.canvasLifecycleNodes.size).toBe(1)
+
+    app.canvas.element.dispatchEvent(new MouseEvent('mouseleave', {
+      clientX: -10,
+      clientY: 80,
+      bubbles: true,
+    }))
+
+    expect(onCanvasLeave).toHaveBeenCalledTimes(1)
+    expect(onMouseMove).not.toHaveBeenCalled()
+
+    canvasNode.off('canvasleave')
+
+    expect((app as any)._events.interactiveNodes.size).toBe(1)
+    expect((app as any)._events.canvasLifecycleNodes.size).toBe(0)
+
+    app.destroy()
+  })
+
   it('keeps active keyboard scope silent until the canvas receives pointer activity', () => {
     const app = createApp({ keyboardScope: 'active' })
     const node = createInteractiveNode(app)

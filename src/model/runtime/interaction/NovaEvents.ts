@@ -34,6 +34,7 @@ const DEFAULT_SCOPE = 'default'
  */
 export class NovaEvents<E extends EventList> {
   interactiveNodes: Set<NovaNode<E>> = new Set()
+  canvasLifecycleNodes: Set<NovaNode<E>> = new Set()
   hoveredNodes: Set<NovaNode<E>> = new Set()
   draggedNodes: Set<NovaNode<E>> = new Set()
   selectedNodes: Set<NovaNode<E>> = new Set()
@@ -82,6 +83,7 @@ export class NovaEvents<E extends EventList> {
       this.clickTimeout = null
     }
     this.interactiveNodes.clear()
+    this.canvasLifecycleNodes.clear()
     this.hoveredNodes.clear()
     this.draggedNodes.clear()
     this.selectedNodes.clear()
@@ -128,6 +130,7 @@ export class NovaEvents<E extends EventList> {
    */
   removeNodeReferences(node: NovaNode<E>): void {
     this.interactiveNodes.delete(node)
+    this.canvasLifecycleNodes.delete(node)
     this._spatialDirtyNodes.delete(node)
     this._spatialIndex.remove(node)
     this.hoveredNodes.delete(node)
@@ -144,6 +147,19 @@ export class NovaEvents<E extends EventList> {
       if (captured === node) this._pointerCaptureNodes.delete(pointerId)
     }
     if (this.pointerCaptureNode === node) this.pointerCaptureNode = this._firstCapturedNode()
+  }
+
+  /**
+   * Регистрирует interactive node и синхронизирует производные event indexes.
+   */
+  registerInteractiveNode(node: NovaNode<E>): void {
+    this.interactiveNodes.add(node)
+    if (node.eventHandlers.canvasenter || node.eventHandlers.canvasleave) {
+      this.canvasLifecycleNodes.add(node)
+    } else {
+      this.canvasLifecycleNodes.delete(node)
+    }
+    this.markSpatialDirty(node)
   }
 
   /**
@@ -807,6 +823,8 @@ export class NovaEvents<E extends EventList> {
    * Обрабатывает событие canvas enter.
    */
   private onCanvasEnter(event: MouseEvent): boolean {
+    this._mouseMoveQueued = false
+    this._lastMouseMoveEvent = null
     this.isDragging = false
     this.isDraggingEmitted = false
     this.hoveredNodes.clear()
@@ -822,7 +840,7 @@ export class NovaEvents<E extends EventList> {
 
     if (event.cancelBubble) return false
 
-    for (const node of this.interactiveNodes) {
+    for (const node of [...this.canvasLifecycleNodes]) {
       if (node.active) {
         node.eventHandlers['canvasenter']?.(event)
         if (event.cancelBubble) break
@@ -835,6 +853,9 @@ export class NovaEvents<E extends EventList> {
    * Обрабатывает событие canvas leave.
    */
   private onCanvasLeave(event: MouseEvent): boolean {
+    this._mouseMoveQueued = false
+    this._lastMouseMoveEvent = null
+
     if (this._pointerCaptureNodes.size > 0) {
       return true
     }
@@ -861,7 +882,7 @@ export class NovaEvents<E extends EventList> {
 
     if (event.cancelBubble) return false
 
-    for (const node of this.interactiveNodes) {
+    for (const node of [...this.canvasLifecycleNodes]) {
       if (node.active) {
         node.eventHandlers['canvasleave']?.(event)
         if (event.cancelBubble) break

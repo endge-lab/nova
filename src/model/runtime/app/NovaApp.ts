@@ -528,8 +528,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      * Регистрирует node в интерактивном индексе событий.
      */
     registerInteractiveNode(node: NovaNode<E>): void {
-        this._events.interactiveNodes.add(node)
-        this._events.markSpatialDirty(node)
+        this._events.registerInteractiveNode(node)
     }
 
     /**
