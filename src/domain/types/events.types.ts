@@ -61,6 +61,33 @@ export const CanvasDomEvents: Array<DomEventName> = [
   'keyup',
 ]
 
+export const NovaSupportedNativeEvents = [
+  'click',
+  'dblclick',
+  'contextmenu',
+  'mousemove',
+  'mousedown',
+  'mouseup',
+  'wheel',
+  'keydown',
+  'keyup',
+  'mouseenter',
+  'mouseleave',
+  'canvasenter',
+  'canvasleave',
+  'focus',
+  'blur',
+  'select',
+  'deselect',
+  'gotpointercapture',
+  'lostpointercapture',
+  'hover',
+  'dragstart',
+  'dragmove',
+  'dragend',
+  'dragcancel',
+] as const
+
 // Базовые DOM-обработчики
 /**
  * Описывает контракт CanvasEventHandlers.

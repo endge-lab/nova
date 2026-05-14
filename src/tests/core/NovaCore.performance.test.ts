@@ -6,6 +6,7 @@ import {
   NovaNode,
   NovaScene,
   NovaSpatialIndex,
+  NovaSupportedNativeEvents,
   NovaSurface,
   RaphSchedulerType,
   RendererType,
@@ -746,6 +747,7 @@ describe('Nova core behavior and performance smoke', () => {
     group.onCapture('mousedown', () => order.push('capture-group'))
     group.on('mousedown', () => order.push('bubble-group'))
     child.on('mousedown', () => order.push('target-child'))
+    app.flush()
 
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 50, clientY: 50, button: 0 }))
 
@@ -771,6 +773,7 @@ describe('Nova core behavior and performance smoke', () => {
       order.push('target-child')
       event.cancelBubble = true
     })
+    app.flush()
 
     app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 50, clientY: 50, button: 0 }))
 
@@ -826,6 +829,34 @@ describe('Nova core behavior and performance smoke', () => {
     expect(app.events.interactiveNodes.has(node)).toBe(false)
 
     app.destroy()
+  })
+
+  it('publishes the supported native event contract without pointer-event aliases', () => {
+    expect(NovaSupportedNativeEvents).toEqual(expect.arrayContaining([
+      'click',
+      'dblclick',
+      'contextmenu',
+      'mousedown',
+      'mouseup',
+      'mousemove',
+      'mouseenter',
+      'mouseleave',
+      'wheel',
+      'keydown',
+      'keyup',
+      'focus',
+      'blur',
+      'select',
+      'deselect',
+      'dragstart',
+      'dragmove',
+      'dragend',
+      'dragcancel',
+      'gotpointercapture',
+      'lostpointercapture',
+    ]))
+    expect(NovaSupportedNativeEvents).not.toContain('pointerdown')
+    expect(NovaSupportedNativeEvents).not.toContain('pointermove')
   })
 
   it('redraws 500 direct children inside a mock frame budget', () => {
@@ -963,6 +994,72 @@ describe('Nova core behavior and performance smoke', () => {
       app.canvas.element.dispatchEvent(event)
     })
 
+    expect(elapsedMs).toBeLessThan(80)
+
+    app.destroy()
+  })
+
+  it('hit-tests 10000 interactive nodes and 5000 clicks inside the spatial event budget', () => {
+    const log = createAuditLog()
+    const app = createApp({ input: true })
+    const surface = app.createSurface('scene', AuditSurface, log)
+    let clicks = 0
+
+    for (let index = 0; index < 10_000; index++) {
+      const node = new AuditNode(app, surface, `node-${index}`, log)
+      node.options({
+        x: (index % 100) * 140,
+        y: Math.floor(index / 100) * 140,
+        width: 8,
+        height: 8,
+      })
+      node.on('mousedown', () => {
+        clicks += 1
+      })
+      surface.addChild(node, { invalidate: false })
+    }
+    surface.dirty({ matrix: true, render: true })
+    app.events.hitTestMode = 'spatial'
+    app.flush()
+    app.events.hitTest(4, 4)
+    const event = new MouseEvent('mousedown', { button: 0 })
+    const points = Array.from({ length: 5_000 }, (_item, index) => ({
+      x: 4 + (index % 80) * 140,
+      y: 4 + (index % 80) * 140,
+    }))
+
+    const elapsedMs = measure('event spatial hit-test / 10000 nodes / 5000 clicks', () => {
+      for (const point of points) {
+        app.events.hitTest(point.x, point.y)?.eventHandlers.mousedown?.(event)
+      }
+    })
+
+    expect(clicks).toBe(5_000)
+    expect(app.events.interactiveNodes.size).toBe(10_000)
+    expect(elapsedMs).toBeLessThan(120)
+
+    app.destroy()
+  })
+
+  it('patches 10000 listener handlers without growing interactive node registry', () => {
+    const log = createAuditLog()
+    const app = createApp({ input: true })
+    const surface = app.createSurface('scene', AuditSurface, log)
+    const node = surface.createNode(AuditNode, 'listener-patch', log)
+    const first = vi.fn()
+    const second = vi.fn()
+
+    node.on('click', first)
+    const elapsedMs = measure('event listener patch / 10000 ops', () => {
+      for (let index = 0; index < 10_000; index += 1) {
+        node.on('click', index % 2 === 0 ? second : first)
+      }
+    })
+
+    expect(app.events.interactiveNodes.size).toBe(1)
+    expect(node.eventHandlers.click).toBe(first)
+    node.off('click')
+    expect(app.events.interactiveNodes.size).toBe(0)
     expect(elapsedMs).toBeLessThan(80)
 
     app.destroy()
@@ -1294,6 +1391,7 @@ describe('Nova core behavior and performance smoke', () => {
     node.on('dragmove', (_event, _dx, _dy, meta) => events.push(`move:${meta.totalDx}:${meta.totalDy}`))
     node.on('dragend', (_event, meta) => events.push(`end:${meta.totalDx}:${meta.totalDy}`))
     node.on('lostpointercapture', () => events.push('release'))
+    app.flush()
 
     dispatchMouse(app.canvas.element, 'mousedown', 20, 20)
     dispatchMouse(app.canvas.element, 'mousemove', 140, 140)
@@ -1315,6 +1413,7 @@ describe('Nova core behavior and performance smoke', () => {
     node.options({ x: 10, y: 10, width: 30, height: 30 })
     node.on('mousedown', () => events.push('down'))
     node.on('gotpointercapture', () => events.push('capture'))
+    app.flush()
 
     dispatchMouse(app.canvas.element, 'mousedown', 20, 20)
 
@@ -1350,6 +1449,7 @@ describe('Nova core behavior and performance smoke', () => {
     })
     first.on('lostpointercapture', () => events.push('first-release'))
     second.on('lostpointercapture', () => events.push('second-release'))
+    app.flush()
 
     const firstDown = dispatchPointer(app.canvas.element, 'mousedown', 20, 20, 11)
     const secondDown = dispatchPointer(app.canvas.element, 'mousedown', 70, 20, 22)
@@ -1408,6 +1508,7 @@ describe('Nova core behavior and performance smoke', () => {
     second.options({ x: 50, y: 10, width: 20, height: 20 })
     second.on('mousedown', event => second.select({}, event))
     second.on('focus', () => events.push('second-focus'))
+    app.flush()
 
     dispatchMouse(app.canvas.element, 'mousedown', 15, 15)
     app.events.handle('keydown', new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))

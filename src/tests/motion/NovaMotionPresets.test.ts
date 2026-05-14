@@ -86,7 +86,7 @@ describe('NovaMotion presets and patterns', () => {
   })
 
   it('does not use long dash or emoji in the preset source comments', () => {
-    const source = readFileSync(join(process.cwd(), 'src/model/motion/NovaMotionPresets.ts'), 'utf8')
+    const source = readFileSync(join(process.cwd(), 'src/model/motion/nova-motion-presets.ts'), 'utf8')
     expect(source).not.toContain('—')
     expect(source).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
   })
