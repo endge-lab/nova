@@ -2680,10 +2680,82 @@ export class NovaWebGLFrameRenderer {
   private drawTextBatch(batch: NovaTextBatch, transform: mat3, stats: RenderStats): void {
     if (batch.active === false || batch.count <= 0) return
 
+    const mode = this.resolveTextRenderMode({
+      type: 'text',
+      text: '',
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      meta: batch.meta,
+    })
+    if (mode === 'glyph-atlas' || mode === 'msdf') {
+      this.drawGlyphTextBatch(batch, mode, transform, stats)
+      return
+    }
+
     const cache = this.resolveTextStreamBatchCache(batch, transform, stats)
     if (!cache) return
 
     this.drawTextureRectStreamBatchCache(cache, transform, stats)
+  }
+
+  /**
+   * Рисует retained text batch через glyph/MSDF atlas.
+   */
+  private drawGlyphTextBatch(
+    batch: NovaTextBatch,
+    mode: 'glyph-atlas' | 'msdf',
+    transform: mat3,
+    stats: RenderStats,
+  ): void {
+    const styleBase = this.createTextBatchStyleBase(batch)
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const color = Array.isArray(batch.color) ? batch.color[index] : batch.color
+      const text: NovaText = {
+        type: 'text',
+        text: batch.text[index] ?? '',
+        x: batch.x[index] ?? 0,
+        y: batch.y[index] ?? 0,
+        width: batch.width[index] ?? 0,
+        height: batch.height[index] ?? 0,
+        styles: {
+          ...styleBase,
+          color: color ?? styleBase.color,
+        },
+        meta: batch.meta,
+      }
+
+      if (this.shouldCullTextRuns(mode) && !this.isRectVisible(transform, text.x, text.y, text.width, text.height)) {
+        stats.culledTextRuns += 1
+        continue
+      }
+      stats.visibleTextRuns += 1
+
+      const style = compileNovaTextStyle(text)
+      if (this.drawGlyphText(text, style, mode, transform, stats)) continue
+
+      stats.textModeFallbacks += 1
+      const scale = this.resolveTextRasterScale(transform, stats)
+      const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats)
+      if (!atlasItem) continue
+
+      this.queueTextureQuad(
+        atlasItem.texture,
+        text.x,
+        text.y,
+        text.width,
+        text.height,
+        transform,
+        style.opacity,
+        stats,
+        atlasItem.u0,
+        atlasItem.v0,
+        atlasItem.u1,
+        atlasItem.v1,
+      )
+    }
   }
 
   /**

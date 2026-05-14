@@ -1050,6 +1050,50 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.atlasUploads).toBe(0)
   })
 
+  it('routes retained text batches through task label glyph mode', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+            taskLabels: 'glyph-atlas',
+            uiLabels: 'run-atlas',
+          },
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [] as NovaSchema
+    for (let index = 0; index < 12; index += 1) {
+      schema.push({
+        type: 'text',
+        x: 10,
+        y: 10 + index * 16,
+        width: 120,
+        height: 14,
+        text: `Задача ${index} / Task ${index}`,
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label' },
+      })
+    }
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.glyphRasterCount).toBeGreaterThan(0)
+    expect(metrics.glyphQuads).toBeGreaterThan(0)
+    expect(metrics.textRasterCount).toBe(0)
+    expect(metrics.textModeFallbacks).toBe(0)
+  })
+
   it('keeps MSDF glyph keys stable across zoom bucket changes after warmup', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
