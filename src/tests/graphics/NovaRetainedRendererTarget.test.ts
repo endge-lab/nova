@@ -870,7 +870,15 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
-    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          visibleOnlyRaster: false,
+        },
+      }),
+    )
     const frame = createCompiledFrame(canvas, createMixedSemanticSchema(100))
 
     const first = renderer.renderFrame(frame)
@@ -974,6 +982,176 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textureBatchFallbacks).toBe(0)
     expect(metrics.textRasterDeferred).toBe(1)
     expect(metrics.textBudgetExhausted).toBe(1)
+  })
+
+  it('uses task label zone mode to reuse bitmap glyphs across Cyrillic and Latin labels', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+            taskLabels: 'glyph-atlas',
+            uiLabels: 'run-atlas',
+          },
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 140,
+        height: 20,
+        text: 'Задача 42',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label' },
+      },
+      {
+        type: 'text',
+        x: 10,
+        y: 34,
+        width: 140,
+        height: 20,
+        text: 'Task 42',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label' },
+      },
+      {
+        type: 'text',
+        x: 10,
+        y: 58,
+        width: 140,
+        height: 20,
+        text: 'Задача 43',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label' },
+      },
+    ] as NovaSchema
+    schema.contentVersion = 1
+
+    const first = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const warm = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(first.glyphRasterCount).toBeGreaterThan(0)
+    expect(first.glyphQuads).toBeGreaterThan(0)
+    expect(first.textRasterCount).toBe(0)
+    expect(first.textModeFallbacks).toBe(0)
+    expect(warm.glyphRasterCount).toBe(0)
+    expect(warm.glyphCacheHits).toBeGreaterThan(0)
+    expect(warm.atlasUploads).toBe(0)
+  })
+
+  it('keeps MSDF glyph keys stable across zoom bucket changes after warmup', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+            taskLabels: 'glyph-atlas',
+            uiLabels: 'run-atlas',
+          },
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 120,
+        height: 18,
+        text: '12:30',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'timescale' },
+      },
+    ] as NovaSchema
+    schema.contentVersion = 1
+    const frame = createCompiledFrame(canvas, schema)
+
+    const first = renderer.renderFrame(frame)
+    const warm = renderer.renderFrame(frame)
+    const zoomedTransform = mat3.create()
+    mat3.fromScaling(zoomedTransform, [2, 2])
+    for (const command of frame.commands) {
+      if (command.type === 'setTransform') command.transform = zoomedTransform
+    }
+    const zoomed = renderer.renderFrame(frame)
+
+    expect(first.msdfGlyphCount).toBeGreaterThan(0)
+    expect(warm.glyphRasterCount).toBe(0)
+    expect(zoomed.glyphRasterCount).toBe(0)
+    expect(zoomed.atlasUploads).toBe(0)
+    expect(zoomed.glyphCacheHits).toBeGreaterThan(0)
+    expect(zoomed.msdfGlyphCount).toBeGreaterThan(0)
+  })
+
+  it('lets item textMode override zone mode and falls back unsupported glyph text to run atlas', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+            taskLabels: 'glyph-atlas',
+            uiLabels: 'glyph-atlas',
+          },
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 120,
+        height: 18,
+        text: 'forced run',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label', textMode: 'run-atlas' },
+      },
+      {
+        type: 'text',
+        x: 10,
+        y: 34,
+        width: 120,
+        height: 18,
+        text: '**markdown**',
+        parser: 'markdown',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label', textMode: 'glyph-atlas' },
+      },
+    ] as NovaSchema
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.textModeFallbacks).toBe(1)
+    expect(metrics.textRasterCount).toBe(2)
+    expect(metrics.glyphRasterCount).toBe(0)
   })
 
   it('keeps plain rect pan frames in uniform-only mode after warmup', () => {

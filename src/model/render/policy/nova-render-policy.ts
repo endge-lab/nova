@@ -40,6 +40,7 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
       uiLabels: 'run-atlas',
     }),
     maxAtlasMemoryMB: 128,
+    maxGlyphAtlasMemoryMB: 64,
     zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as Array<number>,
     dynamicBuckets: true,
     prewarmAdjacentBuckets: true,

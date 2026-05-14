@@ -94,6 +94,7 @@ export interface NovaRendererTextConfig {
   mode: NovaTextRenderMode
   modes: NovaRendererTextZoneModes
   maxAtlasMemoryMB: number
+  maxGlyphAtlasMemoryMB: number
   zoomBuckets: Array<number>
   dynamicBuckets: boolean
   prewarmAdjacentBuckets: boolean

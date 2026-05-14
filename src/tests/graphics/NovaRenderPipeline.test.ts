@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mat3 } from 'gl-matrix'
 import {
+  NovaGlyphAtlasManager,
   NovaSchemaRegistry,
   NovaTextAtlasManager,
   RendererType,
@@ -211,6 +212,30 @@ describe('Nova render pipeline contracts', () => {
     expect(first.cacheHit).toBe(false)
     expect(second.cacheHit).toBe(true)
     expect(second.entry).toBe(first.entry)
+  })
+
+  it('keys glyph atlas entries by glyph, script, color and zoom bucket with LRU budget', () => {
+    const config = resolveNovaRendererConfig({
+      text: {
+        maxGlyphAtlasMemoryMB: 0.009,
+        zoomBuckets: [1, 2],
+      },
+    })
+    const atlas = new NovaGlyphAtlasManager(config.text)
+
+    const latin = atlas.resolve({ glyph: 'A', fontKey: '12px Inter', color: '#fff' }, 1.9)
+    const latinHit = atlas.resolve({ glyph: 'A', fontKey: '12px Inter', color: '#fff' }, 1.9)
+    const cyrillic = atlas.resolve({ glyph: 'Ж', fontKey: '12px Inter', color: '#fff' }, 1.9)
+    const digit = atlas.resolve({ glyph: '7', fontKey: '12px Inter', color: '#f00' }, 1.9)
+
+    expect(latin.bucket).toBe(2)
+    expect(latin.cacheHit).toBe(false)
+    expect(latinHit.cacheHit).toBe(true)
+    expect(latinHit.entry).toBe(latin.entry)
+    expect(cyrillic.entry.key).not.toBe(latin.entry.key)
+    expect(digit.entry.key).toContain('#f00')
+    expect(atlas.pages.length).toBeGreaterThan(0)
+    expect(atlas.memoryMB).toBeLessThanOrEqual(config.text.maxGlyphAtlasMemoryMB)
   })
 
   it('resolves text raster policy from renderer config', () => {

@@ -21,8 +21,8 @@ import type {
   NovaStripeRectBatch,
   NovaText,
   NovaTextBatch,
-  type NovaTextRenderMode,
-  type NovaTextRenderRole,
+  NovaTextRenderMode,
+  NovaTextRenderRole,
 } from '@/domain/types/renderer.types'
 import type { NovaAssetDrawableInput, NovaAssetRegistry, NovaStripeAssetDescriptor } from '@/model/runtime/assets/NovaAssetRegistry'
 import { isNovaAssetRef, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
@@ -59,6 +59,54 @@ const STRIPE_BATCH_GEOMETRY_STRIDE = 4
 const STRIPE_BATCH_STATIC_STRIDE = 10
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
 const TEXT_ATLAS_PAGE_SIZE = 2048
+
+const EARLY_STRIPE_BATCH_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec4 a_rect;
+in vec4 a_bgColor;
+in vec4 a_stripeColor;
+in float a_stripeWidth;
+in float a_angle;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_local;
+out vec4 v_bgColor;
+out vec4 v_stripeColor;
+out float v_stripeWidth;
+out float v_angle;
+void main() {
+  vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = a_rect.xy + unitUv * a_rect.zw;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_local = unitUv * a_rect.zw;
+  v_bgColor = a_bgColor;
+  v_stripeColor = a_stripeColor;
+  v_stripeWidth = a_stripeWidth;
+  v_angle = a_angle;
+}
+`
+
+const EARLY_STRIPE_BATCH_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec2 v_local;
+in vec4 v_bgColor;
+in vec4 v_stripeColor;
+in float v_stripeWidth;
+in float v_angle;
+out vec4 outColor;
+void main() {
+  float c = cos(v_angle);
+  float s = sin(v_angle);
+  float axis = v_local.x * c + v_local.y * s;
+  float period = max(1.0, v_stripeWidth * 2.0);
+  float band = step(mod(axis, period), v_stripeWidth);
+  outColor = mix(v_bgColor, v_stripeColor, band);
+}
+`
 
 /**
  * Описывает контракт RenderStats.
@@ -550,7 +598,7 @@ export class NovaWebGLFrameRenderer {
     this._particleSpriteProgram = NovaWebGLProgram.create(this._gl, PARTICLE_SPRITE_VERTEX_SHADER, PARTICLE_SPRITE_FRAGMENT_SHADER)
     this._rectBatchProgram = NovaWebGLProgram.create(this._gl, RECT_BATCH_VERTEX_SHADER, RECT_BATCH_FRAGMENT_SHADER)
     this._textureRectBatchProgram = NovaWebGLProgram.create(this._gl, TEXTURE_RECT_BATCH_VERTEX_SHADER, TEXTURE_RECT_BATCH_FRAGMENT_SHADER)
-    this._stripeBatchProgram = NovaWebGLProgram.create(this._gl, STRIPE_BATCH_VERTEX_SHADER, STRIPE_BATCH_FRAGMENT_SHADER)
+    this._stripeBatchProgram = NovaWebGLProgram.create(this._gl, EARLY_STRIPE_BATCH_VERTEX_SHADER, EARLY_STRIPE_BATCH_FRAGMENT_SHADER)
     this._roundedBuffer = this.createBuffer()
     this._solidBuffer = this.createBuffer()
     this._textureBuffer = this.createBuffer()
@@ -2024,7 +2072,7 @@ export class NovaWebGLFrameRenderer {
    * Освобождает старые glyph atlas pages под memory budget.
    */
   private evictGlyphAtlasPagesFor(nextPageBytes: number): void {
-    const budgetBytes = Math.max(1, this._textConfig.maxAtlasMemoryMB) * 1024 * 1024
+    const budgetBytes = Math.max(1, this._textConfig.maxGlyphAtlasMemoryMB) * 1024 * 1024
     let bytes = this.glyphAtlasMemoryBytes()
     if (bytes + nextPageBytes <= budgetBytes || this._glyphAtlasPages.length === 0) return
 
@@ -2492,7 +2540,7 @@ export class NovaWebGLFrameRenderer {
    * Проверяет, включен ли frame budget для text rasterization.
    */
   private shouldBudgetTextRaster(): boolean {
-    return true
+    return this._textConfig.mode === 'run-atlas'
   }
 
   /**
@@ -2636,6 +2684,412 @@ export class NovaWebGLFrameRenderer {
     if (!cache) return
 
     this.drawTextureRectStreamBatchCache(cache, transform, stats)
+  }
+
+  /**
+   * Возвращает retained icon stream cache.
+   */
+  private resolveIconStreamBatchCache(batch: NovaIconBatch, stats: RenderStats): TextureRectStreamBatchCache | null {
+    let cache: TextureRectStreamBatchCache | null = this._iconStreamBatchCache.get(batch) ?? null
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+
+    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision) {
+      cache = this.createIconStreamBatchCache(batch, stats)
+      if (!cache) return null
+      this._iconStreamBatchCache.set(batch, cache)
+      return cache
+    }
+
+    if (cache.revision !== revision) {
+      for (const group of cache.groups) {
+        this.writeTextureRectGeometry(batch, group.indices, group.geometryData)
+        group.geometryUpload.lastData = undefined
+      }
+      cache.revision = revision
+    }
+
+    return cache
+  }
+
+  /**
+   * Создает retained icon stream cache.
+   */
+  private createIconStreamBatchCache(batch: NovaIconBatch, stats: RenderStats): TextureRectStreamBatchCache | null {
+    const groups = new Map<string, { texture: TextureEntry; indices: Array<number> }>()
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const texture = this.resolveTextureEntry('icon', batch.icons[index], stats)
+      if (!texture) continue
+
+      let group = groups.get(texture.key)
+      if (!group) {
+        group = { texture, indices: [] }
+        groups.set(texture.key, group)
+      }
+      group.indices.push(index)
+    }
+
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+    return {
+      count: batch.count,
+      revision,
+      staticRevision,
+      groups: [...groups.values()].map(group => this.createTextureRectStreamGroupCache(batch, group.texture, group.indices, 0, 0, 1, 1)),
+    }
+  }
+
+  /**
+   * Возвращает retained text stream cache.
+   */
+  private resolveTextStreamBatchCache(batch: NovaTextBatch, transform: mat3, stats: RenderStats): TextureRectStreamBatchCache | null {
+    let cache: TextureRectStreamBatchCache | null = this._textStreamBatchCache.get(batch) ?? null
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+    const rasterScale = this.resolveTextRasterScale(transform, stats)
+
+    if (
+      !cache ||
+      cache.count !== batch.count ||
+      cache.staticRevision !== staticRevision ||
+      cache.rasterScale !== rasterScale ||
+      cache.incomplete
+    ) {
+      cache = this.createTextStreamBatchCache(batch, stats, rasterScale)
+      if (!cache) return null
+      this._textStreamBatchCache.set(batch, cache)
+      return cache
+    }
+
+    if (cache.revision !== revision) {
+      for (const group of cache.groups) {
+        this.writeTextureRectGeometry(batch, group.indices, group.geometryData)
+        group.geometryUpload.lastData = undefined
+      }
+      cache.revision = revision
+    }
+
+    return cache
+  }
+
+  /**
+   * Создает retained text stream cache.
+   */
+  private createTextStreamBatchCache(batch: NovaTextBatch, stats: RenderStats, rasterScale: number): TextureRectStreamBatchCache | null {
+    const groups = new Map<string, {
+      texture: TextureEntry
+      indices: Array<number>
+      uv: Array<[number, number, number, number]>
+    }>()
+    const styleBase = this.createTextBatchStyleBase(batch)
+    let incomplete = false
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const color = Array.isArray(batch.color) ? batch.color[index] : batch.color
+      const text: NovaText = {
+        text: batch.text[index] ?? '',
+        x: batch.x[index] ?? 0,
+        y: batch.y[index] ?? 0,
+        width: batch.width[index] ?? 0,
+        height: batch.height[index] ?? 0,
+        styles: {
+          ...styleBase,
+          color: color ?? styleBase.color,
+        },
+        meta: batch.meta,
+      }
+      const style = compileNovaTextStyle(text)
+      const atlasItem = this.resolveTextAtlasItem(text, style, rasterScale, stats)
+      if (!atlasItem) {
+        incomplete = true
+        continue
+      }
+
+      let group = groups.get(atlasItem.texture.key)
+      if (!group) {
+        group = { texture: atlasItem.texture, indices: [], uv: [] }
+        groups.set(atlasItem.texture.key, group)
+      }
+      group.indices.push(index)
+      group.uv.push([atlasItem.u0, atlasItem.v0, atlasItem.u1, atlasItem.v1])
+    }
+
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+    return {
+      count: batch.count,
+      revision,
+      staticRevision,
+      rasterScale,
+      incomplete,
+      groups: [...groups.values()].map(group => this.createTextureRectStreamGroupCache(batch, group.texture, group.indices, group.uv)),
+    }
+  }
+
+  /**
+   * Возвращает style object для text batch.
+   */
+  private createTextBatchStyleBase(batch: NovaTextBatch): NonNullable<NovaText['styles']> {
+    return {
+      color: typeof batch.color === 'string' ? batch.color : '#000',
+      font: batch.font,
+      align: batch.align,
+      lineHeight: batch.lineHeight,
+      padding: batch.padding,
+      ellipsis: batch.ellipsis,
+      opacity: batch.opacity,
+    }
+  }
+
+  /**
+   * Создает retained texture rect group cache.
+   */
+  private createTextureRectStreamGroupCache(
+    batch: NovaIconBatch | NovaTextBatch,
+    texture: TextureEntry,
+    sourceIndices: Array<number>,
+    u0OrUv: number | Array<[number, number, number, number]>,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+  ): TextureRectStreamGroupCache {
+    const indices = new Uint32Array(sourceIndices)
+    const geometryBuffer = this.createBuffer()
+    const staticBuffer = this.createBuffer()
+    const cache: TextureRectStreamGroupCache = {
+      texture,
+      indices,
+      geometryData: new Float32Array(indices.length * TEXTURE_RECT_BATCH_GEOMETRY_STRIDE),
+      staticData: new Float32Array(indices.length * TEXTURE_RECT_BATCH_STATIC_STRIDE),
+      count: indices.length,
+      revision: batch.revision ?? 0,
+      staticRevision: batch.staticRevision ?? 0,
+      geometryUpload: createWebGLUploadState(),
+      staticUpload: createWebGLUploadState(),
+      geometryBuffer,
+      staticBuffer,
+      vao: this.createTextureRectBatchVao(geometryBuffer, staticBuffer),
+    }
+
+    this.writeTextureRectGeometry(batch, indices, cache.geometryData)
+    this.writeTextureRectStaticData(batch, indices, cache.staticData, u0OrUv, v0, u1, v1)
+    this._ownedTextureRectStreamGroupCaches.add(cache)
+    return cache
+  }
+
+  /**
+   * Записывает dynamic geometry для retained texture rect group.
+   */
+  private writeTextureRectGeometry(batch: NovaIconBatch | NovaTextBatch, indices: Uint32Array, target: Float32Array): void {
+    for (let itemIndex = 0; itemIndex < indices.length; itemIndex += 1) {
+      const sourceIndex = indices[itemIndex] ?? 0
+      const offset = itemIndex * TEXTURE_RECT_BATCH_GEOMETRY_STRIDE
+      target[offset] = batch.x[sourceIndex] ?? 0
+      target[offset + 1] = batch.y[sourceIndex] ?? 0
+      target[offset + 2] = batch.width[sourceIndex] ?? 0
+      target[offset + 3] = batch.height[sourceIndex] ?? 0
+    }
+  }
+
+  /**
+   * Записывает static uv/opacity для retained texture rect group.
+   */
+  private writeTextureRectStaticData(
+    batch: NovaIconBatch | NovaTextBatch,
+    indices: Uint32Array,
+    target: Float32Array,
+    u0OrUv: number | Array<[number, number, number, number]>,
+    v0: number,
+    u1: number,
+    v1: number,
+  ): void {
+    const opacity = batch.opacity ?? 1
+
+    for (let itemIndex = 0; itemIndex < indices.length; itemIndex += 1) {
+      const offset = itemIndex * TEXTURE_RECT_BATCH_STATIC_STRIDE
+      const uv = Array.isArray(u0OrUv) ? u0OrUv[itemIndex] : undefined
+      target[offset] = uv?.[0] ?? Number(u0OrUv)
+      target[offset + 1] = uv?.[1] ?? v0
+      target[offset + 2] = uv?.[2] ?? u1
+      target[offset + 3] = uv?.[3] ?? v1
+      target[offset + 4] = opacity
+    }
+  }
+
+  /**
+   * Рисует retained texture rect cache через instanced stream.
+   */
+  private drawTextureRectStreamBatchCache(cache: TextureRectStreamBatchCache, transform: mat3, stats: RenderStats): void {
+    for (const group of cache.groups) {
+      if (group.count <= 0) continue
+
+      this.flush(stats)
+      const uploadStartedAt = performance.now()
+      const gl = this._gl
+      gl.bindVertexArray(group.vao)
+      gl.bindBuffer(gl.ARRAY_BUFFER, group.geometryBuffer)
+      this.uploadArrayBuffer(group.geometryData, group.geometryUpload, stats, null)
+      gl.bindBuffer(gl.ARRAY_BUFFER, group.staticBuffer)
+      this.uploadArrayBuffer(group.staticData, group.staticUpload, stats, null)
+      stats.uploadMs += performance.now() - uploadStartedAt
+
+      this._textureRectBatchProgram.use()
+      gl.uniform2f(this._textureRectBatchProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+      gl.uniformMatrix3fv(this._textureRectBatchProgram.uniformLocation('u_transform'), false, transform)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, group.texture.texture)
+      gl.uniform1i(this._textureRectBatchProgram.uniformLocation('u_texture'), 0)
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, group.count)
+
+      stats.instances += group.count
+      stats.drawCalls += 1
+      stats.batches += 1
+    }
+  }
+
+  /**
+   * Возвращает retained analytic stripe stream cache.
+   */
+  private resolveStripeStreamBatchCache(batch: NovaStripeRectBatch): StripeStreamBatchCache | null {
+    let cache: StripeStreamBatchCache | null = this._stripeStreamBatchCache.get(batch) ?? null
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+
+    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision) {
+      cache = this.createStripeStreamBatchCache(batch)
+      if (!cache) return null
+      this._stripeStreamBatchCache.set(batch, cache)
+      return cache
+    }
+
+    if (cache.revision !== revision) {
+      this.writeStripeBatchGeometry(batch, cache.geometryData)
+      cache.geometryUpload.lastData = undefined
+      cache.revision = revision
+    }
+
+    return cache
+  }
+
+  /**
+   * Создает retained analytic stripe stream cache.
+   */
+  private createStripeStreamBatchCache(batch: NovaStripeRectBatch): StripeStreamBatchCache | null {
+    for (let index = 0; index < batch.count; index += 1) {
+      if (!this.resolveStripeDescriptor(batch.fills[index])) return null
+    }
+
+    const geometryBuffer = this.createBuffer()
+    const staticBuffer = this.createBuffer()
+    const cache: StripeStreamBatchCache = {
+      geometryData: new Float32Array(batch.count * STRIPE_BATCH_GEOMETRY_STRIDE),
+      staticData: new Float32Array(batch.count * STRIPE_BATCH_STATIC_STRIDE),
+      count: batch.count,
+      revision: batch.revision ?? 0,
+      staticRevision: batch.staticRevision ?? 0,
+      geometryUpload: createWebGLUploadState(),
+      staticUpload: createWebGLUploadState(),
+      geometryBuffer,
+      staticBuffer,
+      vao: this.createStripeBatchVao(geometryBuffer, staticBuffer),
+    }
+
+    this.writeStripeBatchGeometry(batch, cache.geometryData)
+    this.writeStripeBatchStaticData(batch, cache.staticData)
+    this._ownedStripeStreamBatchCaches.add(cache)
+    return cache
+  }
+
+  /**
+   * Записывает dynamic stripe geometry.
+   */
+  private writeStripeBatchGeometry(batch: NovaStripeRectBatch, target: Float32Array): void {
+    for (let index = 0; index < batch.count; index += 1) {
+      const offset = index * STRIPE_BATCH_GEOMETRY_STRIDE
+      target[offset] = batch.x[index] ?? 0
+      target[offset + 1] = batch.y[index] ?? 0
+      target[offset + 2] = batch.width[index] ?? 0
+      target[offset + 3] = batch.height[index] ?? 0
+    }
+  }
+
+  /**
+   * Записывает static stripe material.
+   */
+  private writeStripeBatchStaticData(batch: NovaStripeRectBatch, target: Float32Array): void {
+    const opacity = batch.opacity ?? 1
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const descriptor = this.resolveStripeDescriptor(batch.fills[index])
+      const bg = parseNovaColor(descriptor?.bgColor, 0xfdf1cdff)
+      const stripe = parseNovaColor(descriptor?.stripeColor, 0x8fb7e7ff)
+      const offset = index * STRIPE_BATCH_STATIC_STRIDE
+      target[offset] = bg.r
+      target[offset + 1] = bg.g
+      target[offset + 2] = bg.b
+      target[offset + 3] = bg.a * opacity
+      target[offset + 4] = stripe.r
+      target[offset + 5] = stripe.g
+      target[offset + 6] = stripe.b
+      target[offset + 7] = stripe.a * opacity
+      target[offset + 8] = Math.max(1, descriptor?.stripeWidth ?? 3)
+      target[offset + 9] = ((descriptor?.angle ?? 45) * Math.PI) / 180
+    }
+  }
+
+  /**
+   * Рисует retained analytic stripe cache.
+   */
+  private drawStripeStreamBatchCache(cache: StripeStreamBatchCache, transform: mat3, stats: RenderStats): void {
+    if (cache.count <= 0) return
+
+    this.flush(stats)
+    const uploadStartedAt = performance.now()
+    const gl = this._gl
+    gl.bindVertexArray(cache.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.geometryBuffer)
+    this.uploadArrayBuffer(cache.geometryData, cache.geometryUpload, stats, null)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.staticBuffer)
+    this.uploadArrayBuffer(cache.staticData, cache.staticUpload, stats, null)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    this._stripeBatchProgram.use()
+    gl.uniform2f(this._stripeBatchProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._stripeBatchProgram.uniformLocation('u_transform'), false, transform)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, cache.count)
+
+    stats.instances += cache.count
+    stats.drawCalls += 1
+    stats.batches += 1
+  }
+
+  /**
+   * Возвращает stripe descriptor для asset ref.
+   */
+  private resolveStripeDescriptor(input: NovaAssetDrawableInput): NovaStripeAssetDescriptor | null {
+    if (!(typeof input === 'string' || isNovaAssetRef(input))) return null
+    const descriptor = this._assets.resolveRecord(input)?.descriptor
+    return descriptor?.type === 'stripe' ? descriptor : null
+  }
+
+  /**
+   * Рисует stripe batch старым texture path, если fill не является stripe descriptor.
+   */
+  private drawStripeTextureFallbackBatch(batch: NovaStripeRectBatch, transform: mat3, stats: RenderStats): void {
+    const opacity = batch.opacity ?? 1
+    for (let index = 0; index < batch.count; index += 1) {
+      const x = batch.x[index] ?? 0
+      const y = batch.y[index] ?? 0
+      const width = batch.width[index] ?? 0
+      const height = batch.height[index] ?? 0
+      if (width <= 0 || height <= 0 || opacity <= 0) continue
+      if (this.shouldCullTextureItems() && !this.isRectVisible(transform, x, y, width, height)) continue
+
+      const texture = this.resolveTextureEntry('stripe', batch.fills[index], stats, true)
+      if (!texture) continue
+      this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats, 0, 0, width / Math.max(1, texture.width), height / Math.max(1, texture.height))
+    }
   }
 
   /**
@@ -3693,6 +4147,54 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Создает VAO для retained texture rect stream.
+   */
+  private createTextureRectBatchVao(geometryBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttribDivisor(this._textureRectBatchProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer)
+    this.bindAttribDivisor(this._textureRectBatchProgram, 'a_rect', 4, TEXTURE_RECT_BATCH_GEOMETRY_STRIDE * FLOAT_BYTES, 0, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
+    const stride = TEXTURE_RECT_BATCH_STATIC_STRIDE * FLOAT_BYTES
+    this.bindAttribDivisor(this._textureRectBatchProgram, 'a_uvRect', 4, stride, 0, 1)
+    this.bindAttribDivisor(this._textureRectBatchProgram, 'a_opacity', 1, stride, 4, 1)
+
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
+   * Создает VAO для retained analytic stripe stream.
+   */
+  private createStripeBatchVao(geometryBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttribDivisor(this._stripeBatchProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer)
+    this.bindAttribDivisor(this._stripeBatchProgram, 'a_rect', 4, STRIPE_BATCH_GEOMETRY_STRIDE * FLOAT_BYTES, 0, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
+    const stride = STRIPE_BATCH_STATIC_STRIDE * FLOAT_BYTES
+    this.bindAttribDivisor(this._stripeBatchProgram, 'a_bgColor', 4, stride, 0, 1)
+    this.bindAttribDivisor(this._stripeBatchProgram, 'a_stripeColor', 4, stride, 4, 1)
+    this.bindAttribDivisor(this._stripeBatchProgram, 'a_stripeWidth', 1, stride, 8, 1)
+    this.bindAttribDivisor(this._stripeBatchProgram, 'a_angle', 1, stride, 9, 1)
+
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
    * Создает vao.
    */
   private createVao(): WebGLVertexArrayObject {
@@ -4365,6 +4867,39 @@ void main() {
 `
 
 const PARTICLE_SPRITE_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform sampler2D u_texture;
+in vec2 v_uv;
+in float v_opacity;
+out vec4 outColor;
+void main() {
+  outColor = texture(u_texture, v_uv) * vec4(1.0, 1.0, 1.0, v_opacity);
+}
+`
+
+const TEXTURE_RECT_BATCH_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec4 a_rect;
+in vec4 a_uvRect;
+in float a_opacity;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_uv;
+out float v_opacity;
+void main() {
+  vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = a_rect.xy + unitUv * a_rect.zw;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_uv = mix(a_uvRect.xy, a_uvRect.zw, unitUv);
+  v_opacity = a_opacity;
+}
+`
+
+const TEXTURE_RECT_BATCH_FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 uniform sampler2D u_texture;
 in vec2 v_uv;

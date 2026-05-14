@@ -34,7 +34,7 @@ export class NovaGlyphAtlasManager {
    */
   constructor(private readonly _config: NovaRendererTextConfig) {
     this._atlas = new NovaTextureAtlasManager<NovaGlyphDescriptor>({
-      maxMemoryMB: _config.maxAtlasMemoryMB,
+      maxMemoryMB: _config.maxGlyphAtlasMemoryMB,
     })
   }
 
