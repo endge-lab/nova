@@ -47,6 +47,12 @@ describe('Nova assets registry', () => {
   it('materializes stripe fills synchronously', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      fillRect: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      fillStyle: '',
+    } as unknown as CanvasRenderingContext2D)
     const bundle = Nova.assets.define('stripe-test', {
       fills: {
         breakStripe: Nova.assets.stripe({
@@ -63,5 +69,6 @@ describe('Nova assets registry', () => {
 
     expect(source).toBeInstanceOf(HTMLCanvasElement)
     expect(onUpdate).not.toHaveBeenCalled()
+    getContext.mockRestore()
   })
 })
