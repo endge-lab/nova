@@ -364,13 +364,14 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     const padding = this._resolvePadding(p.styles?.padding)
     const hasPadding: boolean = padding.left !== 0 || padding.right !== 0 || padding.top !== 0 || padding.bottom !== 0
 
-    const shouldClipToInner: boolean = p.clip === true || hasPadding
+    const shouldClipToInner: boolean = p.clip === true || p.clip !== undefined || hasPadding
 
     if (shouldClipToInner) {
-      const x: number = p.x + padding.left
-      const y: number = p.y + padding.top
-      const width: number = p.width - (padding.left + padding.right)
-      const height: number = p.height - (padding.top + padding.bottom)
+      const explicitClip = p.clip !== true && p.clip !== undefined ? p.clip : null
+      const x: number = explicitClip?.x ?? p.x + padding.left
+      const y: number = explicitClip?.y ?? p.y + padding.top
+      const width: number = explicitClip?.width ?? p.width - (padding.left + padding.right)
+      const height: number = explicitClip?.height ?? p.height - (padding.top + padding.bottom)
 
       if (width > 0 && height > 0) {
         this.clip(x, y, width, height)
@@ -387,6 +388,30 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     if (shouldClipToInner) {
       this.clearClip()
+    }
+  }
+
+  /**
+   * Возвращает per-item clip для retained text batch.
+   */
+  private resolveTextBatchClip(batch: NovaTextBatch, index: number): NovaText['clip'] | null | undefined {
+    const clipX = batch.clipX?.[index]
+    const clipY = batch.clipY?.[index]
+    const clipWidth = batch.clipWidth?.[index]
+    const clipHeight = batch.clipHeight?.[index]
+    if (
+      clipX === undefined ||
+      clipY === undefined ||
+      clipWidth === undefined ||
+      clipHeight === undefined
+    ) return undefined
+    if (clipWidth < 0 || clipHeight < 0) return null
+
+    return {
+      x: clipX,
+      y: clipY,
+      width: clipWidth,
+      height: clipHeight,
     }
   }
 
@@ -644,12 +669,14 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   texts(batch: NovaTextBatch): void {
     for (let index = 0; index < batch.count; index += 1) {
       const color = Array.isArray(batch.color) ? batch.color[index] : batch.color
+      const clip = this.resolveTextBatchClip(batch, index)
       this.text({
         text: batch.text[index] ?? '',
         x: batch.x[index] ?? 0,
         y: batch.y[index] ?? 0,
         width: batch.width[index] ?? 0,
         height: batch.height[index] ?? 0,
+        clip: clip === null ? undefined : clip ?? true,
         styles: {
           color: color ?? '#000',
           font: batch.font,

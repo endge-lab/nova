@@ -296,6 +296,10 @@ export interface NovaTextBatch extends NovaUIBase {
   y: NovaRectNumberData
   width: NovaRectNumberData
   height: NovaRectNumberData
+  clipX?: NovaRectNumberData
+  clipY?: NovaRectNumberData
+  clipWidth?: NovaRectNumberData
+  clipHeight?: NovaRectNumberData
   color?: string | ReadonlyArray<string>
   font?: NovaTextFont
   align?: NovaTextAlign

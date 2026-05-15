@@ -410,6 +410,7 @@ interface RectStreamBatchCache {
 interface TextureRectStreamGroupCache {
   texture: TextureEntry
   indices: Uint32Array
+  uvSource: number | Array<[number, number, number, number]>
   geometryData: Float32Array
   staticData: Float32Array
   count: number
@@ -1859,7 +1860,7 @@ export class NovaWebGLFrameRenderer {
       const entry = this.resolveGlyphAtlasEntry(glyph, style, color, scale, mode, stats)
       if (!entry) return false
 
-      this.queueTextureQuad(
+      this.queueClippedTextureQuad(
         entry.page.texture,
         cursorX,
         y,
@@ -1872,6 +1873,7 @@ export class NovaWebGLFrameRenderer {
         entry.y / entry.page.height,
         (entry.x + entry.width) / entry.page.width,
         (entry.y + entry.height) / entry.page.height,
+        text.clip === true ? { x: text.x, y: text.y, width: text.width, height: text.height } : text.clip,
       )
       stats.glyphQuads += 1
       cursorX += entry.advance
@@ -2720,6 +2722,7 @@ export class NovaWebGLFrameRenderer {
         y: batch.y[index] ?? 0,
         width: batch.width[index] ?? 0,
         height: batch.height[index] ?? 0,
+        clip: this.resolveTextBatchClip(batch, index) ?? undefined,
         styles: {
           ...styleBase,
           color: color ?? styleBase.color,
@@ -2741,7 +2744,7 @@ export class NovaWebGLFrameRenderer {
       const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats)
       if (!atlasItem) continue
 
-      this.queueTextureQuad(
+      this.queueClippedTextureQuad(
         atlasItem.texture,
         text.x,
         text.y,
@@ -2754,6 +2757,7 @@ export class NovaWebGLFrameRenderer {
         atlasItem.v0,
         atlasItem.u1,
         atlasItem.v1,
+        text.clip === true ? { x: text.x, y: text.y, width: text.width, height: text.height } : text.clip,
       )
     }
   }
@@ -2837,7 +2841,9 @@ export class NovaWebGLFrameRenderer {
     if (cache.revision !== revision) {
       for (const group of cache.groups) {
         this.writeTextureRectGeometry(batch, group.indices, group.geometryData)
+        this.writeTextureRectStaticData(batch, group.indices, group.staticData, group.uvSource, 0, 1, 1)
         group.geometryUpload.lastData = undefined
+        group.staticUpload.lastData = undefined
       }
       cache.revision = revision
     }
@@ -2865,6 +2871,7 @@ export class NovaWebGLFrameRenderer {
         y: batch.y[index] ?? 0,
         width: batch.width[index] ?? 0,
         height: batch.height[index] ?? 0,
+        clip: this.resolveTextBatchClip(batch, index) ?? undefined,
         styles: {
           ...styleBase,
           color: color ?? styleBase.color,
@@ -2937,6 +2944,7 @@ export class NovaWebGLFrameRenderer {
       count: indices.length,
       revision: batch.revision ?? 0,
       staticRevision: batch.staticRevision ?? 0,
+      uvSource: u0OrUv,
       geometryUpload: createWebGLUploadState(),
       staticUpload: createWebGLUploadState(),
       geometryBuffer,
@@ -2957,10 +2965,53 @@ export class NovaWebGLFrameRenderer {
     for (let itemIndex = 0; itemIndex < indices.length; itemIndex += 1) {
       const sourceIndex = indices[itemIndex] ?? 0
       const offset = itemIndex * TEXTURE_RECT_BATCH_GEOMETRY_STRIDE
-      target[offset] = batch.x[sourceIndex] ?? 0
-      target[offset + 1] = batch.y[sourceIndex] ?? 0
-      target[offset + 2] = batch.width[sourceIndex] ?? 0
-      target[offset + 3] = batch.height[sourceIndex] ?? 0
+      const rect = this.resolveClippedTextureRect(batch, sourceIndex)
+      target[offset] = rect?.x ?? 0
+      target[offset + 1] = rect?.y ?? 0
+      target[offset + 2] = rect?.width ?? 0
+      target[offset + 3] = rect?.height ?? 0
+    }
+  }
+
+  /**
+   * Возвращает clipped rect для retained texture stream item.
+   */
+  private resolveClippedTextureRect(
+    batch: NovaIconBatch | NovaTextBatch,
+    sourceIndex: number,
+    uv: [number, number, number, number] = [0, 0, 1, 1],
+  ): (NovaRect & { u0: number; v0: number; u1: number; v1: number }) | null {
+    const x = batch.x[sourceIndex] ?? 0
+    const y = batch.y[sourceIndex] ?? 0
+    const width = batch.width[sourceIndex] ?? 0
+    const height = batch.height[sourceIndex] ?? 0
+    const clip = this.resolveTextBatchClip(batch, sourceIndex)
+
+    return this.clipTextureRect(x, y, width, height, uv[0], uv[1], uv[2], uv[3], clip)
+  }
+
+  /**
+   * Возвращает per-item clip для text batch, если batch его содержит.
+   */
+  private resolveTextBatchClip(batch: NovaIconBatch | NovaTextBatch, index: number): NovaRect | null {
+    if (!('text' in batch)) return null
+    const clipX = batch.clipX?.[index]
+    const clipY = batch.clipY?.[index]
+    const clipWidth = batch.clipWidth?.[index]
+    const clipHeight = batch.clipHeight?.[index]
+    if (
+      clipX === undefined ||
+      clipY === undefined ||
+      clipWidth === undefined ||
+      clipHeight === undefined
+    ) return null
+    if (clipWidth < 0 || clipHeight < 0) return null
+
+    return {
+      x: clipX,
+      y: clipY,
+      width: clipWidth,
+      height: clipHeight,
     }
   }
 
@@ -2981,11 +3032,19 @@ export class NovaWebGLFrameRenderer {
     for (let itemIndex = 0; itemIndex < indices.length; itemIndex += 1) {
       const offset = itemIndex * TEXTURE_RECT_BATCH_STATIC_STRIDE
       const uv = Array.isArray(u0OrUv) ? u0OrUv[itemIndex] : undefined
-      target[offset] = uv?.[0] ?? Number(u0OrUv)
-      target[offset + 1] = uv?.[1] ?? v0
-      target[offset + 2] = uv?.[2] ?? u1
-      target[offset + 3] = uv?.[3] ?? v1
-      target[offset + 4] = opacity
+      const baseUv: [number, number, number, number] = [
+        uv?.[0] ?? Number(u0OrUv),
+        uv?.[1] ?? v0,
+        uv?.[2] ?? u1,
+        uv?.[3] ?? v1,
+      ]
+      const sourceIndex = indices[itemIndex] ?? 0
+      const rect = this.resolveClippedTextureRect(batch, sourceIndex, baseUv)
+      target[offset] = rect?.u0 ?? baseUv[0]
+      target[offset + 1] = rect?.v0 ?? baseUv[1]
+      target[offset + 2] = rect?.u1 ?? baseUv[2]
+      target[offset + 3] = rect?.v1 ?? baseUv[3]
+      target[offset + 4] = rect ? opacity : 0
     }
   }
 
@@ -3812,6 +3871,74 @@ export class NovaWebGLFrameRenderer {
 
     this.pushTextureQuadVertices(this._textureData, x, y, width, height, opacity, u0, v0, u1, v1)
     stats.instances += 1
+  }
+
+  /**
+   * Добавляет texture quad с CPU clipping и пересчетом UV без смены scissor.
+   */
+  private queueClippedTextureQuad(
+    texture: TextureEntry,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    transform: mat3,
+    opacity: number,
+    stats: RenderStats,
+    u0 = 0,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+    clip?: NovaRect | true,
+  ): void {
+    const rect = clip === true
+      ? this.clipTextureRect(x, y, width, height, u0, v0, u1, v1, { x, y, width, height })
+      : this.clipTextureRect(x, y, width, height, u0, v0, u1, v1, clip)
+    if (!rect) return
+
+    this.queueTextureQuad(texture, rect.x, rect.y, rect.width, rect.height, transform, opacity, stats, rect.u0, rect.v0, rect.u1, rect.v1)
+  }
+
+  /**
+   * Обрезает destination rect и UV относительно clip rect.
+   */
+  private clipTextureRect(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    u0: number,
+    v0: number,
+    u1: number,
+    v1: number,
+    clip?: NovaRect | null,
+  ): (NovaRect & { u0: number; v0: number; u1: number; v1: number }) | null {
+    if (width <= 0 || height <= 0) return null
+    if (!clip) return { x, y, width, height, u0, v0, u1, v1 }
+
+    const visibleX = Math.max(x, clip.x)
+    const visibleY = Math.max(y, clip.y)
+    const visibleRight = Math.min(x + width, clip.x + clip.width)
+    const visibleBottom = Math.min(y + height, clip.y + clip.height)
+    const visibleWidth = visibleRight - visibleX
+    const visibleHeight = visibleBottom - visibleY
+    if (visibleWidth <= 0 || visibleHeight <= 0) return null
+
+    const leftRatio = (visibleX - x) / width
+    const topRatio = (visibleY - y) / height
+    const rightRatio = (visibleRight - x) / width
+    const bottomRatio = (visibleBottom - y) / height
+
+    return {
+      x: visibleX,
+      y: visibleY,
+      width: visibleWidth,
+      height: visibleHeight,
+      u0: u0 + (u1 - u0) * leftRatio,
+      v0: v0 + (v1 - v0) * topRatio,
+      u1: u0 + (u1 - u0) * rightRatio,
+      v1: v0 + (v1 - v0) * bottomRatio,
+    }
   }
 
   /**
