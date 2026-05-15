@@ -1343,6 +1343,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
             taskLabels: 'glyph-atlas',
             uiLabels: 'glyph-atlas',
           },
+          interaction: {
+            mode: 'stable-quality',
+          },
           prewarmAdjacentBuckets: false,
           rasterBudgetMs: 100,
         },
