@@ -16,6 +16,7 @@ import {
   normalizeDefinedComponent,
   type NovaDefinedComponentInput,
 } from '@/model/runtime/components/nova-defined-component'
+import { registerNovaSceneComponents } from '@/model/runtime/scene/nova-scene-components'
 
 const MAX_SCHEMA_COMPONENT_DEPTH = 32
 
@@ -224,5 +225,7 @@ export class NovaSchemaRegistry {
         kind: 'primitive',
       })
     }
+
+    registerNovaSceneComponents(this)
   }
 }

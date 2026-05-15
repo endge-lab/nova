@@ -118,6 +118,24 @@ export class NovaScene<E extends EventList> {
   }
 
   /**
+   * Синхронизирует tracked roots после внешнего reconcile-прохода.
+   */
+  protected setRoots(roots: ReadonlyArray<NovaNode<E>>): void {
+    this._roots.clear()
+
+    for (const root of roots) {
+      this.addRoot(root)
+    }
+  }
+
+  /**
+   * Возвращает текущие tracked roots для scene-specific lifecycle hooks.
+   */
+  protected get roots(): ReadonlyArray<NovaNode<E>> {
+    return [...this._roots]
+  }
+
+  /**
    * Обрабатывает событие mount.
    */
   protected onMount(): void {}
