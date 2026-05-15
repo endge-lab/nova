@@ -234,7 +234,9 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     flush(): void {
         this._debugger.phaseStart('flush')
 
-        this._orchestrator.render(this.getOrderedSurfaces(), this._dirtySurfaces)
+        const surfaces = this.getOrderedSurfaces()
+        this._orchestrator.render(surfaces, this._dirtySurfaces)
+        const shouldContinueTextRaster = surfaces.some(surface => this.shouldContinueTextRaster(surface))
         this._dirtySurfaces.clear()
 
         //
@@ -245,6 +247,22 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         //
         // Закрываем debug-фазу после всех операций кадра.
         this._debugger.phaseEnd()
+
+        if (shouldContinueTextRaster) {
+            for (const surface of surfaces) {
+                this.raph.dirty('flush', surface)
+            }
+        }
+    }
+
+    /**
+     * Проверяет, нужно ли дорендерить deferred text atlas без пользовательского input.
+     */
+    private shouldContinueTextRaster(surface: NovaSurface<E>): boolean {
+        const metrics = surface.renderMetrics
+        if (!metrics) return false
+
+        return (metrics.textRasterDeferred ?? 0) > 0 || (metrics.textBudgetExhausted ?? 0) > 0
     }
 
     /**
