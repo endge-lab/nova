@@ -1981,8 +1981,8 @@ export class NovaWebGLFrameRenderer {
 
       this.queueClippedTextureQuad(
         entry.page.texture,
-        cursorX,
-        y,
+        this.resolveGlyphQuadX(cursorX, entry),
+        this.resolveGlyphQuadY(y, entry, style),
         entry.drawWidth,
         entry.drawHeight,
         transform,
@@ -1999,6 +1999,34 @@ export class NovaWebGLFrameRenderer {
     }
 
     return true
+  }
+
+  /**
+   * Возвращает left glyph quad с учетом transparent padding внутри atlas entry.
+   */
+  private resolveGlyphQuadX(cursorX: number, entry: GlyphAtlasEntry): number {
+    return cursorX - this.resolveGlyphPaddingX(entry)
+  }
+
+  /**
+   * Возвращает top glyph quad так, чтобы line box, а не вся padded texture, центрировался в text box.
+   */
+  private resolveGlyphQuadY(lineY: number, entry: GlyphAtlasEntry, style: NovaCompiledTextStyle): number {
+    return lineY - this.resolveGlyphPaddingY(entry, style)
+  }
+
+  /**
+   * Возвращает horizontal padding glyph texture в logical px.
+   */
+  private resolveGlyphPaddingX(entry: GlyphAtlasEntry): number {
+    return Math.max(0, (entry.drawWidth - entry.advance) / 2)
+  }
+
+  /**
+   * Возвращает vertical padding glyph texture в logical px.
+   */
+  private resolveGlyphPaddingY(entry: GlyphAtlasEntry, style: NovaCompiledTextStyle): number {
+    return Math.max(0, (entry.drawHeight - style.lineHeight) / 2)
   }
 
   /**
@@ -3363,7 +3391,17 @@ export class NovaWebGLFrameRenderer {
 	      const u1 = (entry.x + entry.width) / entry.page.width
 	      const v1 = (entry.y + entry.height) / entry.page.height
 	      const clip = text.clip === true ? { x: text.x, y: text.y, width: text.width, height: text.height } : text.clip
-	      const clipped = this.clipTextureRect(cursorX, y, entry.drawWidth, entry.drawHeight, u0, v0, u1, v1, clip)
+		      const clipped = this.clipTextureRect(
+		        this.resolveGlyphQuadX(cursorX, entry),
+		        this.resolveGlyphQuadY(y, entry, style),
+		        entry.drawWidth,
+		        entry.drawHeight,
+		        u0,
+		        v0,
+		        u1,
+		        v1,
+		        clip,
+		      )
 	      if (clipped) {
 	        quads.push({
 	          texture: entry.page.texture,

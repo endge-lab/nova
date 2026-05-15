@@ -73,6 +73,7 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
     bucketThrottleMs: 80,
     visibleOnlyRaster: true,
     fallbackPreviousScale: true,
+    minRasterScale: 1,
     maxRasterScale: 8,
   }),
   cache: Object.freeze({
@@ -177,8 +178,9 @@ export function resolveNovaTextRasterBucket(config: NovaRendererTextConfig, zoom
 export function resolveNovaTextRasterScale(config: NovaRendererTextConfig, zoom: number, dpr: number): number {
   const safeDpr = Math.max(0.1, Number.isFinite(dpr) ? dpr : 1)
   const scale = safeDpr * resolveNovaTextRasterBucket(config, zoom)
+  const minRasterScale = Math.max(0.1, Number.isFinite(config.minRasterScale) ? config.minRasterScale : 1)
   const maxRasterScale = Math.max(0.1, Number.isFinite(config.maxRasterScale) ? config.maxRasterScale : scale)
-  return Math.min(maxRasterScale, scale)
+  return Math.min(maxRasterScale, Math.max(minRasterScale, scale))
 }
 
 /**

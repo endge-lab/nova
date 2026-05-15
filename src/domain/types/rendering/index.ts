@@ -106,6 +106,7 @@ export interface NovaRendererTextConfig {
   bucketThrottleMs: number
   visibleOnlyRaster: boolean
   fallbackPreviousScale: boolean
+  minRasterScale: number
   maxRasterScale: number
 }
 
