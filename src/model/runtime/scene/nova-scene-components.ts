@@ -66,6 +66,7 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
   private readonly definitions = new Map<string, NovaTemplateSceneDefinition>()
   private readonly scenes = new Map<string, NovaTemplateScene<E>>()
   private activeSceneId: string | null = null
+  private ready = false
 
   /**
    * Создает manager независимых NovaScene внутри текущего template subtree.
@@ -85,6 +86,7 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
       getCachedSceneIds: () => [...this.scenes.keys()],
     }
     this.setChildren(options.children ?? [])
+    this.ready = true
   }
 
   /** Возвращает public API компонента. */
@@ -95,7 +97,7 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
   /** Обновляет props и синхронизирует активную сцену. */
   override setProps(patch: NovaScenesProps): this {
     super.setProps(patch as Partial<NovaScenesResolvedProps>)
-    this.syncActiveScene()
+    this.syncActiveSceneIfReady()
     return this
   }
 
@@ -126,7 +128,13 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
       scene.setChildren(definition.children)
     }
 
-    this.syncActiveScene()
+    this.syncActiveSceneIfReady()
+  }
+
+  /** Синхронизирует active Scene после mount самой manager-ноды. */
+  protected override onMount(): void {
+    super.onMount()
+    this.syncActiveSceneIfReady()
   }
 
   /** Освобождает cached scenes вместе с manager node. */
@@ -138,6 +146,12 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
     this.definitions.clear()
     this.activeSceneId = null
     super.dispose()
+  }
+
+  private syncActiveSceneIfReady(): void {
+    if (!this.ready || this.lifecycleState === 'created' || this.lifecycleState === 'destroyed') return
+
+    this.syncActiveScene()
   }
 
   private syncActiveScene(): void {

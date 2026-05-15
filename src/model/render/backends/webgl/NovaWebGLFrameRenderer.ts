@@ -4528,7 +4528,7 @@ export class NovaWebGLFrameRenderer {
     if (style.verticalAlign === 'middle') y = style.padding.top + (contentHeight - textHeight) / 2 + style.fontSize
     if (style.verticalAlign === 'bottom') y = text.height - style.padding.bottom - textHeight + style.fontSize
 
-    ctx.fillText(renderedText, x, y, contentWidth)
+    ctx.fillText(renderedText, x, y)
     return { canvas, width, height, scale }
   }
 
