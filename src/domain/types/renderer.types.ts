@@ -53,11 +53,18 @@ export type NovaTextRenderMode = 'auto' | 'run-atlas' | 'glyph-atlas' | 'msdf'
 export type NovaTextRenderRole = 'timescale' | 'task-label' | 'ui-label' | 'debug'
 
 /**
+ * Описывает LOD-поведение конкретного text item.
+ */
+export type NovaTextLodMode = 'auto' | 'always' | 'hide-while-moving'
+
+/**
  * Описывает общие metadata schema item.
  */
 export interface NovaSchemaItemMeta {
   textMode?: NovaTextRenderMode
   textRole?: NovaTextRenderRole
+  textPriority?: number
+  textLod?: NovaTextLodMode
   [key: string]: any
 }
 
@@ -307,6 +314,8 @@ export interface NovaTextBatch extends NovaUIBase {
   padding?: NovaStylePadding
   ellipsis?: boolean
   opacity?: number
+  priority?: number | ReadonlyArray<number> | Float32Array
+  dirtyIndices?: ReadonlyArray<number> | Uint32Array
   revision?: number
   staticRevision?: number
 }

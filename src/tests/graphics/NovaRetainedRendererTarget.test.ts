@@ -14,6 +14,7 @@ import {
   type NovaParticleBatch,
   type NovaRectBatch,
   type NovaSchema,
+  type NovaTextBatch,
 } from '@/index'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
@@ -467,6 +468,56 @@ function createRectBatchFrame(canvas: NovaCanvas, batch: NovaRectBatch) {
   const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
   writer.setCurrentNode('rect-batch-node')
   builder.rects(batch)
+
+  return {
+    frame: frameBuilder.build(),
+    graph,
+  }
+}
+
+function createTextBatch(count: number, visibleCount: number): NovaTextBatch {
+  const x = new Float32Array(count)
+  const y = new Float32Array(count)
+  const width = new Float32Array(count)
+  const height = new Float32Array(count)
+  const text = new Array<string>(count)
+
+  for (let index = 0; index < count; index += 1) {
+    const visible = index < visibleCount
+    x[index] = visible ? 10 : 2000
+    y[index] = visible ? 10 + index * 18 : 2000 + index * 18
+    width[index] = 100
+    height[index] = 16
+    text[index] = visible ? `visible-batch-${index}` : `offscreen-batch-${index}`
+  }
+
+  return {
+    count,
+    text,
+    x,
+    y,
+    width,
+    height,
+    color: '#ffffff',
+    font: { size: 12 },
+    revision: 1,
+    staticRevision: 1,
+  }
+}
+
+function createTextBatchFrame(canvas: NovaCanvas, batch: NovaTextBatch) {
+  const frameBuilder = new NovaRenderFrameBuilder('text-batch-test', {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    dpr: canvas.dpr,
+  })
+  const graph = new NovaRenderGraph('text-batch-test', frameBuilder.rootGroup)
+  const writer = new NovaRenderCommandWriter(frameBuilder, frameBuilder.rootGroup, graph)
+  const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+  writer.setCurrentNode('text-batch-node')
+  builder.texts(batch)
 
   return {
     frame: frameBuilder.build(),
@@ -946,6 +997,37 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.uploadBytes).toBe(0)
   })
 
+  it('culls retained text batch runs before run-atlas raster and upload work', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'run-atlas',
+          visibleOnlyRaster: true,
+          fallbackPreviousScale: false,
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const batch = createTextBatch(20, 10)
+    const { frame } = createTextBatchFrame(canvas, batch)
+
+    const first = renderer.renderFrame(frame)
+    const warm = renderer.renderFrame(frame)
+
+    expect(first.visibleTextRuns).toBe(10)
+    expect(first.culledTextRuns).toBe(10)
+    expect(first.textRasterCount).toBeGreaterThan(0)
+    expect(first.textRasterCount).toBeLessThanOrEqual(10)
+    expect(warm.textRasterCount).toBe(0)
+    expect(warm.uploadBytes).toBe(0)
+  })
+
   it('defers visible text without falling back to per-text rendering when raster budget is exhausted', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
@@ -984,6 +1066,48 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textBudgetExhausted).toBe(1)
   })
 
+  it('applies resolved auto run-atlas mode to the raster budget', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+            taskLabels: 'glyph-atlas',
+            uiLabels: 'run-atlas',
+          },
+          fallbackPreviousScale: false,
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 0,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 80,
+        height: 16,
+        text: 'deferred-auto-ui',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'ui-label' },
+      },
+    ] as NovaSchema
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.textRasterCount).toBe(0)
+    expect(metrics.textRasterDeferred).toBe(1)
+    expect(metrics.textBudgetExhausted).toBe(1)
+  })
+
   it('uses task label zone mode to reuse bitmap glyphs across Cyrillic and Latin labels', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
@@ -998,6 +1122,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
             timeScale: 'msdf',
             taskLabels: 'glyph-atlas',
             uiLabels: 'run-atlas',
+          },
+          interaction: {
+            mode: 'stable-quality',
           },
           prewarmAdjacentBuckets: false,
           rasterBudgetMs: 100,
@@ -1065,6 +1192,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
             taskLabels: 'glyph-atlas',
             uiLabels: 'run-atlas',
           },
+          interaction: {
+            mode: 'stable-quality',
+          },
           prewarmAdjacentBuckets: false,
           rasterBudgetMs: 100,
         },
@@ -1086,12 +1216,61 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     schema.semanticScope = 'non-overlap-layered'
     schema.contentVersion = 1
 
-    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const frame = createCompiledFrame(canvas, schema)
+    const metrics = renderer.renderFrame(frame)
+    const warm = renderer.renderFrame(frame)
 
     expect(metrics.glyphRasterCount).toBeGreaterThan(0)
     expect(metrics.glyphQuads).toBeGreaterThan(0)
     expect(metrics.textRasterCount).toBe(0)
     expect(metrics.textModeFallbacks).toBe(0)
+    expect(metrics.textRunCacheMisses).toBeGreaterThan(0)
+    expect(warm.glyphRasterCount).toBe(0)
+    expect(warm.textRunCacheHits).toBeGreaterThan(0)
+    expect(warm.atlasUploads).toBe(0)
+  })
+
+  it('drops retained text runs by screen-space LOD before glyph raster work', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'glyph-atlas',
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+          lod: {
+            enabled: true,
+            minScreenWidthPx: 100,
+            minScreenHeightPx: 10,
+          },
+        },
+      }),
+    )
+    const schema = [] as NovaSchema
+    for (let index = 0; index < 4; index += 1) {
+      schema.push({
+        type: 'text',
+        x: 10,
+        y: 10 + index * 16,
+        width: 40,
+        height: 12,
+        text: `small-${index}`,
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label' },
+      })
+    }
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.visibleTextRuns).toBe(0)
+    expect(metrics.lodDroppedTextRuns).toBe(4)
+    expect(metrics.glyphRasterCount).toBe(0)
   })
 
   it('keeps MSDF glyph keys stable across zoom bucket changes after warmup', () => {
@@ -1108,6 +1287,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
             timeScale: 'msdf',
             taskLabels: 'glyph-atlas',
             uiLabels: 'run-atlas',
+          },
+          interaction: {
+            mode: 'stable-quality',
           },
           prewarmAdjacentBuckets: false,
           rasterBudgetMs: 100,

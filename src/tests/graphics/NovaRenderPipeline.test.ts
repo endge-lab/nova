@@ -194,6 +194,69 @@ describe('Nova render pipeline contracts', () => {
     expect(config.text.maxAtlasMemoryMB).toBe(32)
     expect(config.text.zoomBuckets).toEqual([1, 2])
     expect(config.text.zoomBuckets).not.toBe(resolveNovaRendererConfig().text.zoomBuckets)
+    expect(config.text.interaction).toMatchObject({
+      mode: 'balanced',
+      rasterBudgetMs: 2,
+      maxRasterScale: 3,
+      freezeBuckets: true,
+    })
+    expect(config.text.lod).toMatchObject({
+      enabled: true,
+      maxVisibleRuns: 10000,
+    })
+    expect(config.text.glyphs).toMatchObject({
+      retainedBatches: true,
+      shapeCacheEntries: 20000,
+      runCacheEntries: 10000,
+    })
+    expect(config.text.sdf).toMatchObject({
+      enabled: true,
+      pxRange: 8,
+      source: 'runtime-sdf',
+    })
+  })
+
+  it('normalizes nested text pipeline config without dropping defaults', () => {
+    const config = resolveNovaRendererConfig({
+      text: {
+        interaction: {
+          mode: 'performance',
+          rasterBudgetMs: 0.5,
+        },
+        lod: {
+          minScreenWidthPx: 12,
+        },
+        glyphs: {
+          shapeCacheEntries: 512,
+        },
+        sdf: {
+          source: 'prebuilt-msdf',
+        },
+      },
+    })
+
+    expect(config.text.interaction).toMatchObject({
+      mode: 'performance',
+      idleMs: 120,
+      rasterBudgetMs: 0.5,
+      maxRasterScale: 3,
+    })
+    expect(config.text.lod).toMatchObject({
+      enabled: true,
+      minScreenWidthPx: 12,
+      minScreenHeightPx: 8,
+      maxVisibleRuns: 10000,
+    })
+    expect(config.text.glyphs).toMatchObject({
+      retainedBatches: true,
+      shapeCacheEntries: 512,
+      runCacheEntries: 10000,
+    })
+    expect(config.text.sdf).toMatchObject({
+      enabled: true,
+      pxRange: 8,
+      source: 'prebuilt-msdf',
+    })
   })
 
   it('selects text atlas zoom buckets and reuses cached text runs', () => {

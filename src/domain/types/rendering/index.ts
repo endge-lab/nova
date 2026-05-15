@@ -93,6 +93,10 @@ export interface NovaRendererTextConfig {
   quality: 'performance' | 'balanced' | 'quality'
   mode: NovaTextRenderMode
   modes: NovaRendererTextZoneModes
+  interaction: NovaRendererTextInteractionConfig
+  lod: NovaRendererTextLodConfig
+  glyphs: NovaRendererTextGlyphConfig
+  sdf: NovaRendererTextSdfConfig
   maxAtlasMemoryMB: number
   maxGlyphAtlasMemoryMB: number
   zoomBuckets: Array<number>
@@ -103,6 +107,47 @@ export interface NovaRendererTextConfig {
   visibleOnlyRaster: boolean
   fallbackPreviousScale: boolean
   maxRasterScale: number
+}
+
+/**
+ * Описывает режимы качества текста во время пользовательского interaction.
+ */
+export interface NovaRendererTextInteractionConfig {
+  mode: 'stable-quality' | 'balanced' | 'performance'
+  idleMs: number
+  rasterBudgetMs: number
+  maxRasterScale: number
+  freezeBuckets: boolean
+  prewarm: boolean
+}
+
+/**
+ * Описывает screen-space LOD для массового текста.
+ */
+export interface NovaRendererTextLodConfig {
+  enabled: boolean
+  minScreenWidthPx: number
+  minScreenHeightPx: number
+  maxVisibleRuns: number
+  hysteresisPx: number
+}
+
+/**
+ * Описывает кэши retained glyph pipeline.
+ */
+export interface NovaRendererTextGlyphConfig {
+  retainedBatches: boolean
+  shapeCacheEntries: number
+  runCacheEntries: number
+}
+
+/**
+ * Описывает SDF/MSDF-путь для zoom-stable текста.
+ */
+export interface NovaRendererTextSdfConfig {
+  enabled: boolean
+  pxRange: number
+  source: 'runtime-sdf' | 'prebuilt-msdf'
 }
 
 /**
@@ -148,8 +193,12 @@ export interface NovaRendererConfig {
  */
 export type NovaRendererConfigInput = {
   batching?: Partial<NovaRendererBatchingConfig>
-  text?: Partial<Omit<NovaRendererTextConfig, 'modes'>> & {
+  text?: Partial<Omit<NovaRendererTextConfig, 'modes' | 'interaction' | 'lod' | 'glyphs' | 'sdf'>> & {
     modes?: Partial<NovaRendererTextZoneModes>
+    interaction?: Partial<NovaRendererTextInteractionConfig>
+    lod?: Partial<NovaRendererTextLodConfig>
+    glyphs?: Partial<NovaRendererTextGlyphConfig>
+    sdf?: Partial<NovaRendererTextSdfConfig>
   }
   cache?: Partial<NovaRendererCacheConfig>
   diagnostics?: Partial<NovaRendererDiagnosticsConfig>
@@ -520,6 +569,16 @@ export interface NovaRenderMetrics {
   glyphAtlasPages?: number
   glyphQuads?: number
   msdfGlyphCount?: number
+  sdfGlyphCount?: number
+  textRunCacheHits?: number
+  textRunCacheMisses?: number
+  textShapeMs?: number
+  glyphGeometryUploads?: number
+  textAtlasEvictions?: number
+  glyphAtlasEvictions?: number
+  pinnedAtlasPages?: number
+  interactionTextMode?: 'stable-quality' | 'balanced' | 'performance'
+  lodDroppedTextRuns?: number
   textModeFallbacks?: number
   textureBatchFallbacks?: number
   textBucketChanges?: number

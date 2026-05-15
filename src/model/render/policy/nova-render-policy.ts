@@ -31,17 +31,42 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
     roundedRectStream: true,
     fullUploadDirtyRatio: 0.6,
   }),
-  text: Object.freeze({
-    quality: 'balanced',
-    mode: 'auto',
-    modes: Object.freeze({
-      timeScale: 'msdf',
-      taskLabels: 'glyph-atlas',
-      uiLabels: 'run-atlas',
-    }),
-    maxAtlasMemoryMB: 128,
-    maxGlyphAtlasMemoryMB: 64,
-    zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as Array<number>,
+	  text: Object.freeze({
+	    quality: 'balanced',
+	    mode: 'auto',
+	    modes: Object.freeze({
+	      timeScale: 'msdf',
+	      taskLabels: 'glyph-atlas',
+	      uiLabels: 'run-atlas',
+	    }),
+	    interaction: Object.freeze({
+	      mode: 'balanced',
+	      idleMs: 120,
+	      rasterBudgetMs: 2,
+	      maxRasterScale: 3,
+	      freezeBuckets: true,
+	      prewarm: false,
+	    }),
+	    lod: Object.freeze({
+	      enabled: true,
+	      minScreenWidthPx: 8,
+	      minScreenHeightPx: 8,
+	      maxVisibleRuns: 10_000,
+	      hysteresisPx: 4,
+	    }),
+	    glyphs: Object.freeze({
+	      retainedBatches: true,
+	      shapeCacheEntries: 20_000,
+	      runCacheEntries: 10_000,
+	    }),
+	    sdf: Object.freeze({
+	      enabled: true,
+	      pxRange: 8,
+	      source: 'runtime-sdf',
+	    }),
+	    maxAtlasMemoryMB: 128,
+	    maxGlyphAtlasMemoryMB: 64,
+	    zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as Array<number>,
     dynamicBuckets: true,
     prewarmAdjacentBuckets: true,
     rasterBudgetMs: 4,
@@ -85,15 +110,31 @@ export function resolveNovaRendererConfig(
       ...base.batching,
       ...input.batching,
     },
-    text: {
-      ...base.text,
-      ...input.text,
-      modes: {
-        ...base.text.modes,
-        ...input.text?.modes,
-      },
-      zoomBuckets: [...(input.text?.zoomBuckets ?? base.text.zoomBuckets)],
-    },
+	    text: {
+	      ...base.text,
+	      ...input.text,
+	      modes: {
+	        ...base.text.modes,
+	        ...input.text?.modes,
+	      },
+	      interaction: {
+	        ...base.text.interaction,
+	        ...input.text?.interaction,
+	      },
+	      lod: {
+	        ...base.text.lod,
+	        ...input.text?.lod,
+	      },
+	      glyphs: {
+	        ...base.text.glyphs,
+	        ...input.text?.glyphs,
+	      },
+	      sdf: {
+	        ...base.text.sdf,
+	        ...input.text?.sdf,
+	      },
+	      zoomBuckets: [...(input.text?.zoomBuckets ?? base.text.zoomBuckets)],
+	    },
     cache: {
       ...base.cache,
       ...input.cache,
