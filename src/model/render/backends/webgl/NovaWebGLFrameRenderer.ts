@@ -2327,7 +2327,7 @@ export class NovaWebGLFrameRenderer {
     const globalMode = this.normalizeTextRenderMode(this._textConfig.mode) ?? 'run-atlas'
     if (globalMode !== 'auto') return globalMode
 
-    if (role === 'timescale') return 'msdf'
+    if (role === 'timescale') return 'glyph-atlas'
     if (role === 'task-label') return 'glyph-atlas'
     if (role === 'debug') return 'run-atlas'
     return 'run-atlas'
