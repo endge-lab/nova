@@ -308,6 +308,7 @@ interface TextRunShape {
   glyphs: Array<string>
   advances: Float32Array
   lineWidth: number
+  sourceLineWidth: number
   lastUsed: number
 }
 
@@ -1959,7 +1960,7 @@ export class NovaWebGLFrameRenderer {
 	    const shape = this.resolveTextRunShape(text.text, style, contentWidth, stats)
 	    if (shape.glyphs.length === 0) return true
 	    const { glyphs, advances, lineWidth } = shape
-    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, lineWidth, contentWidth)
+    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, shape.sourceLineWidth, contentWidth)
     let cursorX = text.x + style.padding.left
     if (horizontalAlign === 'center') cursorX = text.x + style.padding.left + (contentWidth - lineWidth) / 2
     if (horizontalAlign === 'right') cursorX = text.x + text.width - style.padding.right - lineWidth
@@ -3365,7 +3366,7 @@ export class NovaWebGLFrameRenderer {
 	    const shape = this.resolveTextRunShape(text.text, style, contentWidth, stats)
 	    if (shape.glyphs.length === 0) return []
 
-	    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, shape.lineWidth, contentWidth)
+	    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, shape.sourceLineWidth, contentWidth)
 	    let cursorX = text.x + style.padding.left
 	    if (horizontalAlign === 'center') cursorX = text.x + style.padding.left + (contentWidth - shape.lineWidth) / 2
 	    if (horizontalAlign === 'right') cursorX = text.x + text.width - style.padding.right - shape.lineWidth
@@ -3444,6 +3445,7 @@ export class NovaWebGLFrameRenderer {
 	    stats.textRunCacheMisses += 1
 	    const startedAt = performance.now()
 	    const measureContext = this.measureContext(style.font)
+	    const sourceLineWidth = measureContext.measureText(text).width
 	    const renderedText = style.ellipsis ? ellipsizeText(measureContext, text, contentWidth) : text
 	    const glyphs = Array.from(renderedText)
 	    const advances = new Float32Array(glyphs.length)
@@ -3460,6 +3462,7 @@ export class NovaWebGLFrameRenderer {
 	      glyphs,
 	      advances,
 	      lineWidth,
+	      sourceLineWidth,
 	      lastUsed: this._time,
 	    }
 	    this._textRunShapeCache.set(key, shape)
@@ -5315,7 +5318,8 @@ export class NovaWebGLFrameRenderer {
     const contentHeight = Math.max(0, text.height - style.padding.top - style.padding.bottom)
     const renderedText = style.ellipsis ? ellipsizeText(ctx, text.text, contentWidth) : text.text
     const metrics = ctx.measureText(renderedText)
-    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, metrics.width, contentWidth)
+    const sourceLineWidth = style.ellipsis ? ctx.measureText(text.text).width : metrics.width
+    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, sourceLineWidth, contentWidth)
     let x = text.x * 0
     if (horizontalAlign === 'left') x = style.padding.left
     if (horizontalAlign === 'center') x = style.padding.left + (contentWidth - metrics.width) / 2
