@@ -142,6 +142,12 @@ export interface NovaText extends NovaUIBase {
     align?: {
       horizontal?: 'left' | 'center' | 'right'
       vertical?: 'top' | 'middle' | 'bottom'
+      /**
+       * Управляет горизонтальным выравниванием, когда текст шире content-box.
+       * start повторяет поведение старого renderer: overflow-текст начинается от
+       * левого края, чтобы в clip была видна первая часть строки.
+       */
+      overflow?: 'start' | 'preserve'
     }
     ellipsis?: boolean
     opacity?: number

@@ -1959,9 +1959,10 @@ export class NovaWebGLFrameRenderer {
 	    const shape = this.resolveTextRunShape(text.text, style, contentWidth, stats)
 	    if (shape.glyphs.length === 0) return true
 	    const { glyphs, advances, lineWidth } = shape
+    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, lineWidth, contentWidth)
     let cursorX = text.x + style.padding.left
-    if (style.horizontalAlign === 'center') cursorX = text.x + style.padding.left + (contentWidth - lineWidth) / 2
-    if (style.horizontalAlign === 'right') cursorX = text.x + text.width - style.padding.right - lineWidth
+    if (horizontalAlign === 'center') cursorX = text.x + style.padding.left + (contentWidth - lineWidth) / 2
+    if (horizontalAlign === 'right') cursorX = text.x + text.width - style.padding.right - lineWidth
 
     let y = text.y + style.padding.top
     if (style.verticalAlign === 'middle') y = text.y + style.padding.top + (contentHeight - style.lineHeight) / 2
@@ -3364,9 +3365,10 @@ export class NovaWebGLFrameRenderer {
 	    const shape = this.resolveTextRunShape(text.text, style, contentWidth, stats)
 	    if (shape.glyphs.length === 0) return []
 
+	    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, shape.lineWidth, contentWidth)
 	    let cursorX = text.x + style.padding.left
-	    if (style.horizontalAlign === 'center') cursorX = text.x + style.padding.left + (contentWidth - shape.lineWidth) / 2
-	    if (style.horizontalAlign === 'right') cursorX = text.x + text.width - style.padding.right - shape.lineWidth
+	    if (horizontalAlign === 'center') cursorX = text.x + style.padding.left + (contentWidth - shape.lineWidth) / 2
+	    if (horizontalAlign === 'right') cursorX = text.x + text.width - style.padding.right - shape.lineWidth
 
 	    let y = text.y + style.padding.top
 	    if (style.verticalAlign === 'middle') y = text.y + style.padding.top + (contentHeight - style.lineHeight) / 2
@@ -3463,6 +3465,20 @@ export class NovaWebGLFrameRenderer {
 	    this._textRunShapeCache.set(key, shape)
 	    this.evictTextRunShapeCache()
 	    return shape
+	  }
+
+	  /**
+	   * Повторяет старое поведение Canvas renderer: если строка не помещается в
+	   * content-box, center/right превращаются в left, чтобы clip показывал начало.
+	   */
+	  private resolveTextOverflowHorizontalAlign(
+	    style: NovaCompiledTextStyle,
+	    lineWidth: number,
+	    contentWidth: number,
+	  ): NovaCompiledTextStyle['horizontalAlign'] {
+	    if (style.overflowAlign === 'start' && lineWidth > contentWidth) return 'left'
+
+	    return style.horizontalAlign
 	  }
 
 	  /**
@@ -5299,10 +5315,11 @@ export class NovaWebGLFrameRenderer {
     const contentHeight = Math.max(0, text.height - style.padding.top - style.padding.bottom)
     const renderedText = style.ellipsis ? ellipsizeText(ctx, text.text, contentWidth) : text.text
     const metrics = ctx.measureText(renderedText)
+    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, metrics.width, contentWidth)
     let x = text.x * 0
-    if (style.horizontalAlign === 'left') x = style.padding.left
-    if (style.horizontalAlign === 'center') x = style.padding.left + (contentWidth - metrics.width) / 2
-    if (style.horizontalAlign === 'right') x = text.width - style.padding.right - metrics.width
+    if (horizontalAlign === 'left') x = style.padding.left
+    if (horizontalAlign === 'center') x = style.padding.left + (contentWidth - metrics.width) / 2
+    if (horizontalAlign === 'right') x = text.width - style.padding.right - metrics.width
 
     const textHeight = style.lineHeight
     let y = style.padding.top + style.fontSize
@@ -5340,6 +5357,7 @@ export class NovaWebGLFrameRenderer {
       style.padding.top,
       style.padding.bottom,
       style.horizontalAlign,
+      style.overflowAlign,
       style.verticalAlign,
       style.ellipsis,
     ].join(':')

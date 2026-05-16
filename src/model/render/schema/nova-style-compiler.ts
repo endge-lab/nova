@@ -33,6 +33,7 @@ export interface NovaCompiledTextStyle {
   padding: Required<NovaCompiledPadding>
   horizontalAlign: 'left' | 'center' | 'right'
   verticalAlign: 'top' | 'middle' | 'bottom'
+  overflowAlign: 'start' | 'preserve'
   ellipsis: boolean
 }
 
@@ -138,6 +139,7 @@ export function compileNovaTextStyle(text: NovaText): NovaCompiledTextStyle {
     padding: compileNovaPadding(text.styles?.padding),
     horizontalAlign: text.styles?.align?.horizontal ?? 'left',
     verticalAlign: text.styles?.align?.vertical ?? 'top',
+    overflowAlign: text.styles?.align?.overflow ?? 'start',
     ellipsis: text.styles?.ellipsis ?? false,
   }
 }

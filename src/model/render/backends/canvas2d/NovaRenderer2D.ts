@@ -829,9 +829,10 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     const availableWidth: number = Math.max(0, p.width - (padding.left + padding.right))
     const rawTextWidth: number = ctx.measureText(p.text).width
     const isOverflow: boolean = rawTextWidth > availableWidth
+    const overflowAlign = p.styles?.align?.overflow ?? 'start'
     let horizontal = p.styles?.align?.horizontal || 'left'
 
-    if (isOverflow) {
+    if (isOverflow && overflowAlign === 'start') {
       horizontal = 'left'
     }
 
