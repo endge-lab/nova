@@ -277,7 +277,7 @@ function nextWordIndex(text: string, index: number): number {
   const after = text.slice(index)
   const match = after.match(/\s+\S|\s*$/)
   if (!match) return text.length
-  return Math.min(text.length, index + match.index + match[0].length)
+  return Math.min(text.length, index + (match.index ?? 0) + match[0].length)
 }
 
 function lineBoundary(text: string, index: number, edge: 'start' | 'end'): number {

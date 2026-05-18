@@ -4,4 +4,11 @@ export * from '@/model/input/NovaClipboardService'
 export * from '@/model/input/NovaInputProxyService'
 export * from '@/model/input/NovaInputValidationController'
 export * from '@/model/input/NovaTextInputController'
-export * from '@/model/input/NovaTextLayoutEngine'
+export {
+  NovaTextLayoutEngine as NovaInputTextLayoutEngine,
+  layoutNovaTextInput,
+  novaCaretRectAtIndex,
+  novaSelectionRects,
+  novaTextIndexAtPoint,
+  splitGraphemes,
+} from '@/model/input/NovaTextLayoutEngine'
