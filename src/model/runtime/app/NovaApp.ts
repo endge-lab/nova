@@ -22,6 +22,7 @@ import { NovaEvents } from '@/model/runtime/interaction/NovaEvents'
 import { NovaCursorManager } from '@/model/runtime/cursor/NovaCursorManager'
 import { NovaDebug } from '@/model/runtime/debug/NovaDebug'
 import { NovaMetrics } from '@/model/runtime/debug/NovaMetrics'
+import { NovaDiagnostics_Module } from '@/model/runtime/diagnostics/NovaDiagnostics_Module'
 import { Telemetry } from '@/model/telemetry'
 import type { NovaScene } from '@/model/runtime/scene/NovaScene'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
@@ -38,6 +39,15 @@ import type { NovaRenderBackend } from '@/model/render/backends/nova-render-back
 import { createNovaRenderBackend } from '@/model/render/backends/nova-render-backend-factory'
 import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
 import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+
+/**
+ * Описывает backend diagnostics switch.
+ */
+interface NovaRendererDiagnosticsSwitch {
+    diagnostics?: {
+        enabled: boolean
+    }
+}
 
 /**
  * Управляет жизненным циклом Nova runtime, canvas, input, surfaces и фазами Raph.
@@ -87,6 +97,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     //
     // Внутренний debugger и состояние keyboard routing.
     private readonly _debugger = new NovaDebug()
+    private readonly _diagnostics: NovaDiagnostics_Module<E>
     private _keyboardActive = false
     private _keyboardHovered = false
     private _contextVersion = 0
@@ -149,8 +160,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         })
         this.theme = new NovaThemeService(this, options.theme)
         this.metrics = new NovaMetrics(() => this.raph.UPS)
+        this._diagnostics = new NovaDiagnostics_Module(this, {
+            setRendererDiagnosticsEnabled: enabled => this.setRendererDiagnosticsEnabled(enabled),
+        })
+        this._diagnostics.configure(options.diagnostics)
         this.resize(options.size)
-        this.metrics.start()
 
         if (options.scheduler?.loop) {
             this.startLoop()
@@ -165,8 +179,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     @RaphLocalPhase({ name: NovaPhase.Before, priority: -1, always: true })
     before(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this.metrics.markFrameStart()
+        this._diagnostics.frameStart()
+        this._diagnostics.phaseStart('before')
         this._debugger.frameStart()
         this.motion.tick(p.frame)
+        this._diagnostics.phaseEnd()
     }
 
     /**
@@ -174,8 +191,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     @RaphLocalPhase({ name: NovaPhase.PreUpdate, priority: 0 })
     preupdate(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
+        this._diagnostics.recordDirtyNodes(p.dirty.length)
         this._debugger.phaseStart('preupdate')
+        this._diagnostics.phaseStart('preupdate')
         Raph.processDirtyNodes({ payload: p })
+        this._diagnostics.phaseEnd()
         this._debugger.phaseEnd()
     }
 
@@ -184,8 +204,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     @RaphLocalPhase({ name: NovaPhase.Update, priority: 1 })
     update(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
+        this._diagnostics.recordDirtyNodes(p.dirty.length)
         this._debugger.phaseStart('update')
+        this._diagnostics.phaseStart('update')
         Raph.processDirtyNodes({ payload: p })
+        this._diagnostics.phaseEnd()
         this._debugger.phaseEnd()
     }
 
@@ -194,8 +217,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     @RaphLocalPhase({ name: NovaPhase.Matrix, priority: 2 })
     matrix(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
+        this._diagnostics.recordDirtyNodes(p.dirty.length)
         this._debugger.phaseStart('matrix')
+        this._diagnostics.phaseStart('matrix')
         Raph.processDirtyNodes({ payload: p })
+        this._diagnostics.phaseEnd()
         this._debugger.phaseEnd()
     }
 
@@ -205,6 +231,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     @RaphLocalPhase({ name: NovaPhase.Render, priority: 3, mode: 'dirty' })
     render(p: RaphLocalPhaseContext<NovaNodeProperties>): void {
         this._debugger.phaseStart('render')
+        this._diagnostics.phaseStart('render')
+        this._diagnostics.recordDirtyRenderNodes(p.dirty.length)
 
         const dirtySurfaces = new Set<NovaSurface<E>>()
 
@@ -224,6 +252,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             this._dirtySurfaces.add(surface)
         }
 
+        this._diagnostics.phaseEnd()
         this._debugger.phaseEnd()
     }
 
@@ -233,6 +262,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     @RaphLocalPhase({ name: NovaPhase.Flush, priority: 4 })
     flush(): void {
         this._debugger.phaseStart('flush')
+        this._diagnostics.phaseStart('flush')
 
         const surfaces = this.getOrderedSurfaces()
         this._orchestrator.render(surfaces, this._dirtySurfaces)
@@ -246,6 +276,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
         //
         // Закрываем debug-фазу после всех операций кадра.
+        this._diagnostics.phaseEnd()
         this._debugger.phaseEnd()
 
         if (shouldContinueTextRaster) {
@@ -270,8 +301,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      */
     @RaphLocalPhase({ name: NovaPhase.After, priority: 10, always: true })
     after(): void {
+        this._diagnostics.phaseStart('after')
         this._debugger.frameEnd()
         this.metrics.markFrameEnd()
+        this._diagnostics.phaseEnd()
+        this._diagnostics.frameEnd()
     }
 
     /**
@@ -315,6 +349,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             } else {
                 this._debugger.stopDisplayMonitor()
             }
+        }
+
+        if (opts.diagnostics !== undefined) {
+            this._diagnostics.configure(opts.diagnostics)
         }
 
         if (opts.loop !== undefined && opts.loop !== this.raph.loopEnabled) {
@@ -412,10 +450,24 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
 
     /**
+     * Возвращает количество dirty surfaces текущего frame.
+     */
+    get dirtySurfaceCount(): number {
+        return this._dirtySurfaces.size
+    }
+
+    /**
      * Возвращает runtime debugger приложения.
      */
     get debugger(): NovaDebug {
         return this._debugger
+    }
+
+    /**
+     * Возвращает runtime diagnostics приложения.
+     */
+    get diagnostics(): NovaDiagnostics_Module<E> {
+        return this._diagnostics
     }
 
     /**
@@ -686,6 +738,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
         this.stopLoop()
         this._debugger.stopDisplayMonitor()
+        this._diagnostics.destroy()
         this.metrics.stop()
 
         for (const surface of this.surfaces) {
@@ -700,6 +753,16 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         this.raph.clear()
         if (this._ownsRaphKernel) {
             this.raph.kernel.clear()
+        }
+    }
+
+    /**
+     * Включает или выключает backend-level retained diagnostics.
+     */
+    private setRendererDiagnosticsEnabled(enabled: boolean): void {
+        const backend = this._backend as NovaRendererDiagnosticsSwitch
+        if (backend.diagnostics) {
+            backend.diagnostics.enabled = enabled
         }
     }
 

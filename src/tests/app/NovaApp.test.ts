@@ -11,6 +11,7 @@ import {
 } from '@/index'
 import type {
   NovaApp,
+  NovaDiagnosticsOptions,
   NovaSurface,
 } from '@/index'
 
@@ -183,6 +184,7 @@ function createApp(
     height?: number
     dpr?: number
     debug?: boolean
+    diagnostics?: NovaDiagnosticsOptions
     kernel?: RaphKernel
   } = {},
 ): NovaApp<TestEvents> {
@@ -212,6 +214,7 @@ function createApp(
     debug: {
       enabled: options.debug ?? false,
     },
+    diagnostics: options.diagnostics,
     raph: {
       kernel: options.kernel,
     },
@@ -270,6 +273,93 @@ describe('NovaApp', () => {
     expect(document.body.contains(canvas)).toBe(true)
     expect(canvas.width).toBe(600)
     expect(canvas.height).toBe(320)
+  })
+
+  it('keeps diagnostics collectors disabled by default', () => {
+    const raf = vi.fn(() => 1)
+    vi.stubGlobal('requestAnimationFrame', raf)
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const app = createApp()
+
+    expect(app.diagnostics.enabled).toBe(false)
+    expect(raf).not.toHaveBeenCalled()
+    expect(app.diagnostics.snapshot().availability.frame).toBe('unavailable')
+
+    app.destroy()
+    vi.unstubAllGlobals()
+  })
+
+  it('collects diagnostics snapshots when enabled', () => {
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const app = createApp({ diagnostics: { enabled: true, browser: false } })
+    const surface = app.createSurface('diagnostics')
+    surface.createNode().options({ width: 10, height: 10 })
+    surface.dirty({ update: true, matrix: true, render: true })
+    app.raph.run()
+
+    const snapshot = app.diagnostics.snapshot()
+
+    expect(snapshot.runtime.enabled).toBe(true)
+    expect(snapshot.runtime.surfaces).toBe(1)
+    expect(snapshot.frame.index).toBeGreaterThan(0)
+    expect(snapshot.availability.frame).toBe('exact')
+    expect(snapshot.availability.resources).toBe('estimated')
+
+    app.destroy()
+    vi.unstubAllGlobals()
+  })
+
+  it('reads browser diagnostics with unavailable fallbacks', async () => {
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+    Object.defineProperty(performance, 'memory', {
+      configurable: true,
+      value: {
+        usedJSHeapSize: 10 * 1024 * 1024,
+        totalJSHeapSize: 20 * 1024 * 1024,
+        jsHeapSizeLimit: 100 * 1024 * 1024,
+      },
+    })
+    Object.defineProperty(performance, 'measureUserAgentSpecificMemory', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue({ bytes: 30 * 1024 * 1024 }),
+    })
+
+    const app = createApp({ diagnostics: { enabled: true, browser: true, sampleIntervalMs: 1000 } })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    const snapshot = app.diagnostics.snapshot()
+
+    expect(snapshot.browser.jsHeapUsedMB).toBe(10)
+    expect(snapshot.browser.userAgentMemoryMB).toBe(30)
+    expect(snapshot.browser.domNodes).toBeGreaterThan(0)
+    expect(snapshot.availability.browserHeap).toBe('observed')
+    expect(snapshot.availability.gpuProcessMemory).toBe('unavailable')
+
+    app.destroy()
+    vi.unstubAllGlobals()
+  })
+
+  it('toggles diagnostics options without recreating the app', () => {
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    const app = createApp()
+
+    app.options({ diagnostics: { enabled: true, browser: false } })
+    expect(app.diagnostics.enabled).toBe(true)
+    expect(app.diagnostics.snapshot().availability.frame).toBe('exact')
+
+    app.options({ diagnostics: { enabled: false } })
+    expect(app.diagnostics.enabled).toBe(false)
+    expect(app.diagnostics.snapshot().availability.frame).toBe('unavailable')
+
+    app.destroy()
+    vi.unstubAllGlobals()
   })
 
   it('resizes logical and pixel sizes with maxDpr guard', () => {

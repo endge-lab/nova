@@ -3,6 +3,7 @@ import type { mat3 } from 'gl-matrix'
 import type { EventList } from '@endge/utils'
 import type { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRendererConfigInput } from '@/domain/types/rendering/index'
+import type { NovaDiagnosticsOptions } from '@/domain/types/diagnostics.types'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSoundOptions } from '@/domain/types/sound.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
@@ -48,6 +49,7 @@ export interface NovaNodeProperties extends RaphProperties {
  */
 export interface NovaAppOptions {
   debug: boolean | string | Array<string>
+  diagnostics: NovaDiagnosticsOptions
 
   loop: boolean
   width: number
@@ -173,6 +175,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   sound?: NovaSoundOptions
   theme?: NovaThemeCreateOptions
   debug?: NovaDebugOptions
+  diagnostics?: NovaDiagnosticsOptions
   raph?: NovaRaphOptions
   syncScope?: NovaSyncScope
   predefinedEvents?: Array<keyof E>

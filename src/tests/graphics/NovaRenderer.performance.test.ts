@@ -267,6 +267,7 @@ describe('Nova renderer performance smoke tests', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(1600, 900, gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    renderer.diagnostics.enabled = true
     const schema = createRectStressSchema()
     const frame = compileSchemaFrame(canvas, schema)
 

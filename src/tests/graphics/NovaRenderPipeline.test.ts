@@ -344,6 +344,7 @@ describe('Nova render pipeline contracts', () => {
   it('renders a compiled frame through the new WebGL renderer facade', () => {
     const gl = createWebGLContextStub()
     const renderer = new NovaRendererWebGL(createCanvasStub(gl), new NovaSchemaRegistry())
+    renderer.diagnostics.enabled = true
     const schema: NovaSchema = [
       { type: 'rect', x: 0, y: 0, width: 20, height: 10, styles: { background: '#fff' } },
     ]

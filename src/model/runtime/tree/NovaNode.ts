@@ -517,7 +517,9 @@ export class NovaNode<
 
     this.debugger.startTimer('update')
     this.update()
-    this.debugger.info(`${this.__type} завершил update`, 'update')
+    if (this.debugger.enabled) {
+      this.debugger.info(`${this.__type} завершил update`, 'update')
+    }
   }
 
   /**
@@ -525,7 +527,9 @@ export class NovaNode<
    */
   @RaphAfter({ phase: 'matrix' })
   doMatrix(): void {
-    this.debugger.info(`${this.__type} завершил matrix`, 'matrix')
+    if (this.debugger.enabled) {
+      this.debugger.info(`${this.__type} завершил matrix`, 'matrix')
+    }
   }
 
   /**
@@ -561,7 +565,9 @@ export class NovaNode<
     this.surface.markRenderNodeRebuilt()
     this._renderFrameDirty = false
 
-    this.debugger.info(`${this.__type} завершил render`, 'render')
+    if (this.debugger.enabled) {
+      this.debugger.info(`${this.__type} завершил render`, 'render')
+    }
   }
 
   //
