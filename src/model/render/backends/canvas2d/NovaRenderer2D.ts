@@ -23,6 +23,7 @@ import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistr
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import { resolveNovaIconRenderOpacity, resolveNovaIconRenderRect } from '@/model/render/utils/nova-icon-rendering'
 
 /**
  * Рисует compiled Nova render frame через Canvas2D backend.
@@ -524,9 +525,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     const ctx = this.ctx
     ctx.save()
 
-    if (p.styles?.opacity !== undefined) {
-      ctx.globalAlpha = p.styles.opacity
-    }
+    ctx.globalAlpha = resolveNovaIconRenderOpacity(p, this.novaCanvas.dpr)
 
     const iconObject = this._assets.resolveDrawable(p.icon)
     if (!iconObject) {
@@ -535,7 +534,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       return
     }
 
-    ctx.drawImage(iconObject, p.x, p.y, p.width, p.height)
+    const rect = resolveNovaIconRenderRect(p, this.novaCanvas.dpr)
+    ctx.drawImage(iconObject, rect.x, rect.y, rect.width, rect.height)
     ctx.restore()
   }
 

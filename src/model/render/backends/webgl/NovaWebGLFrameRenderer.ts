@@ -43,6 +43,7 @@ import {
   compileNovaTextStyle,
   type NovaCompiledTextStyle,
 } from '@/model/render/schema/nova-style-compiler'
+import { resolveNovaIconRenderOpacity, resolveNovaIconRenderRect } from '@/model/render/utils/nova-icon-rendering'
 
 const FLOAT_BYTES = 4
 const RECT_STRIDE = 21
@@ -1655,14 +1656,16 @@ export class NovaWebGLFrameRenderer {
     if (item.active === false) return null
 
     if (item.type === 'icon') {
+      const rect = resolveNovaIconRenderRect(item, this._device.canvas.dpr)
+      const opacity = resolveNovaIconRenderOpacity(item, this._device.canvas.dpr)
       if (
         transform
         && this.shouldCullTextureItems()
-        && !this.isRectVisible(transform, item.x, item.y, item.width, item.height)
+        && !this.isRectVisible(transform, rect.x, rect.y, rect.width, rect.height)
       ) {
         return {
           culled: true,
-          signature: ['culled-icon', item.x, item.y, item.width, item.height, item.styles?.opacity ?? 1].join('|'),
+          signature: ['culled-icon', rect.x, rect.y, rect.width, rect.height, opacity].join('|'),
         }
       }
 
@@ -1672,14 +1675,13 @@ export class NovaWebGLFrameRenderer {
       let texture = this._textures.get(key)
       if (!texture) texture = this.createTextureFromSource(key, source, stats)
       texture.lastUsed = this._time
-      const opacity = item.styles?.opacity ?? 1
       return {
         texture,
-        signature: [key, item.x, item.y, item.width, item.height, opacity].join('|'),
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
+        signature: [key, rect.x, rect.y, rect.width, rect.height, opacity].join('|'),
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
         opacity,
         u0: 0,
         v0: 0,
@@ -2911,7 +2913,9 @@ export class NovaWebGLFrameRenderer {
     const source = this._assets.resolveDrawable(icon.icon)
     if (!source) return
     const key = this._assets.resolveDrawableKey('icon', icon.icon, source => this.resolveSourceKey(source))
-    this.drawTextureSource(key, source, icon.x, icon.y, icon.width, icon.height, transform, icon.styles?.opacity ?? 1, stats)
+    const rect = resolveNovaIconRenderRect(icon, this._device.canvas.dpr)
+    const opacity = resolveNovaIconRenderOpacity(icon, this._device.canvas.dpr)
+    this.drawTextureSource(key, source, rect.x, rect.y, rect.width, rect.height, transform, opacity, stats)
   }
 
   /**

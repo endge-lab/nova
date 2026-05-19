@@ -209,6 +209,24 @@ export interface NovaTextChunk {
 }
 
 /**
+ * Описывает preset качества рендеринга иконок.
+ */
+export type NovaIconRenderQualityPreset = 'auto' | 'crisp' | 'readable-dense'
+
+/**
+ * Описывает настройки readable рендеринга иконок для плотных Canvas UI.
+ */
+export interface NovaIconRenderQualityOptions {
+  mode?: NovaIconRenderQualityPreset
+  snapToPixel?: boolean
+  minDpr1Size?: number
+  dpr1ScaleBoost?: number
+  maxScaleBoost?: number
+  dpr1OpacityBoost?: number
+  maxOpacity?: number
+}
+
+/**
  * Описывает контракт NovaIcon.
  */
 export interface NovaIcon extends NovaUIBase {
@@ -222,6 +240,7 @@ export interface NovaIcon extends NovaUIBase {
 
   styles?: {
     opacity?: number
+    quality?: NovaIconRenderQualityPreset | NovaIconRenderQualityOptions
   }
 }
 
