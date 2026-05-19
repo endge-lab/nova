@@ -27,8 +27,8 @@
     "test:coverage": "vitest run --config vite.config.ts --coverage"
   },
   "dependencies": {
-    "@endge/raph": "workspace:*",
-    "@endge/utils": "workspace:*",
+    "@endge/raph": "^3.0.0",
+    "@endge/utils": "^0.23.0",
     "class-transformer": "^0.5.1",
     "gl-matrix": "^3.4.3"
   },
