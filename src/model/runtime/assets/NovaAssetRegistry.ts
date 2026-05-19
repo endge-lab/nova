@@ -474,6 +474,9 @@ export const NovaAssets = Object.freeze({
   image: createNovaImageAsset,
   canvas: createNovaCanvasAsset,
   stripe: createNovaStripeAsset,
+  /**
+   * Выполняет действие ref в рамках ответственности текущего класса.
+   */
   ref<K extends NovaAssetKind>(namespace: string, kind: K, name: string): NovaAssetRef<K> {
     return createAssetRef(namespace, kind, name)
   },

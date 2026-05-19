@@ -24,12 +24,18 @@ function create2DContextStub(): CanvasRenderingContext2D {
   }
 
   return new Proxy(state, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) {
         target[prop] = vi.fn()
       }
       return target[prop]
     },
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(target, prop, value) {
       target[prop] = value
       return true
@@ -234,14 +240,23 @@ function createInteractiveNode(app: NovaApp<TestEvents>): NovaNode<TestEvents> {
   return node
 }
 
+/**
+ * Описывает Nova-node ThemeAwareNode и его runtime-поведение.
+ */
 class ThemeAwareNode extends NovaNode<TestEvents> {
   updates = 0
 
+  /**
+   * Создает экземпляр ThemeAwareNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
     super(app, surface)
     app.theme.observe(this, { phase: NovaPhase.Update })
   }
 
+  /**
+   * Обновляет runtime-состояние ThemeAwareNode.
+   */
   update(): void {
     this.updates += 1
   }

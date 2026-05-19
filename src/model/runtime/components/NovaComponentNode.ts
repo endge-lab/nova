@@ -127,6 +127,9 @@ export abstract class NovaComponentNode<
    */
   protected onPropsChanged(_changedKeys: Array<keyof TProps>): void {}
 
+  /**
+   * Выполняет внутренний шаг notifySyncPortsChanged для NovaComponentNode.
+   */
   private notifySyncPortsChanged(changedKeys: Array<keyof TProps>): void {
     for (const key of changedKeys) {
       this.notifySyncPortChanged(String(key), this.props[key])

@@ -187,12 +187,18 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     return this._lastState
   }
 
+  /**
+   * Нормализует и возвращает итоговое значение NovaCursorManager.
+   */
   private resolveCursorSource(target: NovaNode<E> | null, x: number, y: number): NovaNode<E> | null {
     const fromTarget = target ? this.findCursorAncestor(target) : null
     if (fromTarget) return fromTarget
     return this.cursorHitTest(x, y)
   }
 
+  /**
+   * Находит сущность по runtime-критериям NovaCursorManager.
+   */
   private findCursorAncestor(target: NovaNode<E>): NovaNode<E> | null {
     let current: NovaNode<E> | null = target
     while (current) {
@@ -203,6 +209,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     return null
   }
 
+  /**
+   * Выполняет внутренний шаг cursorHitTest для NovaCursorManager.
+   */
   private cursorHitTest(x: number, y: number): NovaNode<E> | null {
     let top: NovaNode<E> | null = null
 
@@ -214,6 +223,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     return top
   }
 
+  /**
+   * Возвращает значение состояния NovaCursorManager.
+   */
   private getCursorCandidates(x: number, y: number): Array<NovaNode<E>> {
     if (this._spatialFullDirty) {
       this._spatialIndex.rebuild(this.cursorNodes)
@@ -234,6 +246,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
       .filter(node => this.cursorNodes.has(node))
   }
 
+  /**
+   * Создает runtime-сущность NovaCursorManager.
+   */
   private createRuntimeState(source: NovaNode<E>, input: NovaCursorPointerSync<E>): NovaCursorRuntimeState<E> {
     const context = source.cursorContext ?? {}
     const disabled = readDisabled(source, context)
@@ -251,6 +266,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     }
   }
 
+  /**
+   * Применяет подготовленное состояние NovaCursorManager.
+   */
   private applyCursorValue(value: NovaCursorValue, state: NovaCursorRuntimeState<E>): void {
     const key = cursorValueKey(value)
     if (typeof value === 'object' && value.type === 'component') {
@@ -263,6 +281,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     this._lastCursorKey = key
   }
 
+  /**
+   * Применяет подготовленное состояние NovaCursorManager.
+   */
   private applyComponentCursor(value: NovaComponentCursorValue, state: NovaCursorRuntimeState<E>, key: string): void {
     const surface = this.resolveOverlaySurface()
     const hotspot = value.hotspot ?? { x: 0, y: 0 }
@@ -284,6 +305,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     this._lastCursorKey = key
   }
 
+  /**
+   * Нормализует и возвращает итоговое значение NovaCursorManager.
+   */
   private resolveComponentNode(surface: NovaSurface<E>, value: NovaComponentCursorValue, key: string): NovaNode<E> {
     const existing = this._componentNodes.get(key)
     if (existing) return existing
@@ -298,6 +322,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     return node
   }
 
+  /**
+   * Нормализует и возвращает итоговое значение NovaCursorManager.
+   */
   private resolveOverlaySurface(): NovaSurface<E> {
     if (this._overlaySurface) return this._overlaySurface
 
@@ -310,6 +337,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     return surface
   }
 
+  /**
+   * Выполняет внутренний шаг hideActiveComponent для NovaCursorManager.
+   */
   private hideActiveComponent(): void {
     if (!this._activeComponentKey) return
 
@@ -318,6 +348,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     this._activeComponentKey = ''
   }
 
+  /**
+   * Выполняет внутренний шаг hideComponentNode для NovaCursorManager.
+   */
   private hideComponentNode(node: NovaNode<E> | null): void {
     if (!node) return
 
@@ -326,6 +359,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     node.surface.dirty({ render: true })
   }
 
+  /**
+   * Применяет подготовленное состояние NovaCursorManager.
+   */
   private applyNativeCursor(value: string): void {
     if (this._lastDomCursor === value) return
 

@@ -10,16 +10,28 @@ export interface NovaInputProxyOptions {
   onCompositionEnd?: (event: CompositionEvent) => void
 }
 
+/**
+ * Инкапсулирует сервисную логику NovaInputProxyService.
+ */
 export class NovaInputProxyService {
   private textarea: HTMLTextAreaElement | null = null
   private attached = false
 
+  /**
+   * Создает экземпляр NovaInputProxyService и подготавливает базовое состояние.
+   */
   constructor(private readonly options: NovaInputProxyOptions = {}) {}
 
+  /**
+   * Возвращает element для NovaInputProxyService.
+   */
   get element(): HTMLTextAreaElement | null {
     return this.textarea
   }
 
+  /**
+   * Подключает внешнюю runtime-сущность NovaInputProxyService.
+   */
   attach(): HTMLTextAreaElement | null {
     if (this.options.engine === 'canvas') return null
     if (typeof document === 'undefined' && !this.options.ownerDocument) return null
@@ -48,6 +60,9 @@ export class NovaInputProxyService {
     return this.textarea
   }
 
+  /**
+   * Отключает внешнюю runtime-сущность NovaInputProxyService.
+   */
   detach(): void {
     if (this.attached && this.textarea?.parentNode) {
       this.textarea.parentNode.removeChild(this.textarea)
@@ -55,6 +70,9 @@ export class NovaInputProxyService {
     this.attached = false
   }
 
+  /**
+   * Переводит focus в целевое состояние NovaInputProxyService.
+   */
   focus(value: string, start: number, end = start): void {
     const element = this.attach()
     if (!element) return
@@ -62,16 +80,25 @@ export class NovaInputProxyService {
     element.focus()
   }
 
+  /**
+   * Снимает focus с целевого состояния NovaInputProxyService.
+   */
   blur(): void {
     this.textarea?.blur()
   }
 
+  /**
+   * Синхронизирует состояние между слоями NovaInputProxyService.
+   */
   sync(value: string, start: number, end = start): void {
     if (!this.textarea) return
     this.textarea.value = value
     this.textarea.setSelectionRange(start, end)
   }
 
+  /**
+   * Освобождает runtime-ресурсы и подписки NovaInputProxyService.
+   */
   dispose(): void {
     this.detach()
     this.textarea = null

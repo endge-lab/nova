@@ -17,14 +17,26 @@ interface TestProps {
   label?: string | number
 }
 
+/**
+ * Описывает Nova-node TemplateTestNode и его runtime-поведение.
+ */
 class TemplateTestNode extends NovaComponentNode<TestProps> {
+  /**
+   * Выполняет отрисовку TemplateTestNode.
+   */
   render(): void {}
 }
 
+/**
+ * Описывает Nova-node TemplateHostNode и его runtime-поведение.
+ */
 class TemplateHostNode extends NovaNode<Record<string, any>> {
   readonly template = new NovaTemplateRuntime(this)
   updateCount = 0
 
+  /**
+   * Обновляет runtime-состояние TemplateHostNode.
+   */
   update(): void {
     this.updateCount += 1
     if (this.updateCount > 2) {
@@ -37,11 +49,17 @@ class TemplateHostNode extends NovaNode<Record<string, any>> {
   }
 }
 
+/**
+ * Описывает Nova-node CompiledTemplateNode и его runtime-поведение.
+ */
 class CompiledTemplateNode extends NovaNode<Record<string, any>> {
   props: Record<string, unknown>
   listeners: Record<string, (...args: Array<any>) => void>
   slots: Record<string, (scope?: Record<string, any>) => Array<any>>
 
+  /**
+   * Создает экземпляр CompiledTemplateNode и подготавливает базовое состояние.
+   */
   constructor(
     app: NovaApp<Record<string, any>>,
     surface: NovaSurface<Record<string, any>>,
@@ -55,6 +73,9 @@ class CompiledTemplateNode extends NovaNode<Record<string, any>> {
     this.slots = slots
   }
 
+  /**
+   * Обновляет значение состояния CompiledTemplateNode.
+   */
   setProps(patch: Record<string, unknown>): this {
     this.props = {
       ...this.props,
@@ -63,23 +84,38 @@ class CompiledTemplateNode extends NovaNode<Record<string, any>> {
     return this
   }
 
+  /**
+   * Обновляет значение состояния CompiledTemplateNode.
+   */
   setListeners(listeners: Record<string, (...args: Array<any>) => void>): this {
     this.listeners = listeners
     return this
   }
 
+  /**
+   * Обновляет значение состояния CompiledTemplateNode.
+   */
   setSlots(slots: Record<string, (scope?: Record<string, any>) => Array<any>> = {}): this {
     this.slots = slots
     return this
   }
 }
 
+/**
+ * Описывает Nova-node ReplacementCompiledTemplateNode и его runtime-поведение.
+ */
 class ReplacementCompiledTemplateNode extends CompiledTemplateNode {}
 
+/**
+ * Описывает Nova-node LargeCompiledTemplateNode и его runtime-поведение.
+ */
 class LargeCompiledTemplateNode extends NovaNode<Record<string, any>> {
   readonly template = new NovaTemplateRuntime(this)
   props: Record<string, unknown>
 
+  /**
+   * Создает экземпляр LargeCompiledTemplateNode и подготавливает базовое состояние.
+   */
   constructor(
     app: NovaApp<Record<string, any>>,
     surface: NovaSurface<Record<string, any>>,
@@ -89,6 +125,9 @@ class LargeCompiledTemplateNode extends NovaNode<Record<string, any>> {
     this.props = props
   }
 
+  /**
+   * Обновляет значение состояния LargeCompiledTemplateNode.
+   */
   setProps(patch: Record<string, unknown>): this {
     this.props = {
       ...this.props,
@@ -97,6 +136,9 @@ class LargeCompiledTemplateNode extends NovaNode<Record<string, any>> {
     return this
   }
 
+  /**
+   * Обновляет runtime-состояние LargeCompiledTemplateNode.
+   */
   update(): void {
     const version = Number(this.props.version ?? 0)
     this.template.reconcile(Array.from({ length: 500 }, (_item, index) => ({
@@ -107,6 +149,9 @@ class LargeCompiledTemplateNode extends NovaNode<Record<string, any>> {
     })))
   }
 
+  /**
+   * Освобождает runtime-ресурсы и подписки LargeCompiledTemplateNode.
+   */
   override dispose(): void {
     this.template.dispose()
     super.dispose()
@@ -118,15 +163,24 @@ interface RefTestApi {
   increment(delta: number): number
 }
 
+/**
+ * Описывает Nova-node RefApiNode и его runtime-поведение.
+ */
 class RefApiNode extends NovaNode<Record<string, any>> {
   readonly api: RefTestApi = {
     value: 0,
+    /**
+     * Выполняет действие increment в рамках ответственности RefApiNode.
+     */
     increment(delta: number): number {
       this.value += delta
       return this.value
     },
   }
 
+  /**
+   * Создает экземпляр RefApiNode и подготавливает базовое состояние.
+   */
   constructor(
     app: NovaApp<Record<string, any>>,
     surface: NovaSurface<Record<string, any>>,
@@ -134,6 +188,9 @@ class RefApiNode extends NovaNode<Record<string, any>> {
     super(app, surface)
   }
 
+  /**
+   * Возвращает значение состояния RefApiNode.
+   */
   getApi(): RefTestApi {
     return this.api
   }

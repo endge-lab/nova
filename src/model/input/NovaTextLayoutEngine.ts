@@ -13,19 +13,34 @@ interface PaddingBox {
   left: number
 }
 
+/**
+ * Описывает ответственность NovaTextLayoutEngine в архитектуре проекта.
+ */
 export class NovaTextLayoutEngine {
+  /**
+   * Выполняет действие layout в рамках ответственности NovaTextLayoutEngine.
+   */
   layout(options: NovaTextInputLayoutOptions): NovaTextInputLayoutResult {
     return layoutNovaTextInput(options)
   }
 
+  /**
+   * Выполняет действие coordinateToIndex в рамках ответственности NovaTextLayoutEngine.
+   */
   coordinateToIndex(layout: NovaTextInputLayoutResult, x: number, y: number): number {
     return novaTextIndexAtPoint(layout, x, y)
   }
 
+  /**
+   * Выполняет действие caretRect в рамках ответственности NovaTextLayoutEngine.
+   */
   caretRect(layout: NovaTextInputLayoutResult, index: number): NovaRectLike {
     return novaCaretRectAtIndex(layout, index)
   }
 
+  /**
+   * Обновляет состояние выбора NovaTextLayoutEngine.
+   */
   selectionRects(layout: NovaTextInputLayoutResult, start: number, end: number): Array<NovaRectLike> {
     return novaSelectionRects(layout, start, end)
   }

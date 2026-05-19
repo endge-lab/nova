@@ -154,6 +154,9 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
         const resolveVersion = this.version.bind(this)
 
         return {
+            /**
+             * Возвращает version для NovaThemeService.
+             */
             get version() {
                 return resolveVersion()
             },

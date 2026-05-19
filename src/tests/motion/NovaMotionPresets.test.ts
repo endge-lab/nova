@@ -16,36 +16,60 @@ import {
 
 type TestEvents = Record<string, any>
 
+/**
+ * Описывает Nova-node VisualNode и его runtime-поведение.
+ */
 class VisualNode extends NovaNode<TestEvents> {
   private _fill = '#4f7cff'
   private _stroke = '#24324a'
   private _strokeWidth = 1
 
+  /**
+   * Создает экземпляр VisualNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
     super(app, surface)
     this.options({ x: 40, y: 40, width: 30, height: 20, opacity: 1, scaleX: 1, scaleY: 1, rotation: 0 })
   }
 
+  /**
+   * Возвращает fill для VisualNode.
+   */
   get fill(): string {
     return this._fill
   }
 
+  /**
+   * Обновляет fill для VisualNode.
+   */
   set fill(value: string) {
     this._fill = value
   }
 
+  /**
+   * Возвращает stroke для VisualNode.
+   */
   get stroke(): string {
     return this._stroke
   }
 
+  /**
+   * Обновляет stroke для VisualNode.
+   */
   set stroke(value: string) {
     this._stroke = value
   }
 
+  /**
+   * Возвращает stroke Width для VisualNode.
+   */
   get strokeWidth(): number {
     return this._strokeWidth
   }
 
+  /**
+   * Обновляет stroke Width для VisualNode.
+   */
   set strokeWidth(value: number) {
     this._strokeWidth = value
   }
@@ -218,12 +242,18 @@ function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
     if (type !== RendererType.Web2D) return null
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
+      /**
+       * Возвращает значение состояния текущего класса.
+       */
       get(target, prop) {
         if (!(prop in target)) {
           ;(target as Record<PropertyKey, unknown>)[prop] = vi.fn()
         }
         return (target as Record<PropertyKey, unknown>)[prop]
       },
+      /**
+       * Обновляет значение состояния текущего класса.
+       */
       set(target, prop, value) {
         ;(target as Record<PropertyKey, unknown>)[prop] = value
         return true

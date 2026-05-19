@@ -148,12 +148,18 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
     super.dispose()
   }
 
+  /**
+   * Синхронизирует состояние между слоями NovaScenesNode.
+   */
   private syncActiveSceneIfReady(): void {
     if (!this.ready || this.lifecycleState === 'created' || this.lifecycleState === 'destroyed') return
 
     this.syncActiveScene()
   }
 
+  /**
+   * Синхронизирует состояние между слоями NovaScenesNode.
+   */
   private syncActiveScene(): void {
     const nextActiveId = this.props.active === null || this.props.active === undefined
       ? null
@@ -172,6 +178,9 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
     this.dirty({ update: true, render: true })
   }
 
+  /**
+   * Выполняет внутренний шаг ensureActiveSceneMounted для NovaScenesNode.
+   */
   private ensureActiveSceneMounted(id: string | null): void {
     if (!id) return
 
@@ -188,6 +197,9 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
     }
   }
 
+  /**
+   * Нормализует и возвращает итоговое значение NovaScenesNode.
+   */
   private resolveScene(definition: NovaTemplateSceneDefinition): NovaTemplateScene<E> {
     const existing = this.scenes.get(definition.id)
     if (existing) return existing
@@ -216,6 +228,9 @@ export class NovaSceneDefinitionNode<E extends EventList = Record<string, any>>
   }
 }
 
+/**
+ * Описывает сцену NovaTemplateScene и ее runtime lifecycle.
+ */
 class NovaTemplateScene<E extends EventList> extends NovaScene<E> {
   private managedRoots: Array<NovaNode<E>> = []
 
@@ -263,12 +278,18 @@ class NovaTemplateScene<E extends EventList> extends NovaScene<E> {
     this.managedRoots = []
   }
 
+  /**
+   * Согласует runtime-состояние NovaTemplateScene.
+   */
   private reconcile(): void {
     const result = reconcileNovaTemplateChildren(this.host, this.managedRoots, this.children)
     this.managedRoots = result.nodes
     this.setRoots(this.managedRoots)
   }
 
+  /**
+   * Применяет подготовленное состояние NovaTemplateScene.
+   */
   private applyActiveState(active: boolean): void {
     for (const root of this.roots) {
       root.active = active

@@ -13,7 +13,13 @@ interface SceneChildProps {
   label?: string
 }
 
+/**
+ * Описывает Nova-node SceneChildNode и его runtime-поведение.
+ */
 class SceneChildNode extends NovaComponentNode<SceneChildProps> {
+  /**
+   * Выполняет отрисовку SceneChildNode.
+   */
   render(): void {}
 }
 

@@ -146,15 +146,24 @@ export class Nova {
 
     return {
       node,
+      /**
+       * Обновляет runtime-состояние Nova.
+       */
       updateProps(patch: Record<string, unknown>): void {
         node.setProps?.({
           ...patch,
           novaRefs: options.scope?.refs ?? {},
         })
       },
+      /**
+       * Обновляет runtime-состояние Nova.
+       */
       updateListeners(listeners: Record<string, (...args: Array<any>) => void>): void {
         node.setListeners?.(listeners)
       },
+      /**
+       * Освобождает runtime-ресурсы и подписки Nova.
+       */
       destroy(): void {
         node.remove()
       },

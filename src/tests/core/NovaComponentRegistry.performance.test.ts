@@ -7,7 +7,13 @@ describe('Nova defined component registry performance', () => {
   it('registers and resolves 10k global tags under budget', () => {
     const registry = new NovaSchemaRegistry()
     const components = Array.from({ length: 10_000 }, (_item, index) => Nova.defineComponent(
+      /**
+       * Описывает Nova-node PerfComponentNode и его runtime-поведение.
+       */
       class PerfComponentNode extends NovaNode<TestEvents> {
+        /**
+         * Выполняет отрисовку PerfComponentNode.
+         */
         render(): void {}
       },
       { tag: `PerfComponent${index}` },

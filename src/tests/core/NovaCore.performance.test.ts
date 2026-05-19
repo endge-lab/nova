@@ -46,12 +46,18 @@ function create2DContextStub(): CanvasRenderingContext2D {
   }
 
   return new Proxy(state, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) {
         target[prop] = vi.fn()
       }
       return target[prop]
     },
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(target, prop, value) {
       target[prop] = value
       return true
@@ -119,10 +125,16 @@ function createApp(options: { width?: number; height?: number; input?: boolean; 
   })
 }
 
+/**
+ * Описывает Nova-node AuditNode и его runtime-поведение.
+ */
 class AuditNode extends NovaNode<TestEvents> {
   renderCount = 0
   updateCount = 0
 
+  /**
+   * Создает экземпляр AuditNode и подготавливает базовое состояние.
+   */
   constructor(
     app: NovaApp<TestEvents>,
     surface: NovaSurface<TestEvents>,
@@ -132,20 +144,32 @@ class AuditNode extends NovaNode<TestEvents> {
     super(app, surface)
   }
 
+  /**
+   * Выполняет отрисовку AuditNode.
+   */
   override render(): void {
     this.renderCount += 1
     this._log.renders.push(this._name)
   }
 
+  /**
+   * Обновляет runtime-состояние AuditNode.
+   */
   override update(): void {
     this.updateCount += 1
     this._log.updates.push(this._name)
   }
 }
 
+/**
+ * Описывает surface AuditSurface и его роль в render pipeline.
+ */
 class AuditSurface extends NovaSurface<TestEvents> {
   private _auditLog?: AuditLog
 
+  /**
+   * Создает экземпляр AuditSurface и подготавливает базовое состояние.
+   */
   constructor(
     name: string,
     app: NovaApp<TestEvents>,
@@ -155,39 +179,63 @@ class AuditSurface extends NovaSurface<TestEvents> {
     this._auditLog = log
   }
 
+  /**
+   * Выполняет действие doRender в рамках ответственности AuditSurface.
+   */
   override doRender(): void {
     this._auditLog?.surfaceRenders.push(this.name)
     this.compileRenderFrame()
   }
 
+  /**
+   * Компилирует runtime-представление AuditSurface.
+   */
   override compileRenderFrame() {
     this._auditLog?.surfaceFlushes.push(this.name)
     return super.compileRenderFrame()
   }
 
+  /**
+   * Принудительно завершает накопленные изменения AuditSurface.
+   */
   flush(_mainCtx: CanvasRenderingContext2D): void {
     this._auditLog?.surfaceFlushes.push(this.name)
   }
 }
 
+/**
+ * Описывает Nova-node LifecycleAuditNode и его runtime-поведение.
+ */
 class LifecycleAuditNode extends AuditNode {
   mountedCount = 0
   unmountedCount = 0
   pausedCount = 0
   resumedCount = 0
 
+  /**
+   * Обрабатывает входящее событие LifecycleAuditNode.
+   */
   override onMount(): void {
     this.mountedCount += 1
   }
 
+  /**
+   * Обрабатывает входящее событие LifecycleAuditNode.
+   */
   override onUnmount(): void {
     this.unmountedCount += 1
   }
 
+  /**
+   * Обрабатывает входящее событие LifecycleAuditNode.
+   */
   override onPause(): void {
     this.pausedCount += 1
   }
 
+  /**
+   * Обрабатывает входящее событие LifecycleAuditNode.
+   */
   override onResume(): void {
     this.resumedCount += 1
   }
@@ -588,7 +636,13 @@ describe('Nova core behavior and performance smoke', () => {
     const surface = app.createSurface('scene', AuditSurface, log)
     surface.renderCullingMode = 'bounds'
 
+    /**
+     * Описывает Nova-node ViewportRootNode и его runtime-поведение.
+     */
     class ViewportRootNode extends NovaContainer<TestEvents> {
+      /**
+       * Выполняет отрисовку ViewportRootNode.
+       */
       override render(): void {
         if (this.childCount > 0) return
 
@@ -597,6 +651,9 @@ describe('Nova core behavior and performance smoke', () => {
         this.add(child)
       }
 
+      /**
+       * Возвращает значение состояния ViewportRootNode.
+       */
       override getRenderBounds(): { x: number; y: number; width: number; height: number } {
         return { x: 0, y: 0, width: this.nova.width, height: this.nova.height }
       }
@@ -620,7 +677,13 @@ describe('Nova core behavior and performance smoke', () => {
     const surface = app.createSurface('scene', AuditSurface, log)
     surface.renderCullingMode = 'bounds'
 
+    /**
+     * Описывает Nova-node EmptyBoundsContainerNode и его runtime-поведение.
+     */
     class EmptyBoundsContainerNode extends NovaContainer<TestEvents> {
+      /**
+       * Выполняет отрисовку EmptyBoundsContainerNode.
+       */
       override render(): void {
         const child = new AuditNode(this.nova, this.surface, 'late-child', log)
         child.options({ x: 20, y: 20, width: 40, height: 30 })
@@ -682,11 +745,20 @@ describe('Nova core behavior and performance smoke', () => {
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
 
+    /**
+     * Описывает Nova-node RenderBoundsHitNode и его runtime-поведение.
+     */
     class RenderBoundsHitNode extends AuditNode {
+      /**
+       * Возвращает значение состояния RenderBoundsHitNode.
+       */
       override getRenderBounds(): { x: number; y: number; width: number; height: number } {
         return { x: 120, y: 80, width: 180, height: 40 }
       }
 
+      /**
+       * Выполняет действие containsPoint в рамках ответственности RenderBoundsHitNode.
+       */
       override containsPoint(x: number, y: number): boolean {
         const bounds = this.getRenderBounds()
 
@@ -1279,9 +1351,15 @@ describe('Nova core behavior and performance smoke', () => {
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
 
+    /**
+     * Описывает сцену TestScene и ее runtime lifecycle.
+     */
     class TestScene extends NovaScene<TestEvents> {
       root: LifecycleAuditNode | null = null
 
+      /**
+       * Обрабатывает входящее событие TestScene.
+       */
       override onMount(): void {
         if (!this.root) {
           this.root = this.addRoot(surface.createNode(LifecycleAuditNode, 'scene-root', log))
@@ -1350,7 +1428,13 @@ describe('Nova core behavior and performance smoke', () => {
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
 
+    /**
+     * Описывает сцену SwitchScene и ее runtime lifecycle.
+     */
     class SwitchScene extends NovaScene<TestEvents> {
+      /**
+       * Обрабатывает входящее событие SwitchScene.
+       */
       override onMount(): void {
         const root = this.addRoot(surface.createNode(NovaContainer<TestEvents>))
         const child = new AuditNode(app, surface, 'scene-child', log)

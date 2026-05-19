@@ -14,11 +14,17 @@ import {
 
 type TestEvents = Record<string, any>
 
+/**
+ * Описывает Nova-node PerfMotionNode и его runtime-поведение.
+ */
 class PerfMotionNode extends NovaNode<TestEvents> {
   fill = '#4f7cff'
   stroke = '#24324a'
   strokeWidth = 1
 
+  /**
+   * Создает экземпляр PerfMotionNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
     super(app, surface)
     this.options({ x: 0, y: 0, width: 2, height: 2, opacity: 1, scaleX: 1, scaleY: 1, rotation: 0 })
@@ -136,6 +142,9 @@ function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
     if (type !== RendererType.Web2D) return null
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
+      /**
+       * Возвращает значение состояния текущего класса.
+       */
       get(target, prop) {
         if (!(prop in target)) {
           ;(target as Record<PropertyKey, unknown>)[prop] = vi.fn()

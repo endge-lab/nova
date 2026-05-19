@@ -22,14 +22,23 @@ interface PerfCursorProps extends Record<string, unknown> {
 
 let componentCreateCount = 0
 
+/**
+ * Описывает ответственность PerfCursorComponent в архитектуре проекта.
+ */
 class PerfCursorComponent<E extends TestEvents>
   extends NovaComponentNode<PerfCursorProps, Record<string, never>, Record<string, never>, PerfCursorProps, E> {
+  /**
+   * Создает экземпляр PerfCursorComponent и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<E>, surface: NovaSurface<E>, props: PerfCursorProps, componentId?: string) {
     super(app, surface, PERF_CURSOR_DESCRIPTOR, props, { componentId })
     componentCreateCount += 1
     this.options({ width: 18, height: 18, interactive: false })
   }
 
+  /**
+   * Выполняет отрисовку PerfCursorComponent.
+   */
   override render(): void {
     const schema: NovaSchema = [
       {
@@ -69,10 +78,16 @@ function create2DContextStub(): CanvasRenderingContext2D {
     createPattern: vi.fn(() => ({})),
   }
   return new Proxy(state, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) target[prop] = vi.fn()
       return target[prop]
     },
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(target, prop, value) {
       target[prop] = value
       return true

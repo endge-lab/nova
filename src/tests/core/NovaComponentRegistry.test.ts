@@ -23,11 +23,20 @@ interface CounterApi {
   setText: (text: string) => void
 }
 
+/**
+ * Описывает Nova-node CounterNode и его runtime-поведение.
+ */
 class CounterNode<E extends TestEvents> extends NovaComponentNode<CounterProps, CounterApi, Record<string, never>, CounterProps, E> {
+  /**
+   * Создает экземпляр CounterNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<E>, surface: NovaSurface<E>, props: CounterProps, componentId?: string) {
     super(app, surface, COUNTER_DESCRIPTOR, props, { componentId })
   }
 
+  /**
+   * Возвращает значение состояния CounterNode.
+   */
   override getApi(): CounterApi {
     return {
       read: () => this.props.text,
@@ -51,8 +60,14 @@ const COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, CounterApi, Reco
   ),
 }
 
+/**
+ * Описывает Nova-node InspectorNode и его runtime-поведение.
+ */
 @NovaComponent({ tag: 'Inspector' })
 class InspectorNode extends NovaNode<TestEvents> {
+  /**
+   * Выполняет отрисовку InspectorNode.
+   */
   render(): void {}
 }
 
@@ -63,12 +78,18 @@ function create2DContextStub(): CanvasRenderingContext2D {
   }
 
   return new Proxy(state, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) {
         target[prop] = vi.fn()
       }
       return target[prop]
     },
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(target, prop, value) {
       target[prop] = value
       return true
@@ -205,19 +226,49 @@ describe('Nova component registry', () => {
 
     Nova.registerComponents(registry, InspectorNode)
 
-    expect(() => Nova.registerComponents(registry, class DuplicateInspector extends NovaNode<TestEvents> {
-      render(): void {}
-    })).toThrow(/requires a global tag/)
+    expect(() => Nova.registerComponents(
+      registry,
+      /**
+       * Описывает ответственность DuplicateInspector в архитектуре проекта.
+       */
+      class DuplicateInspector extends NovaNode<TestEvents> {
+        /**
+         * Выполняет отрисовку DuplicateInspector.
+         */
+        render(): void {}
+      },
+    )).toThrow(/requires a global tag/)
 
     registry.reserveTag('ReservedInspector')
-    const ReservedInspector = Nova.defineComponent(class ReservedInspectorNode extends NovaNode<TestEvents> {
-      render(): void {}
-    }, { tag: 'ReservedInspector' })
+    const ReservedInspector = Nova.defineComponent(
+      /**
+       * Описывает Nova-node ReservedInspectorNode и его runtime-поведение.
+       */
+      class ReservedInspectorNode extends NovaNode<TestEvents> {
+        /**
+         * Выполняет отрисовку ReservedInspectorNode.
+         */
+        render(): void {}
+      },
+      { tag: 'ReservedInspector' },
+    )
 
     expect(() => Nova.registerComponents(registry, ReservedInspector)).toThrow(/reserved/)
-    expect(() => Nova.registerComponents(registry, Nova.defineComponent(class AnotherInspectorNode extends NovaNode<TestEvents> {
-      render(): void {}
-    }, { tag: 'Inspector' }))).toThrow(/already registered/)
+    expect(() => Nova.registerComponents(
+      registry,
+      Nova.defineComponent(
+        /**
+         * Описывает Nova-node AnotherInspectorNode и его runtime-поведение.
+         */
+        class AnotherInspectorNode extends NovaNode<TestEvents> {
+          /**
+           * Выполняет отрисовку AnotherInspectorNode.
+           */
+          render(): void {}
+        },
+        { tag: 'Inspector' },
+      ),
+    )).toThrow(/already registered/)
   })
 
   it('expands schema components through descriptor renderSchema', () => {

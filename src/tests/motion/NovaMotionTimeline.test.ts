@@ -87,6 +87,9 @@ function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
     if (type !== RendererType.Web2D) return null
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
+      /**
+       * Возвращает значение состояния текущего класса.
+       */
       get(target, prop) {
         if (!(prop in target)) {
           ;(target as Record<PropertyKey, unknown>)[prop] = vi.fn()

@@ -12,14 +12,23 @@ import {
 
 type TestEvents = Record<string, any>
 
+/**
+ * Описывает Nova-node ThemePerfNode и его runtime-поведение.
+ */
 class ThemePerfNode extends NovaNode<TestEvents> {
   updates = 0
 
+  /**
+   * Создает экземпляр ThemePerfNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
     super(app, surface)
     app.theme.observe(this, { phase: NovaPhase.Update })
   }
 
+  /**
+   * Обновляет runtime-состояние ThemePerfNode.
+   */
   update(): void {
     this.updates += 1
   }

@@ -20,7 +20,13 @@ interface BoxProps {
   readonlyValue?: number
 }
 
+/**
+ * Описывает Nova-node SyncBoxNode и его runtime-поведение.
+ */
 class SyncBoxNode<E extends TestEvents> extends NovaComponentNode<BoxProps, unknown, Record<string, never>, BoxProps, E> {
+  /**
+   * Создает экземпляр SyncBoxNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<E>, surface: NovaSurface<E>, props: Partial<BoxProps> = {}, componentId?: string) {
     super(app, surface, SYNC_BOX_DESCRIPTOR, {
       value: props.value ?? 0,
@@ -29,6 +35,9 @@ class SyncBoxNode<E extends TestEvents> extends NovaComponentNode<BoxProps, unkn
     }, { componentId })
   }
 
+  /**
+   * Возвращает значение состояния SyncBoxNode.
+   */
   override getSyncPorts() {
     return {
       ...super.getSyncPorts(),
@@ -56,10 +65,16 @@ const SYNC_BOX_DESCRIPTOR: NovaComponentDescriptor<BoxProps, unknown, Record<str
 
 function create2DContextStub(): CanvasRenderingContext2D {
   return new Proxy({} as Record<PropertyKey, any>, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) target[prop] = vi.fn()
       return target[prop]
     },
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(target, prop, value) {
       target[prop] = value
       return true

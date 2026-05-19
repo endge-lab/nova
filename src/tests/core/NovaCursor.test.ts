@@ -24,14 +24,23 @@ interface TestCursorProps extends Record<string, unknown> {
 
 let componentCreateCount = 0
 
+/**
+ * Описывает Nova-node TestCursorNode и его runtime-поведение.
+ */
 class TestCursorNode<E extends TestEvents>
   extends NovaComponentNode<TestCursorProps, Record<string, never>, Record<string, never>, TestCursorProps, E> {
+  /**
+   * Создает экземпляр TestCursorNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<E>, surface: NovaSurface<E>, props: TestCursorProps, componentId?: string) {
     super(app, surface, TEST_CURSOR_DESCRIPTOR, props, { componentId })
     componentCreateCount += 1
     this.options({ width: 24, height: 24, interactive: false })
   }
 
+  /**
+   * Выполняет отрисовку TestCursorNode.
+   */
   override render(): void {
     const schema: NovaSchema = [
       {
@@ -65,7 +74,13 @@ const TEST_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
   ),
 }
 
+/**
+ * Описывает Nova-node CursorBoxNode и его runtime-поведение.
+ */
 class CursorBoxNode extends NovaNode<TestEvents> {
+  /**
+   * Выполняет отрисовку CursorBoxNode.
+   */
   override render(): void {
     this.renderer.schema([
       {
@@ -87,10 +102,16 @@ function create2DContextStub(): CanvasRenderingContext2D {
   }
 
   return new Proxy(state, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) target[prop] = vi.fn()
       return target[prop]
     },
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(target, prop, value) {
       target[prop] = value
       return true

@@ -8,20 +8,32 @@ import {
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
 
+/**
+ * Описывает Nova-node RuntimeAuditNode и его runtime-поведение.
+ */
 class RuntimeAuditNode extends NovaNode<Record<string, any>> {
   updates = 0
   matrices = 0
   renders = 0
 
+  /**
+   * Обновляет runtime-состояние RuntimeAuditNode.
+   */
   override update(): void {
     this.updates += 1
   }
 
+  /**
+   * Выполняет действие doMatrix в рамках ответственности RuntimeAuditNode.
+   */
   override doMatrix(): void {
     this.matrices += 1
     super.doMatrix()
   }
 
+  /**
+   * Выполняет отрисовку RuntimeAuditNode.
+   */
   override render(): void {
     this.renders += 1
   }

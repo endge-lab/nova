@@ -19,15 +19,27 @@ type TestProps = {
   label: string
 }
 
+/**
+ * Описывает Nova-node TestNode и его runtime-поведение.
+ */
 class TestNode extends NovaNode<Record<string, any>> {
   updates = 0
 
+  /**
+   * Обновляет runtime-состояние TestNode.
+   */
   override update(): void {
     this.updates += 1
   }
 }
 
+/**
+ * Описывает Nova-node TestComponentNode и его runtime-поведение.
+ */
 class TestComponentNode extends NovaComponentNode<TestProps> {
+  /**
+   * Выполняет отрисовку TestComponentNode.
+   */
   override render(): void {}
 }
 

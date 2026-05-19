@@ -13,12 +13,18 @@ function createContextSpy(): CanvasRenderingContext2D & { calls: Array<string> }
   }
 
   return new Proxy(state, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) {
         target[prop] = () => undefined
       }
       return target[prop]
     },
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(target, prop, value) {
       target[prop] = value
       return true

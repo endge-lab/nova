@@ -9,9 +9,15 @@ function createPort(value = 0) {
   return {
     state,
     port: createNovaSyncPort<number>({
+      /**
+       * Выполняет действие read в рамках ответственности текущего класса.
+       */
       read() {
         return state.value
       },
+      /**
+       * Выполняет действие write в рамках ответственности текущего класса.
+       */
       write(next) {
         state.value = next
       },

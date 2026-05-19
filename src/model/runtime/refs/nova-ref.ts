@@ -70,6 +70,9 @@ export function createNovaRef<T extends object>(name?: string): NovaRef<T> {
   }
 
   const proxy = new Proxy({}, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(_target, property) {
       if (VUE_REACTIVITY_FLAGS.has(property)) return false
       if (property === Symbol.toStringTag) return 'NovaRef'
@@ -97,12 +100,18 @@ export function createNovaRef<T extends object>(name?: string): NovaRef<T> {
       return method
     },
 
+    /**
+     * Обновляет значение состояния текущего класса.
+     */
     set(_target, property, value) {
       const api = requireNovaRefApi(state)
       ;(api as Record<PropertyKey, unknown>)[property] = value
       return true
     },
 
+    /**
+     * Выполняет действие has в рамках ответственности текущего класса.
+     */
     has(_target, property) {
       if (VUE_REACTIVITY_FLAGS.has(property)) return false
       if (property === '$mounted' || property === '$ready') return true
@@ -123,6 +132,9 @@ export function createNovaRefMap<T extends object>(): NovaRefMap<T> {
   }
 
   const refMap: NovaRefMap<T> = {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(key: string | number): NovaRef<T> {
       const normalized = String(key)
       let ref = state.refs.get(normalized)
@@ -132,21 +144,39 @@ export function createNovaRefMap<T extends object>(): NovaRefMap<T> {
       }
       return ref
     },
+    /**
+     * Выполняет действие has в рамках ответственности текущего класса.
+     */
     has(key: string | number): boolean {
       return state.refs.has(String(key))
     },
+    /**
+     * Удаляет сущность из runtime-коллекции текущего класса.
+     */
     delete(key: string | number): boolean {
       return state.refs.delete(String(key))
     },
+    /**
+     * Выполняет действие keys в рамках ответственности текущего класса.
+     */
     keys(): IterableIterator<string> {
       return state.refs.keys()
     },
+    /**
+     * Выполняет действие values в рамках ответственности текущего класса.
+     */
     values(): IterableIterator<NovaRef<T>> {
       return state.refs.values()
     },
+    /**
+     * Выполняет действие entries в рамках ответственности текущего класса.
+     */
     entries(): IterableIterator<[string, NovaRef<T>]> {
       return state.refs.entries()
     },
+    /**
+     * Возвращает size для текущего класса.
+     */
     get size(): number {
       return state.refs.size
     },

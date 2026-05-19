@@ -8,6 +8,9 @@ export type NovaInputValidateFn<TValue = unknown, TContext = unknown> = (
   context: TContext,
 ) => NovaInputValidationResult | Promise<NovaInputValidationResult>
 
+/**
+ * Координирует поведение контроллера NovaInputValidationController.
+ */
 export class NovaInputValidationController<TValue = unknown, TContext = unknown> {
   private token = 0
   private state: NovaInputValidationState = {
@@ -18,24 +21,42 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
     submitted: false,
   }
 
+  /**
+   * Создает экземпляр NovaInputValidationController и подготавливает базовое состояние.
+   */
   constructor(private readonly validateFn?: NovaInputValidateFn<TValue, TContext>) {}
 
+  /**
+   * Возвращает значение состояния NovaInputValidationController.
+   */
   getState(): NovaInputValidationState {
     return { ...this.state }
   }
 
+  /**
+   * Выполняет действие markDirty в рамках ответственности NovaInputValidationController.
+   */
   markDirty(): void {
     this.state.dirty = true
   }
 
+  /**
+   * Выполняет действие markTouched в рамках ответственности NovaInputValidationController.
+   */
   markTouched(): void {
     this.state.touched = true
   }
 
+  /**
+   * Выполняет действие markSubmitted в рамках ответственности NovaInputValidationController.
+   */
   markSubmitted(): void {
     this.state.submitted = true
   }
 
+  /**
+   * Проверяет входное значение NovaInputValidationController.
+   */
   async validate(value: TValue, context: TContext): Promise<NovaInputValidationState> {
     const runToken = ++this.token
     if (!this.validateFn) {
@@ -49,12 +70,18 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
     return this.getState()
   }
 
+  /**
+   * Обновляет значение состояния NovaInputValidationController.
+   */
   setResult(result: NovaInputValidationResult): NovaInputValidationState {
     this.token += 1
     this.applyResult(result)
     return this.getState()
   }
 
+  /**
+   * Сбрасывает состояние к базовым значениям NovaInputValidationController.
+   */
   reset(): void {
     this.token += 1
     this.state = {
@@ -66,6 +93,9 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
     }
   }
 
+  /**
+   * Применяет подготовленное состояние NovaInputValidationController.
+   */
   private applyResult(result: NovaInputValidationResult): void {
     const message = result === true ? undefined : typeof result === 'string' ? result : result.message
     const code = result === true || typeof result === 'string' ? undefined : result.code

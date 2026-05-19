@@ -9,6 +9,9 @@ interface CounterApi {
 function createApi(): CounterApi {
   return {
     value: 0,
+    /**
+     * Выполняет действие increment в рамках ответственности текущего класса.
+     */
     increment(delta: number): number {
       this.value += delta
       return this.value

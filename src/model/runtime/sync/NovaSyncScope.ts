@@ -28,6 +28,9 @@ let nextScopeId = 1
 let nextLinkId = 1
 let nextTransactionId = 1
 
+/**
+ * Описывает ответственность NovaSyncScope в архитектуре проекта.
+ */
 export class NovaSyncScope {
   readonly id: string
   readonly scheduler: NovaSyncSchedule
@@ -41,11 +44,17 @@ export class NovaSyncScope {
   private frameScheduled = false
   private applyDepth = 0
 
+  /**
+   * Создает экземпляр NovaSyncScope и подготавливает базовое состояние.
+   */
   constructor(options: NovaSyncScopeOptions = {}) {
     this.id = options.id ?? `nova-sync-${nextScopeId++}`
     this.scheduler = options.scheduler ?? 'immediate'
   }
 
+  /**
+   * Регистрирует сущность в runtime-слое NovaSyncScope.
+   */
   registerNode(node: NovaNode<EventList>, ports: NovaSyncPortMap): () => void {
     const endpoints = new Set<string>()
     for (const [name, port] of Object.entries(ports)) {
@@ -63,6 +72,9 @@ export class NovaSyncScope {
     return () => this.unregisterNode(node)
   }
 
+  /**
+   * Удаляет регистрацию сущности из runtime-слоя NovaSyncScope.
+   */
   unregisterNode(node: NovaNode<EventList>): void {
     const endpoints = this.nodeEndpoints.get(node)
     if (!endpoints) return
@@ -78,6 +90,9 @@ export class NovaSyncScope {
     this.nodeEndpoints.delete(node)
   }
 
+  /**
+   * Выполняет действие link в рамках ответственности NovaSyncScope.
+   */
   link(config: NovaSyncLinkConfig): NovaSyncLink {
     const from = this.resolveEndpoint(config.from)
     const to = this.resolveEndpoint(config.to)
@@ -103,14 +118,23 @@ export class NovaSyncScope {
     return link
   }
 
+  /**
+   * Выполняет действие unlink в рамках ответственности NovaSyncScope.
+   */
   unlink(id: string): void {
     this.links.delete(id)
   }
 
+  /**
+   * Нормализует и возвращает итоговое значение NovaSyncScope.
+   */
   resolvePort<T = unknown>(endpoint: NovaSyncEndpointInput): NovaSyncPort<T> {
     return this.requirePort(this.resolveEndpoint(endpoint)).port as NovaSyncPort<T>
   }
 
+  /**
+   * Выполняет действие notify в рамках ответственности NovaSyncScope.
+   */
   notify(endpoint: NovaSyncEndpointInput, value?: unknown, transaction?: NovaSyncTransaction): void {
     if (this.applyDepth > 0) return
 
@@ -121,6 +145,9 @@ export class NovaSyncScope {
     this.propagate(sourceEndpoint, nextValue, tx)
   }
 
+  /**
+   * Выполняет действие notifyPortChanged в рамках ответственности NovaSyncScope.
+   */
   notifyPortChanged(node: NovaNode<EventList>, name: string, value?: unknown): void {
     const endpoint = this.endpointFor(node, name)
     if (!this.ports.has(endpoint)) return
@@ -128,6 +155,9 @@ export class NovaSyncScope {
     else this.notify(endpoint)
   }
 
+  /**
+   * Освобождает runtime-ресурсы и подписки NovaSyncScope.
+   */
   dispose(): void {
     this.ports.clear()
     this.links.clear()
@@ -137,6 +167,9 @@ export class NovaSyncScope {
     this.frameScheduled = false
   }
 
+  /**
+   * Выполняет внутренний шаг propagate для NovaSyncScope.
+   */
   private propagate(sourceEndpoint: string, value: unknown, transaction: NovaSyncTransaction): void {
     if (transaction.path.has(sourceEndpoint)) return
     transaction.path.add(sourceEndpoint)
@@ -150,6 +183,9 @@ export class NovaSyncScope {
     }
   }
 
+  /**
+   * Добавляет действие в очередь выполнения NovaSyncScope.
+   */
   private queueLinkedWrite(
     link: InternalLink,
     sourceEndpoint: string,
@@ -179,6 +215,9 @@ export class NovaSyncScope {
     this.applyQueuedWrite(queued)
   }
 
+  /**
+   * Применяет подготовленное состояние NovaSyncScope.
+   */
   private applyQueuedWrite(write: QueuedWrite): void {
     const target = this.ports.get(write.targetEndpoint)
     if (!target) return
@@ -199,6 +238,9 @@ export class NovaSyncScope {
     this.propagate(write.targetEndpoint, write.value, write.transaction)
   }
 
+  /**
+   * Планирует отложенное выполнение NovaSyncScope.
+   */
   private scheduleMicrotaskFlush(): void {
     if (this.microtaskScheduled) return
     this.microtaskScheduled = true
@@ -208,6 +250,9 @@ export class NovaSyncScope {
     })
   }
 
+  /**
+   * Планирует отложенное выполнение NovaSyncScope.
+   */
   private scheduleFrameFlush(): void {
     if (this.frameScheduled) return
     this.frameScheduled = true
@@ -220,6 +265,9 @@ export class NovaSyncScope {
     })
   }
 
+  /**
+   * Принудительно завершает накопленные изменения NovaSyncScope.
+   */
   private flushQueue(queue: Map<string, QueuedWrite>): void {
     const writes = [...queue.values()]
     queue.clear()
@@ -228,6 +276,9 @@ export class NovaSyncScope {
     }
   }
 
+  /**
+   * Создает runtime-сущность NovaSyncScope.
+   */
   private createTransaction(origin: string): NovaSyncTransaction {
     return {
       id: nextTransactionId++,
@@ -236,6 +287,9 @@ export class NovaSyncScope {
     }
   }
 
+  /**
+   * Выполняет внутренний шаг requirePort для NovaSyncScope.
+   */
   private requirePort(endpoint: string): NovaSyncRegisteredPort {
     const port = this.ports.get(endpoint)
     if (!port) {
@@ -244,6 +298,9 @@ export class NovaSyncScope {
     return port
   }
 
+  /**
+   * Нормализует и возвращает итоговое значение NovaSyncScope.
+   */
   private resolveEndpoint(endpoint: NovaSyncEndpointInput): string {
     if (typeof endpoint !== 'string') {
       if (!endpoint.id) throw new Error('[NovaSyncScope] Anonymous port cannot be used as an endpoint')
@@ -252,6 +309,9 @@ export class NovaSyncScope {
     return endpoint.startsWith('#') ? endpoint.slice(1) : endpoint
   }
 
+  /**
+   * Выполняет внутренний шаг endpointFor для NovaSyncScope.
+   */
   private endpointFor(node: NovaNode<EventList>, name: string): string {
     const componentId = (node as unknown as { componentId?: string }).componentId
     if (!componentId) {

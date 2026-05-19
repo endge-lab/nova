@@ -16,7 +16,13 @@ interface CounterProps {
   color: string
 }
 
+/**
+ * Описывает Nova-node CounterNode и его runtime-поведение.
+ */
 class CounterNode extends NovaComponentNode<CounterProps, unknown, Record<string, never>, CounterProps, TestEvents> {
+  /**
+   * Создает экземпляр CounterNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
     super(app, surface, COUNTER_DESCRIPTOR, { value: 0, color: '#000000' })
   }
@@ -116,12 +122,18 @@ function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
     if (type !== RendererType.Web2D) return null
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
+      /**
+       * Возвращает значение состояния текущего класса.
+       */
       get(target, prop) {
         if (!(prop in target)) {
           ;(target as Record<PropertyKey, unknown>)[prop] = vi.fn()
         }
         return (target as Record<PropertyKey, unknown>)[prop]
       },
+      /**
+       * Обновляет значение состояния текущего класса.
+       */
       set(target, prop, value) {
         ;(target as Record<PropertyKey, unknown>)[prop] = value
         return true

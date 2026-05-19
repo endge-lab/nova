@@ -9,13 +9,22 @@ import {
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
 
+/**
+ * Описывает Nova-node BenchNode и его runtime-поведение.
+ */
 class BenchNode extends NovaNode<Record<string, any>> {
   updates = 0
 
+  /**
+   * Обновляет runtime-состояние BenchNode.
+   */
   override update(): void {
     this.updates += 1
   }
 
+  /**
+   * Выполняет отрисовку BenchNode.
+   */
   override render(): void {}
 }
 

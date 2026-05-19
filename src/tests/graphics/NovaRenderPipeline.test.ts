@@ -23,6 +23,9 @@ function noop(): void {}
 
 function create2DContextStub(): CanvasRenderingContext2D {
   return new Proxy({ measureText: (text: string) => ({ width: text.length * 8 }) }, {
+    /**
+     * Возвращает значение состояния текущего класса.
+     */
     get(target, prop) {
       if (!(prop in target)) (target as Record<PropertyKey, any>)[prop] = noop
       return (target as Record<PropertyKey, any>)[prop]

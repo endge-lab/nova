@@ -5,13 +5,22 @@ import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarne
 
 type TestEvents = EventList
 
+/**
+ * Описывает Nova-node RetainedAuditNode и его runtime-поведение.
+ */
 class RetainedAuditNode extends NovaNode<TestEvents> {
   renderCount = 0
 
+  /**
+   * Создает экземпляр RetainedAuditNode и подготавливает базовое состояние.
+   */
   constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
     super(app, surface)
   }
 
+  /**
+   * Выполняет отрисовку RetainedAuditNode.
+   */
   override render(): void {
     this.renderCount += 1
   }
