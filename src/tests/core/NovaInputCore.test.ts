@@ -49,6 +49,18 @@ describe('Nova input core', () => {
     expect(controller.getState().draft).toBe('abcdef')
   })
 
+  it('deletes exactly the selected tail character or previous tail grapheme', () => {
+    const selectedTail = new NovaTextInputController({ value: 'abcd' })
+    selectedTail.select(3, 4)
+    selectedTail.deleteBackward()
+    expect(selectedTail.getState().draft).toBe('abc')
+
+    const caretAtEnd = new NovaTextInputController({ value: 'abcd' })
+    caretAtEnd.select(4, 4)
+    caretAtEnd.deleteBackward()
+    expect(caretAtEnd.getState().draft).toBe('abc')
+  })
+
   it('computes single-line and multiline caret/selection geometry', () => {
     const layout = layoutNovaTextInput({
       text: 'one two\nthree',
@@ -66,6 +78,23 @@ describe('Nova input core', () => {
     expect(novaTextIndexAtPoint(layout, 5, 5)).toBe(0)
     expect(novaCaretRectAtIndex(layout, 4).height).toBeGreaterThan(0)
     expect(novaSelectionRects(layout, 0, layout.text.length).length).toBeGreaterThan(1)
+  })
+
+  it('wraps textarea text to the available content width', () => {
+    const layout = layoutNovaTextInput({
+      text: 'abcdefghijklmnop',
+      width: 46,
+      height: 120,
+      multiline: true,
+      wrap: true,
+      fontSize: 10,
+      lineHeight: 14,
+      charWidth: 6,
+      padding: { left: 4, right: 4, top: 4, bottom: 4 },
+    })
+
+    expect(layout.lines.length).toBeGreaterThan(1)
+    expect(layout.lines.every(line => line.width <= layout.contentWidth)).toBe(true)
   })
 
   it('cancels stale async validation results', async () => {
