@@ -13,7 +13,6 @@ const DEFAULT_SELECTION_COLOR = 'rgba(37, 99, 235, 0.24)'
 const DEFAULT_BUCKET_SIZE = 128
 
 interface BucketEntry<TContext> {
-  key: string
   target: NovaTextSelectionResolvedTarget<TContext>
 }
 
@@ -196,7 +195,7 @@ export class NovaTextSelectionService<TContext = unknown> {
       for (let y = minY; y <= maxY; y += 1) {
         const key = `${x}:${y}`
         const entries = this.buckets.get(key) ?? []
-        entries.push({ key, target })
+        entries.push({ target })
         this.buckets.set(key, entries)
       }
     }
