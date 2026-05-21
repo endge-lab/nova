@@ -412,10 +412,14 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
       rebuiltNodes: compileStats.rebuiltNodes,
       cachedNodes: compileStats.cachedNodes,
       culledNodes: compileStats.culledNodes,
-      cullingTests: compileStats.cullingTests,
-      textRasterCount: stats.textRasterCount ?? 0,
-      textRasterMs: stats.textRasterMs,
-    }
+	      cullingTests: compileStats.cullingTests,
+	      textRasterCount: stats.textRasterCount ?? 0,
+	      textRasterPixels: stats.textRasterPixels ?? 0,
+	      textRasterBytes: stats.textRasterBytes ?? 0,
+	      textRasterBoxPixels: stats.textRasterBoxPixels ?? 0,
+	      textRasterSavedPixels: stats.textRasterSavedPixels ?? 0,
+	      textRasterMs: stats.textRasterMs,
+	    }
   }
 
   /**
@@ -536,9 +540,13 @@ function createEmptyRenderSnapshot(): NovaDiagnosticsRenderSnapshot {
     cachedNodes: 0,
     culledNodes: 0,
     cullingTests: 0,
-    textRasterCount: 0,
-    textRasterMs: 0,
-  }
+	    textRasterCount: 0,
+	    textRasterPixels: 0,
+	    textRasterBytes: 0,
+	    textRasterBoxPixels: 0,
+	    textRasterSavedPixels: 0,
+	    textRasterMs: 0,
+	  }
 }
 
 /**

@@ -106,6 +106,7 @@ export interface NovaRendererTextConfig {
   bucketThrottleMs: number
   visibleOnlyRaster: boolean
   fallbackPreviousScale: boolean
+  tightRunAtlas: boolean
   minRasterScale: number
   maxRasterScale: number
 }
@@ -557,6 +558,10 @@ export interface NovaRenderMetrics {
   updatedHandles?: number
   dirtyStreamRanges?: number
   textRasterCount?: number
+  textRasterPixels?: number
+  textRasterBytes?: number
+  textRasterBoxPixels?: number
+  textRasterSavedPixels?: number
   textCacheHits?: number
   textCacheMisses?: number
   textRasterDeferred?: number

@@ -97,6 +97,10 @@ export interface NovaDiagnosticsRenderSnapshot {
   culledNodes: number
   cullingTests: number
   textRasterCount: number
+  textRasterPixels: number
+  textRasterBytes: number
+  textRasterBoxPixels: number
+  textRasterSavedPixels: number
   textRasterMs: number
 }
 

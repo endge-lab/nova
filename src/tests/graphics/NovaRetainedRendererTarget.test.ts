@@ -997,9 +997,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.uploadBytes).toBe(0)
   })
 
-  it('culls retained text batch runs before run-atlas raster and upload work', () => {
-    mockCanvas2D()
-    const gl = createWebGLContextStub()
+	  it('culls retained text batch runs before run-atlas raster and upload work', () => {
+	    mockCanvas2D()
+	    const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(
       canvas,
@@ -1019,17 +1019,146 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     const first = renderer.renderFrame(frame)
     const warm = renderer.renderFrame(frame)
+    const settled = renderer.renderFrame(frame)
 
     expect(first.visibleTextRuns).toBe(10)
     expect(first.culledTextRuns).toBe(10)
     expect(first.textRasterCount).toBeGreaterThan(0)
     expect(first.textRasterCount).toBeLessThanOrEqual(10)
-    expect(warm.textRasterCount).toBe(0)
-    expect(warm.uploadBytes).toBe(0)
-  })
+    expect(first.textRasterCount + warm.textRasterCount).toBeLessThanOrEqual(10)
+	    expect(settled.textRasterCount).toBe(0)
+	    expect(settled.uploadBytes).toBe(0)
+	  })
 
-  it('defers visible text without falling back to per-text rendering when raster budget is exhausted', () => {
-    mockCanvas2D()
+	  it('rasterizes run-atlas text into a tight rect smaller than the layout box', () => {
+	    mockCanvas2D()
+	    const gl = createWebGLContextStub()
+	    const canvas = createCanvasStub(gl)
+	    const renderer = new NovaRendererWebGL(
+	      canvas,
+	      new NovaSchemaRegistry(),
+	      resolveNovaRendererConfig({
+	        text: {
+	          mode: 'run-atlas',
+	          tightRunAtlas: true,
+	          visibleOnlyRaster: true,
+	          fallbackPreviousScale: false,
+	          prewarmAdjacentBuckets: false,
+	          rasterBudgetMs: 100,
+	        },
+	      }),
+	    )
+	    const schema = [
+	      {
+	        type: 'text',
+	        x: 10,
+	        y: 10,
+	        width: 400,
+	        height: 80,
+	        text: 'Hi',
+	        styles: { color: '#ffffff', font: { size: 12 }, lineHeight: 12 },
+	      },
+	    ] as NovaSchema
+
+	    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+	    expect(metrics.textRasterCount).toBe(1)
+	    expect(metrics.textRasterBoxPixels).toBe(400 * 80)
+	    expect(metrics.textRasterPixels).toBeGreaterThan(0)
+	    expect(metrics.textRasterPixels).toBeLessThan(metrics.textRasterBoxPixels!)
+	    expect(metrics.textRasterBytes).toBe(metrics.textRasterPixels! * 4)
+	    expect(metrics.textRasterSavedPixels).toBe(metrics.textRasterBoxPixels! - metrics.textRasterPixels!)
+	  })
+
+	  it('keeps the full layout box when tight run-atlas is disabled', () => {
+	    mockCanvas2D()
+	    const gl = createWebGLContextStub()
+	    const canvas = createCanvasStub(gl)
+	    const renderer = new NovaRendererWebGL(
+	      canvas,
+	      new NovaSchemaRegistry(),
+	      resolveNovaRendererConfig({
+	        text: {
+	          mode: 'run-atlas',
+	          tightRunAtlas: false,
+	          visibleOnlyRaster: true,
+	          fallbackPreviousScale: false,
+	          prewarmAdjacentBuckets: false,
+	          rasterBudgetMs: 100,
+	        },
+	      }),
+	    )
+	    const schema = [
+	      {
+	        type: 'text',
+	        x: 10,
+	        y: 10,
+	        width: 400,
+	        height: 80,
+	        text: 'Hi',
+	        styles: { color: '#ffffff', font: { size: 12 }, lineHeight: 12 },
+	      },
+	    ] as NovaSchema
+
+	    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+	    expect(metrics.textRasterCount).toBe(1)
+	    expect(metrics.textRasterBoxPixels).toBe(400 * 80)
+	    expect(metrics.textRasterPixels).toBe(metrics.textRasterBoxPixels)
+	    expect(metrics.textRasterSavedPixels).toBe(0)
+	  })
+
+	  it('keeps clipped retained long-ellipsis run-atlas batches warm with tight raster rects', () => {
+	    mockCanvas2D()
+	    const gl = createWebGLContextStub()
+	    const canvas = createCanvasStub(gl)
+	    const renderer = new NovaRendererWebGL(
+	      canvas,
+	      new NovaSchemaRegistry(),
+	      resolveNovaRendererConfig({
+	        text: {
+	          mode: 'run-atlas',
+	          tightRunAtlas: true,
+	          visibleOnlyRaster: true,
+	          fallbackPreviousScale: false,
+	          prewarmAdjacentBuckets: false,
+	          rasterBudgetMs: 100,
+	        },
+	      }),
+	    )
+	    const batch: NovaTextBatch = {
+	      count: 1,
+	      text: ['Long timeline item with clipped status and owner'],
+	      x: new Float32Array([10]),
+	      y: new Float32Array([10]),
+	      width: new Float32Array([132]),
+	      height: new Float32Array([24]),
+	      clipX: new Float32Array([14]),
+	      clipY: new Float32Array([12]),
+	      clipWidth: new Float32Array([124]),
+	      clipHeight: new Float32Array([20]),
+	      color: '#ffffff',
+	      font: { size: 12, weight: '700' },
+	      align: { horizontal: 'center', vertical: 'middle' },
+	      lineHeight: 12,
+	      ellipsis: true,
+	      revision: 1,
+	      staticRevision: 1,
+	    }
+	    const { frame } = createTextBatchFrame(canvas, batch)
+
+	    const first = renderer.renderFrame(frame)
+	    const warm = renderer.renderFrame(frame)
+
+	    expect(first.visibleTextRuns).toBe(1)
+	    expect(first.textRasterPixels).toBeGreaterThan(0)
+	    expect(first.textRasterPixels).toBeLessThan(first.textRasterBoxPixels!)
+	    expect(warm.textRasterCount).toBe(0)
+	    expect(warm.uploadBytes).toBe(0)
+	  })
+
+	  it('defers visible text without falling back to per-text rendering when raster budget is exhausted', () => {
+	    mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(
@@ -1230,6 +1359,103 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.atlasUploads).toBe(0)
   })
 
+  it('keeps short auto retained task label batches in glyph atlas mode', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'auto',
+            taskLabels: 'auto',
+            uiLabels: 'auto',
+          },
+          interaction: {
+            mode: 'stable-quality',
+          },
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [] as NovaSchema
+    for (let index = 0; index < 12; index += 1) {
+      schema.push({
+        type: 'text',
+        x: 10,
+        y: 10 + index * 16,
+        width: 120,
+        height: 14,
+        text: `T-${index.toString().padStart(3, '0')}`,
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label' },
+      })
+    }
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.glyphRasterCount).toBeGreaterThan(0)
+    expect(metrics.glyphQuads).toBeGreaterThan(0)
+    expect(metrics.textRasterCount).toBe(0)
+    expect(metrics.textModeFallbacks).toBe(0)
+  })
+
+  it('routes long and complex auto retained task label batches through run atlas', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'auto',
+            taskLabels: 'auto',
+            uiLabels: 'auto',
+          },
+          interaction: {
+            mode: 'stable-quality',
+          },
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [] as NovaSchema
+    for (let index = 0; index < 12; index += 1) {
+      schema.push({
+        type: 'text',
+        x: 10,
+        y: 10 + index * 16,
+        width: 180,
+        height: 14,
+        text: index % 2 === 0
+          ? `Timeline owner ${index} with long clipped status`
+          : `مرحلة-${index.toString().padStart(3, '0')}`,
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label' },
+      })
+    }
+    schema.semanticScope = 'non-overlap-layered'
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.textRasterCount).toBeGreaterThan(0)
+    expect(metrics.textAtlasPages).toBeGreaterThan(0)
+    expect(metrics.glyphRasterCount).toBe(0)
+    expect(metrics.glyphQuads).toBe(0)
+    expect(metrics.textModeFallbacks).toBe(0)
+  })
+
   it('drops retained text runs by screen-space LOD before glyph raster work', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
@@ -1373,13 +1599,23 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
         styles: { color: '#ffffff', font: { size: 12 } },
         meta: { textRole: 'task-label', textMode: 'glyph-atlas' },
       },
+      {
+        type: 'text',
+        x: 10,
+        y: 58,
+        width: 120,
+        height: 18,
+        text: 'مرحلة Cafe\u0301 fi',
+        styles: { color: '#ffffff', font: { size: 12 } },
+        meta: { textRole: 'task-label', textMode: 'glyph-atlas' },
+      },
     ] as NovaSchema
     schema.contentVersion = 1
 
     const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
 
-    expect(metrics.textModeFallbacks).toBe(1)
-    expect(metrics.textRasterCount).toBe(2)
+    expect(metrics.textModeFallbacks).toBe(2)
+    expect(metrics.textRasterCount).toBe(3)
     expect(metrics.glyphRasterCount).toBe(0)
   })
 

@@ -60,6 +60,9 @@ const STRIPE_BATCH_GEOMETRY_STRIDE = 4
 const STRIPE_BATCH_STATIC_STRIDE = 10
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
 const TEXT_ATLAS_PAGE_SIZE = 2048
+const TEXT_RUN_ATLAS_PADDING_PX = 1
+const AUTO_GLYPH_LABEL_MAX_CODE_POINTS = 12
+const AUTO_TEXT_BATCH_SAMPLE_LIMIT = 128
 
 const EARLY_STRIPE_BATCH_VERTEX_SHADER = `#version 300 es
 precision mediump float;
@@ -127,6 +130,10 @@ interface RenderStats {
   gpuBufferCapacityBytes: number
   textRasterMs: number
   textRasterCount: number
+  textRasterPixels: number
+  textRasterBytes: number
+  textRasterBoxPixels: number
+  textRasterSavedPixels: number
   textCacheHits: number
   textCacheMisses: number
   textRasterDeferred: number
@@ -256,6 +263,10 @@ interface TextAtlasEntry {
   y: number
   width: number
   height: number
+  offsetX: number
+  offsetY: number
+  drawWidth: number
+  drawHeight: number
   scale: number
   bytes: number
   lastUsed: number
@@ -377,6 +388,11 @@ interface RasterizedText {
   width: number
   height: number
   scale: number
+  offsetX: number
+  offsetY: number
+  drawWidth: number
+  drawHeight: number
+  boxPixels: number
 }
 
 /**
@@ -501,6 +517,7 @@ interface TextureRectStreamGroupCache {
   texture: TextureEntry
   indices: Uint32Array
   uvSource: number | Array<[number, number, number, number]>
+  rectSource?: Array<NovaRect>
   geometryData: Float32Array
   staticData: Float32Array
   count: number
@@ -599,10 +616,27 @@ interface TextureBatchItem {
 interface TextAtlasDrawableItem {
   key: string
   texture: TextureEntry
+  offsetX: number
+  offsetY: number
+  width: number
+  height: number
   u0: number
   v0: number
   u1: number
   v1: number
+}
+
+/**
+ * Описывает layout результата измерения text run перед rasterize.
+ */
+interface TextRasterLayout {
+  renderedText: string
+  x: number
+  y: number
+  metrics: TextMetrics
+  sourceLineWidth: number
+  contentWidth: number
+  contentHeight: number
 }
 
 /**
@@ -728,6 +762,10 @@ export class NovaWebGLFrameRenderer {
       gpuBufferCapacityBytes: 0,
       textRasterMs: 0,
       textRasterCount: 0,
+      textRasterPixels: 0,
+      textRasterBytes: 0,
+      textRasterBoxPixels: 0,
+      textRasterSavedPixels: 0,
       textCacheHits: 0,
       textCacheMisses: 0,
       textRasterDeferred: 0,
@@ -880,6 +918,10 @@ export class NovaWebGLFrameRenderer {
       uploadMs: stats.uploadMs,
       textRasterMs: stats.textRasterMs,
       textRasterCount: stats.textRasterCount,
+      textRasterPixels: stats.textRasterPixels,
+      textRasterBytes: stats.textRasterBytes,
+      textRasterBoxPixels: stats.textRasterBoxPixels,
+      textRasterSavedPixels: stats.textRasterSavedPixels,
       textCacheHits: stats.textCacheHits,
       textCacheMisses: stats.textCacheMisses,
       textRasterDeferred: stats.textRasterDeferred,
@@ -1718,19 +1760,26 @@ export class NovaWebGLFrameRenderer {
           signature: ['deferred-text', this.createCulledTextSignature(item, scale)].join('|'),
         }
       }
+      const quad = this.resolveTextAtlasQuad(item, atlasItem)
+      if (!quad) {
+        return {
+          culled: true,
+          signature: ['empty-text', this.createCulledTextSignature(item, scale), atlasItem.key].join('|'),
+        }
+      }
 
       return {
         texture: atlasItem.texture,
-        signature: [atlasItem.key, item.x, item.y, item.width, item.height, style.opacity].join('|'),
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
+        signature: [atlasItem.key, quad.x, quad.y, quad.width, quad.height, quad.u0, quad.v0, quad.u1, quad.v1, style.opacity].join('|'),
+        x: quad.x,
+        y: quad.y,
+        width: quad.width,
+        height: quad.height,
         opacity: style.opacity,
-        u0: atlasItem.u0,
-        v0: atlasItem.v0,
-        u1: atlasItem.u1,
-        v1: atlasItem.v1,
+        u0: quad.u0,
+        v0: quad.v0,
+        u1: quad.u1,
+        v1: quad.v1,
       }
     }
 
@@ -1927,20 +1976,22 @@ export class NovaWebGLFrameRenderer {
 	    const scale = this.resolveTextRasterScale(transform, stats, this.resolveTextRasterScope(text.meta, mode))
 	    const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats, mode)
     if (!atlasItem) return
+    const quad = this.resolveTextAtlasQuad(text, atlasItem)
+    if (!quad) return
 
     this.queueTextureQuad(
       atlasItem.texture,
-      text.x,
-      text.y,
-      text.width,
-      text.height,
+      quad.x,
+      quad.y,
+      quad.width,
+      quad.height,
       transform,
       style.opacity,
       stats,
-      atlasItem.u0,
-      atlasItem.v0,
-      atlasItem.u1,
-      atlasItem.v1,
+      quad.u0,
+      quad.v0,
+      quad.u1,
+      quad.v1,
     )
   }
 
@@ -2310,12 +2361,47 @@ export class NovaWebGLFrameRenderer {
     if (text.parser === 'markdown') return false
     if (text.styles?.font?.style === 'italic') return false
 
-    for (const glyph of Array.from(text.text)) {
-      const code = glyph.codePointAt(0) ?? 0
-      if (code > 0xffff) return false
-    }
+    if (this.hasComplexGlyphText(text.text)) return false
 
     return true
+  }
+
+  /**
+   * Проверяет shaping cases, где glyph-atlas без HarfBuzz может разложить строку некорректно.
+   */
+  private hasComplexGlyphText(value: string): boolean {
+    if (/(^|[^A-Za-z])(?:ffi|ffl|fi|fl)([^A-Za-z]|$)/i.test(value)) return true
+
+    for (const glyph of Array.from(value)) {
+      const code = glyph.codePointAt(0) ?? 0
+      if (this.isComplexGlyphTextCodePoint(code)) return true
+    }
+
+    return false
+  }
+
+  /**
+   * Возвращает true для Unicode ranges, требующих shaping, bidi или combining mark handling.
+   */
+  private isComplexGlyphTextCodePoint(code: number): boolean {
+    if (code > 0xffff) return true
+    if (code >= 0x0300 && code <= 0x036f) return true
+    if (code >= 0x0590 && code <= 0x05ff) return true
+    if (code >= 0x0600 && code <= 0x06ff) return true
+    if (code >= 0x0750 && code <= 0x077f) return true
+    if (code >= 0x08a0 && code <= 0x08ff) return true
+    if (code >= 0x0900 && code <= 0x0dff) return true
+    if (code >= 0x1ab0 && code <= 0x1aff) return true
+    if (code >= 0x1dc0 && code <= 0x1dff) return true
+    if (code >= 0x200c && code <= 0x200d) return true
+    if (code >= 0x202a && code <= 0x202e) return true
+    if (code >= 0x2066 && code <= 0x2069) return true
+    if (code >= 0x20d0 && code <= 0x20ff) return true
+    if (code >= 0xfb00 && code <= 0xfdff) return true
+    if (code >= 0xfe00 && code <= 0xfe0f) return true
+    if (code >= 0xfe20 && code <= 0xfe2f) return true
+    if (code >= 0xfe70 && code <= 0xfeff) return true
+    return false
   }
 
   /**
@@ -2333,10 +2419,37 @@ export class NovaWebGLFrameRenderer {
     const globalMode = this.normalizeTextRenderMode(this._textConfig.mode) ?? 'run-atlas'
     if (globalMode !== 'auto') return globalMode
 
+    return this.resolveAutoTextRenderMode(text, role)
+  }
+
+  /**
+   * Выбирает text path в auto-режиме по форме строки, а не только по роли.
+   */
+  private resolveAutoTextRenderMode(text: NovaText, role: NovaTextRenderRole | undefined): NovaTextRenderMode {
     if (role === 'timescale') return 'glyph-atlas'
-    if (role === 'task-label') return 'glyph-atlas'
     if (role === 'debug') return 'run-atlas'
+    if (this.shouldUseRunAtlasForAutoText(text)) return 'run-atlas'
+    if (role === 'task-label') return 'glyph-atlas'
     return 'run-atlas'
+  }
+
+  /**
+   * Возвращает true для строк, где run-atlas дешевле или корректнее glyph-atlas.
+   */
+  private shouldUseRunAtlasForAutoText(text: NovaText): boolean {
+    if (text.parser === 'markdown') return true
+    if (text.styles?.font?.style === 'italic') return true
+    if (text.styles?.ellipsis) return true
+    if (text.clip === true || (typeof text.clip === 'object' && text.clip !== null)) return true
+    if (this.hasComplexGlyphText(text.text)) return true
+    return this.countTextCodePoints(text.text) > AUTO_GLYPH_LABEL_MAX_CODE_POINTS
+  }
+
+  /**
+   * Считает Unicode code points для coarse auto-routing эвристики.
+   */
+  private countTextCodePoints(value: string): number {
+    return Array.from(value).length
   }
 
   /**
@@ -2484,12 +2597,13 @@ export class NovaWebGLFrameRenderer {
     }
 
     stats.textCacheMisses += 1
-    const rasterStartedAt = performance.now()
-    const raster = this.rasterizeText(text, style, scale)
-    stats.textRasterMs += performance.now() - rasterStartedAt
-    stats.textRasterCount += 1
+	    const rasterStartedAt = performance.now()
+	    const raster = this.rasterizeText(text, style, scale)
+	    stats.textRasterMs += performance.now() - rasterStartedAt
+	    stats.textRasterCount += 1
+	    this.recordTextRasterDiagnostics(raster, stats)
 
-	    const entry = this.uploadTextAtlasEntry(key, baseKey, raster, stats)
+		    const entry = this.uploadTextAtlasEntry(key, baseKey, raster, stats)
 	    entry.page.pinnedFrame = this._time
     this._textFallbackKeys.set(baseKey, key)
     stats.textAtlasPages = this._textAtlasPages.length
@@ -2522,11 +2636,12 @@ export class NovaWebGLFrameRenderer {
       if (this._textAtlasEntries.has(key)) continue
 
       const baseKey = this.createTextBaseKey(text, style)
-      const rasterStartedAt = performance.now()
-      const raster = this.rasterizeText(text, style, nextScale)
-      stats.textRasterMs += performance.now() - rasterStartedAt
-      stats.textRasterCount += 1
-      this.uploadTextAtlasEntry(key, baseKey, raster, stats)
+	      const rasterStartedAt = performance.now()
+	      const raster = this.rasterizeText(text, style, nextScale)
+	      stats.textRasterMs += performance.now() - rasterStartedAt
+	      stats.textRasterCount += 1
+	      this.recordTextRasterDiagnostics(raster, stats)
+	      this.uploadTextAtlasEntry(key, baseKey, raster, stats)
     }
   }
 
@@ -2559,20 +2674,55 @@ export class NovaWebGLFrameRenderer {
   /**
    * Создает drawable item из text atlas entry.
    */
-  private createTextAtlasDrawableItem(entry: TextAtlasEntry): TextAtlasDrawableItem {
-    const page = entry.page
-    return {
-      key: entry.key,
-      texture: page.texture,
-      u0: entry.x / page.width,
-      v0: entry.y / page.height,
+	  private createTextAtlasDrawableItem(entry: TextAtlasEntry): TextAtlasDrawableItem {
+	    const page = entry.page
+	    return {
+	      key: entry.key,
+	      texture: page.texture,
+	      offsetX: entry.offsetX,
+	      offsetY: entry.offsetY,
+	      width: entry.drawWidth,
+	      height: entry.drawHeight,
+	      u0: entry.x / page.width,
+	      v0: entry.y / page.height,
       u1: (entry.x + entry.width) / page.width,
-      v1: (entry.y + entry.height) / page.height,
-    }
-  }
+	      v1: (entry.y + entry.height) / page.height,
+	    }
+	  }
 
-  /**
-   * Загружает rasterized text run в atlas page через texSubImage2D.
+	  /**
+	   * Возвращает world-space quad для atlas entry с сохранением implicit box clip.
+	   */
+	  private resolveTextAtlasQuad(
+	    text: NovaText,
+	    item: TextAtlasDrawableItem,
+	  ): (NovaRect & { u0: number; v0: number; u1: number; v1: number }) | null {
+	    return this.clipTextureRect(
+	      text.x + item.offsetX,
+	      text.y + item.offsetY,
+	      item.width,
+	      item.height,
+	      item.u0,
+	      item.v0,
+	      item.u1,
+	      item.v1,
+	      { x: text.x, y: text.y, width: text.width, height: text.height },
+	    )
+	  }
+
+	  /**
+	   * Записывает diagnostics по размеру rasterized run-atlas entry.
+	   */
+	  private recordTextRasterDiagnostics(raster: RasterizedText, stats: RenderStats): void {
+	    const pixels = Math.max(1, raster.width * raster.height)
+	    stats.textRasterPixels += pixels
+	    stats.textRasterBytes += pixels * 4
+	    stats.textRasterBoxPixels += raster.boxPixels
+	    stats.textRasterSavedPixels += Math.max(0, raster.boxPixels - pixels)
+	  }
+
+	  /**
+	   * Загружает rasterized text run в atlas page через texSubImage2D.
    */
   private uploadTextAtlasEntry(key: string, baseKey: string, raster: RasterizedText, stats: RenderStats): TextAtlasEntry {
     const page = this.resolveTextAtlasPage(raster.width, raster.height, stats)
@@ -2608,11 +2758,15 @@ export class NovaWebGLFrameRenderer {
       key,
       baseKey,
       page,
-      x,
-      y,
-      width: raster.width,
-      height: raster.height,
-      scale: raster.scale,
+	      x,
+	      y,
+	      width: raster.width,
+	      height: raster.height,
+	      offsetX: raster.offsetX,
+	      offsetY: raster.offsetY,
+	      drawWidth: raster.drawWidth,
+	      drawHeight: raster.drawHeight,
+	      scale: raster.scale,
       bytes,
       lastUsed: this._time,
     }
@@ -3007,14 +3161,7 @@ export class NovaWebGLFrameRenderer {
   private drawTextBatch(batch: NovaTextBatch, transform: mat3, stats: RenderStats): void {
     if (batch.active === false || batch.count <= 0) return
 
-    const mode = this.resolveTextRenderMode({
-      text: '',
-      x: 0,
-      y: 0,
-      width: 0,
-      height: 0,
-      meta: batch.meta,
-    })
+    const mode = this.resolveTextBatchRenderMode(batch)
     if (mode === 'glyph-atlas' || mode === 'msdf') {
       this.drawGlyphTextBatch(batch, mode, transform, stats)
       return
@@ -3024,6 +3171,53 @@ export class NovaWebGLFrameRenderer {
     if (!cache) return
 
     this.drawTextureRectStreamBatchCache(cache, transform, stats)
+  }
+
+  /**
+   * Выбирает text path для retained batch без полного прохода по всем строкам.
+   */
+  private resolveTextBatchRenderMode(batch: NovaTextBatch): NovaTextRenderMode {
+    const meta = batch.meta
+    const override = this.normalizeTextRenderMode(meta?.textMode)
+    if (override && override !== 'auto') return override
+
+    const role = this.normalizeTextRenderRole(meta?.textRole)
+    const roleMode = role ? this.resolveTextRoleMode(role) : undefined
+    if (roleMode && roleMode !== 'auto') return roleMode
+
+    const globalMode = this.normalizeTextRenderMode(this._textConfig.mode) ?? 'run-atlas'
+    if (globalMode !== 'auto') return globalMode
+
+    return this.resolveAutoTextBatchRenderMode(batch, role)
+  }
+
+  /**
+   * Выбирает auto text path для retained batch.
+   */
+  private resolveAutoTextBatchRenderMode(batch: NovaTextBatch, role: NovaTextRenderRole | undefined): NovaTextRenderMode {
+    if (role === 'timescale') return 'glyph-atlas'
+    if (role === 'debug') return 'run-atlas'
+    if (this.shouldUseRunAtlasForAutoTextBatch(batch)) return 'run-atlas'
+    if (role === 'task-label') return 'glyph-atlas'
+    return 'run-atlas'
+  }
+
+  /**
+   * Проверяет bounded sample batch-а для auto-routing.
+   */
+  private shouldUseRunAtlasForAutoTextBatch(batch: NovaTextBatch): boolean {
+    if (batch.ellipsis) return true
+    if (batch.clipX || batch.clipY || batch.clipWidth || batch.clipHeight) return true
+
+    const sampleCount = Math.min(batch.count, AUTO_TEXT_BATCH_SAMPLE_LIMIT)
+    const step = Math.max(1, Math.floor(batch.count / Math.max(1, sampleCount)))
+    for (let sample = 0, index = 0; sample < sampleCount && index < batch.count; sample += 1, index += step) {
+      const value = batch.text[index] ?? ''
+      if (this.hasComplexGlyphText(value)) return true
+      if (this.countTextCodePoints(value) > AUTO_GLYPH_LABEL_MAX_CODE_POINTS) return true
+    }
+
+    return false
   }
 
   /**
@@ -3067,24 +3261,26 @@ export class NovaWebGLFrameRenderer {
 	      if (this.drawGlyphText(text, style, mode, transform, stats)) continue
 
 	      stats.textModeFallbacks += 1
-	      const scale = this.resolveTextRasterScale(transform, stats, this.resolveTextRasterScope(text.meta, 'run-atlas'))
-	      const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats, 'run-atlas')
-      if (!atlasItem) continue
+		      const scale = this.resolveTextRasterScale(transform, stats, this.resolveTextRasterScope(text.meta, 'run-atlas'))
+		      const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats, 'run-atlas')
+	      if (!atlasItem) continue
+	      const quad = this.resolveTextAtlasQuad(text, atlasItem)
+	      if (!quad) continue
 
-      this.queueClippedTextureQuad(
-        atlasItem.texture,
-        text.x,
-        text.y,
-        text.width,
-        text.height,
-        transform,
-        style.opacity,
-        stats,
-        atlasItem.u0,
-        atlasItem.v0,
-        atlasItem.u1,
-        atlasItem.v1,
-        text.clip === true ? { x: text.x, y: text.y, width: text.width, height: text.height } : text.clip,
+	      this.queueClippedTextureQuad(
+	        atlasItem.texture,
+	        quad.x,
+	        quad.y,
+	        quad.width,
+	        quad.height,
+	        transform,
+	        style.opacity,
+	        stats,
+	        quad.u0,
+	        quad.v0,
+	        quad.u1,
+	        quad.v1,
+	        text.clip === true ? { x: text.x, y: text.y, width: text.width, height: text.height } : text.clip,
 	      )
 	    }
 	  }
@@ -3618,11 +3814,11 @@ export class NovaWebGLFrameRenderer {
       return cache
     }
 
-    if (cache.revision !== revision) {
-      for (const group of cache.groups) {
-        this.writeTextureRectGeometry(batch, group.indices, group.geometryData)
-        group.geometryUpload.lastData = undefined
-      }
+	    if (cache.revision !== revision) {
+	      for (const group of cache.groups) {
+	        this.writeTextureRectGeometry(batch, group.indices, group.geometryData, group.rectSource)
+	        group.geometryUpload.lastData = undefined
+	      }
       cache.revision = revision
     }
 
@@ -3682,11 +3878,11 @@ export class NovaWebGLFrameRenderer {
 	      return cache
     }
 
-    if (cache.revision !== revision) {
-      for (const group of cache.groups) {
-        this.writeTextureRectGeometry(batch, group.indices, group.geometryData)
-        this.writeTextureRectStaticData(batch, group.indices, group.staticData, group.uvSource, 0, 1, 1)
-        group.geometryUpload.lastData = undefined
+	    if (cache.revision !== revision) {
+	      for (const group of cache.groups) {
+	        this.writeTextureRectGeometry(batch, group.indices, group.geometryData, group.rectSource)
+	        this.writeTextureRectStaticData(batch, group.indices, group.staticData, group.uvSource, 0, 1, 1, group.rectSource)
+	        group.geometryUpload.lastData = undefined
         group.staticUpload.lastData = undefined
       }
       cache.revision = revision
@@ -3705,11 +3901,12 @@ export class NovaWebGLFrameRenderer {
 	    rasterScale: number,
 	    visibilityKey: string | undefined,
 	  ): TextureRectStreamBatchCache | null {
-    const groups = new Map<string, {
-      texture: TextureEntry
-      indices: Array<number>
-      uv: Array<[number, number, number, number]>
-    }>()
+	    const groups = new Map<string, {
+	      texture: TextureEntry
+	      indices: Array<number>
+	      uv: Array<[number, number, number, number]>
+	      rects: Array<NovaRect>
+	    }>()
     const styleBase = this.createTextBatchStyleBase(batch)
     let incomplete = false
 
@@ -3717,19 +3914,27 @@ export class NovaWebGLFrameRenderer {
 	      const text = this.createTextFromBatch(batch, index, styleBase)
 	      if (!this.shouldDrawTextRun(transform, text.x, text.y, text.width, text.height, 'run-atlas', stats, text.meta)) continue
 	      const style = compileNovaTextStyle(text)
-	      const atlasItem = this.resolveTextAtlasItem(text, style, rasterScale, stats, 'run-atlas')
-	      if (!atlasItem) {
-	        incomplete = true
-	        continue
-      }
+		      const atlasItem = this.resolveTextAtlasItem(text, style, rasterScale, stats, 'run-atlas')
+		      if (!atlasItem) {
+		        incomplete = true
+		        continue
+	      }
+	      const quad = this.resolveTextAtlasQuad(text, atlasItem)
+	      if (!quad) continue
 
-      let group = groups.get(atlasItem.texture.key)
-      if (!group) {
-        group = { texture: atlasItem.texture, indices: [], uv: [] }
-        groups.set(atlasItem.texture.key, group)
-      }
-      group.indices.push(index)
-      group.uv.push([atlasItem.u0, atlasItem.v0, atlasItem.u1, atlasItem.v1])
+	      let group = groups.get(atlasItem.texture.key)
+	      if (!group) {
+	        group = { texture: atlasItem.texture, indices: [], uv: [], rects: [] }
+	        groups.set(atlasItem.texture.key, group)
+	      }
+	      group.indices.push(index)
+	      group.uv.push([quad.u0, quad.v0, quad.u1, quad.v1])
+	      group.rects.push({
+	        x: quad.x,
+	        y: quad.y,
+	        width: quad.width,
+	        height: quad.height,
+	      })
     }
 
     const revision = batch.revision ?? 0
@@ -3741,9 +3946,9 @@ export class NovaWebGLFrameRenderer {
 	      rasterScale,
 	      visibilityKey,
 	      incomplete,
-      groups: [...groups.values()].map(group => this.createTextureRectStreamGroupCache(batch, group.texture, group.indices, group.uv)),
-    }
-  }
+	      groups: [...groups.values()].map(group => this.createTextureRectStreamGroupCache(batch, group.texture, group.indices, group.uv, 0, 1, 1, group.rects)),
+	    }
+	  }
 
   /**
    * Возвращает style object для text batch.
@@ -3763,15 +3968,16 @@ export class NovaWebGLFrameRenderer {
   /**
    * Создает retained texture rect group cache.
    */
-  private createTextureRectStreamGroupCache(
-    batch: NovaIconBatch | NovaTextBatch,
-    texture: TextureEntry,
-    sourceIndices: Array<number>,
-    u0OrUv: number | Array<[number, number, number, number]>,
-    v0 = 0,
-    u1 = 1,
-    v1 = 1,
-  ): TextureRectStreamGroupCache {
+	  private createTextureRectStreamGroupCache(
+	    batch: NovaIconBatch | NovaTextBatch,
+	    texture: TextureEntry,
+	    sourceIndices: Array<number>,
+	    u0OrUv: number | Array<[number, number, number, number]>,
+	    v0 = 0,
+	    u1 = 1,
+	    v1 = 1,
+	    rectSource?: Array<NovaRect>,
+	  ): TextureRectStreamGroupCache {
     const indices = new Uint32Array(sourceIndices)
     const geometryBuffer = this.createBuffer()
     const staticBuffer = this.createBuffer()
@@ -3782,30 +3988,36 @@ export class NovaWebGLFrameRenderer {
       staticData: new Float32Array(indices.length * TEXTURE_RECT_BATCH_STATIC_STRIDE),
       count: indices.length,
       revision: batch.revision ?? 0,
-      staticRevision: batch.staticRevision ?? 0,
-      uvSource: u0OrUv,
-      geometryUpload: createWebGLUploadState(),
+	      staticRevision: batch.staticRevision ?? 0,
+	      uvSource: u0OrUv,
+	      rectSource,
+	      geometryUpload: createWebGLUploadState(),
       staticUpload: createWebGLUploadState(),
       geometryBuffer,
       staticBuffer,
       vao: this.createTextureRectBatchVao(geometryBuffer, staticBuffer),
     }
 
-    this.writeTextureRectGeometry(batch, indices, cache.geometryData)
-    this.writeTextureRectStaticData(batch, indices, cache.staticData, u0OrUv, v0, u1, v1)
-    this._ownedTextureRectStreamGroupCaches.add(cache)
-    return cache
-  }
+	    this.writeTextureRectGeometry(batch, indices, cache.geometryData, rectSource)
+	    this.writeTextureRectStaticData(batch, indices, cache.staticData, u0OrUv, v0, u1, v1, rectSource)
+	    this._ownedTextureRectStreamGroupCaches.add(cache)
+	    return cache
+	  }
 
   /**
    * Записывает dynamic geometry для retained texture rect group.
    */
-  private writeTextureRectGeometry(batch: NovaIconBatch | NovaTextBatch, indices: Uint32Array, target: Float32Array): void {
-    for (let itemIndex = 0; itemIndex < indices.length; itemIndex += 1) {
-      const sourceIndex = indices[itemIndex] ?? 0
-      const offset = itemIndex * TEXTURE_RECT_BATCH_GEOMETRY_STRIDE
-      const rect = this.resolveClippedTextureRect(batch, sourceIndex)
-      target[offset] = rect?.x ?? 0
+	  private writeTextureRectGeometry(
+	    batch: NovaIconBatch | NovaTextBatch,
+	    indices: Uint32Array,
+	    target: Float32Array,
+	    rectSource?: Array<NovaRect>,
+	  ): void {
+	    for (let itemIndex = 0; itemIndex < indices.length; itemIndex += 1) {
+	      const sourceIndex = indices[itemIndex] ?? 0
+	      const offset = itemIndex * TEXTURE_RECT_BATCH_GEOMETRY_STRIDE
+	      const rect = this.resolveClippedTextureRect(batch, sourceIndex, undefined, rectSource?.[itemIndex])
+	      target[offset] = rect?.x ?? 0
       target[offset + 1] = rect?.y ?? 0
       target[offset + 2] = rect?.width ?? 0
       target[offset + 3] = rect?.height ?? 0
@@ -3815,19 +4027,20 @@ export class NovaWebGLFrameRenderer {
   /**
    * Возвращает clipped rect для retained texture stream item.
    */
-  private resolveClippedTextureRect(
-    batch: NovaIconBatch | NovaTextBatch,
-    sourceIndex: number,
-    uv: [number, number, number, number] = [0, 0, 1, 1],
-  ): (NovaRect & { u0: number; v0: number; u1: number; v1: number }) | null {
-    const x = batch.x[sourceIndex] ?? 0
-    const y = batch.y[sourceIndex] ?? 0
-    const width = batch.width[sourceIndex] ?? 0
-    const height = batch.height[sourceIndex] ?? 0
-    const clip = this.resolveTextBatchClip(batch, sourceIndex)
+	  private resolveClippedTextureRect(
+	    batch: NovaIconBatch | NovaTextBatch,
+	    sourceIndex: number,
+	    uv: [number, number, number, number] = [0, 0, 1, 1],
+	    sourceRect?: NovaRect,
+	  ): (NovaRect & { u0: number; v0: number; u1: number; v1: number }) | null {
+	    const x = sourceRect?.x ?? batch.x[sourceIndex] ?? 0
+	    const y = sourceRect?.y ?? batch.y[sourceIndex] ?? 0
+	    const width = sourceRect?.width ?? batch.width[sourceIndex] ?? 0
+	    const height = sourceRect?.height ?? batch.height[sourceIndex] ?? 0
+		    const clip = this.resolveTextBatchClip(batch, sourceIndex)
 
-    return this.clipTextureRect(x, y, width, height, uv[0], uv[1], uv[2], uv[3], clip)
-  }
+	    return this.clipTextureRect(x, y, width, height, uv[0], uv[1], uv[2], uv[3], clip)
+	  }
 
   /**
    * Возвращает per-item clip для text batch, если batch его содержит.
@@ -3861,11 +4074,12 @@ export class NovaWebGLFrameRenderer {
     batch: NovaIconBatch | NovaTextBatch,
     indices: Uint32Array,
     target: Float32Array,
-    u0OrUv: number | Array<[number, number, number, number]>,
-    v0: number,
-    u1: number,
-    v1: number,
-  ): void {
+	    u0OrUv: number | Array<[number, number, number, number]>,
+	    v0: number,
+	    u1: number,
+	    v1: number,
+	    rectSource?: Array<NovaRect>,
+	  ): void {
     const opacity = batch.opacity ?? 1
 
     for (let itemIndex = 0; itemIndex < indices.length; itemIndex += 1) {
@@ -3876,9 +4090,9 @@ export class NovaWebGLFrameRenderer {
         uv?.[1] ?? v0,
         uv?.[2] ?? u1,
         uv?.[3] ?? v1,
-      ]
-      const sourceIndex = indices[itemIndex] ?? 0
-      const rect = this.resolveClippedTextureRect(batch, sourceIndex, baseUv)
+	      ]
+	      const sourceIndex = indices[itemIndex] ?? 0
+	      const rect = this.resolveClippedTextureRect(batch, sourceIndex, baseUv, rectSource?.[itemIndex])
       target[offset] = rect?.u0 ?? baseUv[0]
       target[offset + 1] = rect?.v0 ?? baseUv[1]
       target[offset + 2] = rect?.u1 ?? baseUv[2]
@@ -5336,44 +5550,132 @@ export class NovaWebGLFrameRenderer {
     return entry
   }
 
-  /**
-   * Выполняет внутреннюю операцию rasterize text.
-   */
-  private rasterizeText(text: NovaText, style: NovaCompiledTextStyle, scale: number): RasterizedText {
-    const canvas = this._textRasterCanvas
-    const width = Math.max(1, Math.ceil(text.width * scale))
-    const height = Math.max(1, Math.ceil(text.height * scale))
-    canvas.width = width
-    canvas.height = height
+	  /**
+	   * Выполняет внутреннюю операцию rasterize text.
+	   */
+	  private rasterizeText(text: NovaText, style: NovaCompiledTextStyle, scale: number): RasterizedText {
+	    const canvas = this._textRasterCanvas
+	    const boxWidth = Math.max(1, Math.ceil(text.width * scale))
+	    const boxHeight = Math.max(1, Math.ceil(text.height * scale))
+	    const measureContext = this.measureContext(style.font)
+	    const layout = this.resolveTextRasterLayout(text, style, measureContext)
+	    const bounds = this.resolveTextRasterBounds(text, style, layout, scale, boxWidth, boxHeight)
+	    canvas.width = bounds.width
+	    canvas.height = bounds.height
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return { canvas, width, height, scale }
+	    const ctx = canvas.getContext('2d')
+	    if (!ctx) return { canvas, scale, ...bounds }
 
-    ctx.setTransform(scale, 0, 0, scale, 0, 0)
-    ctx.clearRect(0, 0, text.width, text.height)
-    ctx.font = style.font
-    ctx.textBaseline = 'alphabetic'
-    ctx.fillStyle = colorToCss(style.color)
+	    ctx.setTransform(scale, 0, 0, scale, 0, 0)
+	    ctx.clearRect(0, 0, bounds.drawWidth, bounds.drawHeight)
+	    ctx.font = style.font
+	    ctx.textBaseline = 'alphabetic'
+	    ctx.fillStyle = colorToCss(style.color)
+	    ctx.fillText(layout.renderedText, layout.x - bounds.offsetX, layout.y - bounds.offsetY)
+	    return { canvas, scale, ...bounds }
+	  }
 
-    const contentWidth = Math.max(0, text.width - style.padding.left - style.padding.right)
-    const contentHeight = Math.max(0, text.height - style.padding.top - style.padding.bottom)
-    const renderedText = style.ellipsis ? ellipsizeText(ctx, text.text, contentWidth) : text.text
-    const metrics = ctx.measureText(renderedText)
-    const sourceLineWidth = style.ellipsis ? ctx.measureText(text.text).width : metrics.width
-    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, sourceLineWidth, contentWidth)
-    let x = text.x * 0
-    if (horizontalAlign === 'left') x = style.padding.left
+	  /**
+	   * Вычисляет layout текста до выбора raster rectangle.
+	   */
+	  private resolveTextRasterLayout(
+	    text: NovaText,
+	    style: NovaCompiledTextStyle,
+	    ctx: CanvasRenderingContext2D,
+	  ): TextRasterLayout {
+	    ctx.font = style.font
+	    const contentWidth = Math.max(0, text.width - style.padding.left - style.padding.right)
+	    const contentHeight = Math.max(0, text.height - style.padding.top - style.padding.bottom)
+	    const renderedText = style.ellipsis ? ellipsizeText(ctx, text.text, contentWidth) : text.text
+	    const metrics = ctx.measureText(renderedText)
+	    const sourceLineWidth = style.ellipsis ? ctx.measureText(text.text).width : metrics.width
+	    const horizontalAlign = this.resolveTextOverflowHorizontalAlign(style, sourceLineWidth, contentWidth)
+	    let x = text.x * 0
+	    if (horizontalAlign === 'left') x = style.padding.left
     if (horizontalAlign === 'center') x = style.padding.left + (contentWidth - metrics.width) / 2
     if (horizontalAlign === 'right') x = text.width - style.padding.right - metrics.width
 
     const textHeight = style.lineHeight
-    let y = style.padding.top + style.fontSize
-    if (style.verticalAlign === 'middle') y = style.padding.top + (contentHeight - textHeight) / 2 + style.fontSize
-    if (style.verticalAlign === 'bottom') y = text.height - style.padding.bottom - textHeight + style.fontSize
+	    let y = style.padding.top + style.fontSize
+	    if (style.verticalAlign === 'middle') y = style.padding.top + (contentHeight - textHeight) / 2 + style.fontSize
+	    if (style.verticalAlign === 'bottom') y = text.height - style.padding.bottom - textHeight + style.fontSize
 
-    ctx.fillText(renderedText, x, y)
-    return { canvas, width, height, scale }
-  }
+	    return {
+	      renderedText,
+	      x,
+	      y,
+	      metrics,
+	      sourceLineWidth,
+	      contentWidth,
+	      contentHeight,
+	    }
+	  }
+
+	  /**
+	   * Выбирает full-box или tight raster rectangle для run-atlas entry.
+	   */
+	  private resolveTextRasterBounds(
+	    text: NovaText,
+	    style: NovaCompiledTextStyle,
+	    layout: TextRasterLayout,
+	    scale: number,
+	    boxWidth: number,
+	    boxHeight: number,
+	  ): Omit<RasterizedText, 'canvas' | 'scale'> {
+	    const boxPixels = Math.max(1, boxWidth * boxHeight)
+	    if (!this._textConfig.tightRunAtlas) {
+	      return {
+	        width: boxWidth,
+	        height: boxHeight,
+	        offsetX: 0,
+	        offsetY: 0,
+	        drawWidth: text.width,
+	        drawHeight: text.height,
+	        boxPixels,
+	      }
+	    }
+
+	    const inkLeft = Number.isFinite(layout.metrics.actualBoundingBoxLeft)
+	      ? layout.x - Math.max(0, layout.metrics.actualBoundingBoxLeft)
+	      : layout.x
+	    const inkRight = Number.isFinite(layout.metrics.actualBoundingBoxRight)
+	      ? layout.x + Math.max(layout.metrics.width, layout.metrics.actualBoundingBoxRight)
+	      : layout.x + layout.metrics.width
+	    const fallbackDescent = Math.max(0, style.lineHeight - style.fontSize)
+	    const inkTop = Number.isFinite(layout.metrics.actualBoundingBoxAscent)
+	      ? layout.y - Math.max(0, layout.metrics.actualBoundingBoxAscent)
+	      : layout.y - style.fontSize
+	    const inkBottom = Number.isFinite(layout.metrics.actualBoundingBoxDescent)
+	      ? layout.y + Math.max(0, layout.metrics.actualBoundingBoxDescent)
+	      : layout.y + fallbackDescent
+
+	    const leftPx = Math.max(0, Math.floor(inkLeft * scale - TEXT_RUN_ATLAS_PADDING_PX))
+	    const topPx = Math.max(0, Math.floor(inkTop * scale - TEXT_RUN_ATLAS_PADDING_PX))
+	    const rightPx = Math.min(boxWidth, Math.ceil(inkRight * scale + TEXT_RUN_ATLAS_PADDING_PX))
+	    const bottomPx = Math.min(boxHeight, Math.ceil(inkBottom * scale + TEXT_RUN_ATLAS_PADDING_PX))
+
+	    if (rightPx <= leftPx || bottomPx <= topPx) {
+	      return {
+	        width: 1,
+	        height: 1,
+	        offsetX: 0,
+	        offsetY: 0,
+	        drawWidth: 0,
+	        drawHeight: 0,
+	        boxPixels,
+	      }
+	    }
+
+	    return {
+	      width: rightPx - leftPx,
+	      height: bottomPx - topPx,
+	      offsetX: leftPx / scale,
+	      offsetY: topPx / scale,
+	      drawWidth: (rightPx - leftPx) / scale,
+	      drawHeight: (bottomPx - topPx) / scale,
+	      boxPixels,
+	    }
+	  }
 
   /**
    * Создает text key.
@@ -5402,11 +5704,12 @@ export class NovaWebGLFrameRenderer {
       style.padding.top,
       style.padding.bottom,
       style.horizontalAlign,
-      style.overflowAlign,
-      style.verticalAlign,
-      style.ellipsis,
-    ].join(':')
-  }
+	      style.overflowAlign,
+	      style.verticalAlign,
+	      style.ellipsis,
+	      this._textConfig.tightRunAtlas ? 'tight' : 'box',
+	    ].join(':')
+	  }
 
   /**
    * Вычисляет source key.

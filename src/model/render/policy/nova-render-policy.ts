@@ -36,7 +36,7 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
 	    mode: 'auto',
 	    modes: Object.freeze({
 	      timeScale: 'glyph-atlas',
-	      taskLabels: 'glyph-atlas',
+	      taskLabels: 'auto',
 	      uiLabels: 'run-atlas',
 	    }),
 	    interaction: Object.freeze({
@@ -73,6 +73,7 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
     bucketThrottleMs: 80,
     visibleOnlyRaster: true,
     fallbackPreviousScale: true,
+    tightRunAtlas: true,
     minRasterScale: 1,
     maxRasterScale: 8,
   }),
