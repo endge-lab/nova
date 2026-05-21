@@ -9,11 +9,15 @@ import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaBounds, NovaLifecycleState, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
+import type {
+  NovaSemanticRegisterOptions,
+  NovaSemanticRegion,
+} from '@/domain/types/semantic.types'
 import type { NovaEvents } from '@/model/runtime/interaction/NovaEvents'
 import type { NovaDebug } from '@/model/runtime/debug/NovaDebug'
 import type { NovaNodeSoundMap, NovaSoundCueInput, NovaSoundHandle } from '@/domain/types/sound.types'
 import { boundsEquals, boundsIntersects, copyBounds, createEmptyBounds, transformBounds } from '@/domain/utils/bounds'
-import { resolveSchemaBounds } from '@/domain/utils/schemaBounds'
+import { resolveSchemaBounds, resolveSchemaItemBounds } from '@/domain/utils/schemaBounds'
 import type {
   NovaRenderDirtyFlags,
   NovaRenderPolicy,
@@ -112,6 +116,8 @@ export class NovaNode<
   private _providerVersion = 0
   private _nodeContext?: unknown
   private _hasNodeContext = false
+  private _semanticId?: string
+  private _schemaSemanticSourceKey?: string
   private readonly _disposers: Array<() => void> = []
   private readonly _soundHandles = new Set<NovaSoundHandle>()
   private readonly _soundUserHandlers = new Map<keyof NovaNodeEventHandlers, unknown>()
@@ -714,6 +720,42 @@ export class NovaNode<
    */
   setRenderBoundsFromSchema(schema: NovaSchema<any>): this {
     return this.setLocalRenderBounds(resolveSchemaBounds(schema, this.nova.schema))
+  }
+
+  /**
+   * Регистрирует semantic region, связанную с этой нодой.
+   */
+  setSemantic(options: NovaSemanticRegisterOptions): NovaSemanticRegion {
+    const id = options.id ?? this.renderNodeId
+    this._semanticId = id
+    return this.nova.semantics.register({
+      ...options,
+      id,
+      bounds: options.bounds ?? this.getWorldBounds(),
+      source: {
+        ...options.source,
+        type: options.source?.type ?? 'node',
+        nodeId: this.renderNodeId,
+      },
+    })
+  }
+
+  /**
+   * Снимает semantic region этой ноды.
+   */
+  clearSemantic(): void {
+    if (!this._semanticId) return
+    this.nova.semantics.remove(this._semanticId)
+    this._semanticId = undefined
+  }
+
+  /**
+   * Возвращает semantic region этой ноды.
+   */
+  getSemantic(): NovaSemanticRegion | undefined {
+    return this._semanticId
+      ? this.nova.semantics.query({ id: this._semanticId, includeHidden: true, includeDisabled: true })[0]
+      : undefined
   }
 
   /**
@@ -1327,6 +1369,8 @@ export class NovaNode<
   override dispose(): void {
     if (this._lifecycleState === 'destroyed') return
 
+    this.clearSemantic()
+    this.clearSchemaSemantics()
     this.nova.motion.cancel(this)
     this.stopSoundHandles()
     this.unmountSubtree()
@@ -1350,6 +1394,7 @@ export class NovaNode<
    */
   protected renderSchema(schema: NovaSchema<any>): void {
     this.setRenderBoundsFromSchema(schema)
+    this.syncSchemaSemantics(schema)
     this.renderer.schema(schema)
   }
 
@@ -1358,7 +1403,43 @@ export class NovaNode<
    */
   protected renderSchemaOrdered(schema: NovaSchema<any>): void {
     this.setRenderBoundsFromSchema(schema)
+    this.syncSchemaSemantics(schema)
     this.renderer.schema(schema)
+  }
+
+  private syncSchemaSemantics(schema: NovaSchema<any>): void {
+    const sourceKey = `schema:${this.renderNodeId}`
+    const regions: Array<NovaSemanticRegisterOptions> = []
+
+    schema.forEach((item, index) => {
+      if (item.active === false || item.semantic === false || !item.semantic) return
+      const localBounds = item.semantic.bounds ?? resolveSchemaItemBounds(item, this.nova.schema)
+      if (!localBounds) return
+      regions.push({
+        ...item.semantic,
+        id: item.semantic.id ?? `${sourceKey}:${index}`,
+        bounds: transformBounds(localBounds, this.matrix),
+        source: {
+          ...item.semantic.source,
+          type: item.semantic.source?.type ?? 'schema',
+          nodeId: this.renderNodeId,
+        },
+      })
+    })
+
+    if (regions.length === 0) {
+      this.clearSchemaSemantics()
+      return
+    }
+
+    this._schemaSemanticSourceKey = sourceKey
+    this.nova.semantics.syncSource(sourceKey, regions)
+  }
+
+  private clearSchemaSemantics(): void {
+    if (!this._schemaSemanticSourceKey) return
+    this.nova.semantics.clearSource(this._schemaSemanticSourceKey)
+    this._schemaSemanticSourceKey = undefined
   }
 
   /**

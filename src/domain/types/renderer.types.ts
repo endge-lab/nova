@@ -1,6 +1,7 @@
 import type { mat3 } from 'gl-matrix'
 import type { DataRect } from '@endge/utils'
 import type { NovaAssetDrawableInput, NovaAssetRef } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaSemanticSchemaItem } from '@/domain/types/semantic.types'
 
 /**
  * Описывает набор значений RendererType.
@@ -40,6 +41,7 @@ export interface NovaUIBase {
   active?: boolean
   clip?: DataRect | true
   meta?: NovaSchemaItemMeta
+  semantic?: false | NovaSemanticSchemaItem
 }
 
 /**

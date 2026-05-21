@@ -25,7 +25,7 @@ export function resolveSchemaBounds(schema: NovaSchema<any>, registry?: NovaSche
 /**
  * Вычисляет schema item bounds.
  */
-function resolveSchemaItemBounds(item: NovaSchema<any>[number], registry?: NovaSchemaRegistry): NovaBounds | null {
+export function resolveSchemaItemBounds(item: NovaSchema<any>[number], registry?: NovaSchemaRegistry): NovaBounds | null {
   switch (item.type) {
     case 'rect':
     case 'border':

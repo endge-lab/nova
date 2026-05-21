@@ -32,6 +32,7 @@ import { NovaSoundEngine } from '@/model/sound/NovaSoundEngine'
 import { NovaThemeService } from '@/model/theme/NovaThemeService'
 import { NovaSyncScope } from '@/model/runtime/sync/NovaSyncScope'
 import type { NovaRendererConfig, NovaRendererConfigInput } from '@/domain/types/rendering/index'
+import type { NovaExportImageOptions, NovaExportImageResult } from '@/domain/types/export.types'
 import { resolveNovaRendererConfig } from '@/model/render/policy/nova-render-policy'
 import { NovaPhase } from '@/domain/constants/nova-phase'
 import { createNovaRaphRuntime } from '@/model/runtime/app/createNovaRaphRuntime'
@@ -39,6 +40,7 @@ import type { NovaRenderBackend } from '@/model/render/backends/nova-render-back
 import { createNovaRenderBackend } from '@/model/render/backends/nova-render-backend-factory'
 import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
 import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import { NovaSemanticService } from '@/model/semantic/NovaSemanticService'
 
 /**
  * Описывает backend diagnostics switch.
@@ -89,6 +91,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly metrics: NovaMetrics
     readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this.invalidate())
     readonly sync: NovaSyncScope
+    readonly semantics = new NovaSemanticService()
 
     //
     // Текущее состояние debug-конфигурации.
@@ -396,6 +399,18 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     configureRenderer(config: NovaRendererConfigInput): NovaRendererConfig {
         this._rendererConfig = resolveNovaRendererConfig(config, this._rendererConfig)
         return this._rendererConfig
+    }
+
+    /**
+     * Экспортирует текущий canvas frame и опционально добавляет semantic snapshot.
+     */
+    async exportImage(options: NovaExportImageOptions = {}): Promise<NovaExportImageResult> {
+        const result = await this.canvas.exportImage(options)
+        if (!options.includeSemanticSnapshot) return result
+        return {
+            ...result,
+            semanticSnapshot: this.semantics.snapshot(),
+        }
     }
 
     /**
@@ -735,6 +750,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         this.bus.offAll()
         this.events.reset()
         this.components.clear()
+        this.semantics.reset()
 
         this.stopLoop()
         this._debugger.stopDisplayMonitor()
