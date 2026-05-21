@@ -1496,6 +1496,7 @@ export class NovaWebGLFrameRenderer {
     if (items.length === 0) return true
 
     let batch: TextureBatchCache | null = this._textureBatchCache.get(items) ?? null
+    if (batch?.texture && !this.isRetainedTextureAlive(batch.texture)) batch = null
     let dirtyRanges: Array<FloatDirtyRange> | null = null
     let changedItems = 0
     const rasterScale = this.resolveTextureRasterScale(items, transform, stats)
@@ -1611,6 +1612,7 @@ export class NovaWebGLFrameRenderer {
     dirtyIndices?: ReadonlyArray<number>,
   ): TextureBatchUpdate | null {
     if (items.length !== batch.signatures.length || items.length !== batch.itemOffsets.length) return null
+    if (batch.texture && !this.isRetainedTextureAlive(batch.texture)) return null
 
     const dirtyRanges: Array<FloatDirtyRange> = []
     let changedItems = 0
@@ -3352,6 +3354,13 @@ export class NovaWebGLFrameRenderer {
 	    return cache.groups.some(group => !this.isTextureAlive(group.texture, 'run-atlas'))
 	  }
 
+  /**
+   * Проверяет, что retained source texture cache не ссылается на evicted textures.
+   */
+  private isSourceTextureStreamBatchCacheStale(cache: TextureRectStreamBatchCache): boolean {
+    return cache.groups.some(group => !this.isSourceTextureAlive(group.texture))
+  }
+
 	  /**
 	   * Создает glyph quads для одного text run.
 	   */
@@ -3555,6 +3564,33 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Проверяет, что retained texture batch ссылается на живую source или atlas texture.
+   */
+  private isRetainedTextureAlive(texture: TextureEntry): boolean {
+    if (this._textures.get(texture.key) === texture) return this.isTextureBindable(texture)
+    return (
+      this._textAtlasPages.some(page => page.texture === texture)
+      || this._glyphAtlasPages.some(page => page.texture === texture)
+    ) && this.isTextureBindable(texture)
+  }
+
+  /**
+   * Проверяет, что source texture все еще принадлежит renderer texture cache.
+   */
+  private isSourceTextureAlive(texture: TextureEntry): boolean {
+    return this._textures.get(texture.key) === texture && this.isTextureBindable(texture)
+  }
+
+  /**
+   * Проверяет, что texture не была удалена в WebGL context.
+   */
+  private isTextureBindable(texture: TextureEntry): boolean {
+    const isTexture = (this._gl as WebGL2RenderingContext & { isTexture?: (texture: WebGLTexture) => boolean }).isTexture
+    if (typeof isTexture === 'function') return isTexture.call(this._gl, texture.texture)
+    return true
+  }
+
+  /**
    * Закрепляет atlas page на текущий кадр, если retained cache рисует ее без нового resolve.
    */
   private pinAtlasPageForTexture(texture: TextureEntry): void {
@@ -3575,7 +3611,7 @@ export class NovaWebGLFrameRenderer {
     const revision = batch.revision ?? 0
     const staticRevision = batch.staticRevision ?? 0
 
-    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision) {
+    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision || this.isSourceTextureStreamBatchCacheStale(cache)) {
       cache = this.createIconStreamBatchCache(batch, stats)
       if (!cache) return null
       this._iconStreamBatchCache.set(batch, cache)
@@ -4665,6 +4701,7 @@ export class NovaWebGLFrameRenderer {
     v1 = 1,
   ): void {
     if (width <= 0 || height <= 0 || opacity <= 0) return
+    if (!this.isTextureBindable(texture)) return
     this.flushRounded(stats)
     this.flushSolid(stats)
     this.prepareTextureTransform(transform, stats)
@@ -4922,7 +4959,7 @@ export class NovaWebGLFrameRenderer {
   private flushTexture(stats: RenderStats): void {
     if (this._textureData.length === 0 && !this._textureCachedData) return
     const texture = this._textureCachedBatch?.texture ?? this._textureBatch
-    if (!texture) {
+    if (!texture || !this.isTextureBindable(texture)) {
       this._textureData = []
       this._textureBatch = null
       this._textureCachedData = null
@@ -5295,7 +5332,7 @@ export class NovaWebGLFrameRenderer {
     stats.atlasUploads += 1
 	    const entry: TextureEntry = { key, texture, width, height, bytes, lastUsed: this._time, generation: this._atlasGeneration }
     this._textures.set(key, entry)
-    this.evictTexturesIfNeeded()
+    this.evictTexturesIfNeeded(entry)
     return entry
   }
 
@@ -5489,7 +5526,7 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет внутреннюю операцию evict textures if needed.
    */
-  private evictTexturesIfNeeded(): void {
+  private evictTexturesIfNeeded(protectedTexture?: TextureEntry): void {
     const maxBytes = 128 * 1024 * 1024
     let bytes = 0
     for (const texture of this._textures.values()) bytes += texture.bytes
@@ -5498,10 +5535,20 @@ export class NovaWebGLFrameRenderer {
     const entries = [...this._textures.values()].sort((a, b) => a.lastUsed - b.lastUsed)
     for (const entry of entries) {
       if (bytes <= maxBytes * FULL_UPLOAD_DIRTY_RATIO) break
+      if (this.isTextureProtectedFromEviction(entry, protectedTexture)) continue
       this._gl.deleteTexture(entry.texture)
       this._textures.delete(entry.key)
       bytes -= entry.bytes
     }
+  }
+
+  /**
+   * Проверяет, что texture сейчас используется активной draw batch и не может быть evicted.
+   */
+  private isTextureProtectedFromEviction(entry: TextureEntry, protectedTexture?: TextureEntry): boolean {
+    return entry === protectedTexture
+      || entry === this._textureBatch
+      || entry === this._textureCachedBatch?.texture
   }
 }
 
