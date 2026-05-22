@@ -3781,9 +3781,7 @@ export class NovaWebGLFrameRenderer {
    * Проверяет, что texture не была удалена в WebGL context.
    */
   private isTextureBindable(texture: TextureEntry): boolean {
-    const isTexture = (this._gl as WebGL2RenderingContext & { isTexture?: (texture: WebGLTexture) => boolean }).isTexture
-    if (typeof isTexture === 'function') return isTexture.call(this._gl, texture.texture)
-    return true
+    return !!texture.texture
   }
 
   /**
