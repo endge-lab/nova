@@ -809,7 +809,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
                     }
 
                     const handled = this.handleEvent(domEvent, e)
-                    if (domEvent === 'wheel' && handled) {
+                    if (domEvent === 'wheel' && handled && (e as unknown as Record<string, unknown>).__novaAllowDefault !== true) {
                         e.preventDefault()
                     }
                 }
