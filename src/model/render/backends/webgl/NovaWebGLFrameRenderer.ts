@@ -1934,8 +1934,35 @@ export class NovaWebGLFrameRenderer {
         this.queuePlainRect(rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity, transform, stats, rect)
         return
       }
+      if (background !== undefined && typeof background === 'string' && style.borderRadius <= 0 && style.borderWidth > 0) {
+        this.queuePlainRect(rect.x, rect.y, rect.width, rect.height, style.fill, style.opacity, transform, stats, rect)
+        this.queueRectBorderLines(rect.x, rect.y, rect.width, rect.height, style.borderWidth, style.borderColor, style.opacity, transform, stats, style.dashPattern)
+        return
+      }
       this.queueRoundedRect(rect.x, rect.y, rect.width, rect.height, style.borderRadius, style.fill, style.opacity, style.borderColor, style.borderWidth, transform, stats, rect)
     }
+  }
+
+  /**
+   * Рисует border прямоугольника без rounded shader, когда radius равен нулю.
+   */
+  private queueRectBorderLines(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    borderWidth: number,
+    color: NovaParsedColor,
+    opacity: number,
+    transform: mat3,
+    stats: RenderStats,
+    dashPattern?: Array<number>,
+  ): void {
+    if (borderWidth <= 0 || color.a <= 0) return
+    this.queueSolidLine(x, y, x + width, y, borderWidth, color, opacity, transform, stats, dashPattern)
+    this.queueSolidLine(x, y + height, x + width, y + height, borderWidth, color, opacity, transform, stats, dashPattern)
+    this.queueSolidLine(x, y, x, y + height, borderWidth, color, opacity, transform, stats, dashPattern)
+    this.queueSolidLine(x + width, y, x + width, y + height, borderWidth, color, opacity, transform, stats, dashPattern)
   }
 
   /**
