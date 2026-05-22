@@ -29,7 +29,8 @@ import { NovaWebGLFrameRenderer } from '@/model/render/backends/webgl/NovaWebGLF
 import { NovaWebGLTargetManager } from '@/model/render/backends/webgl/NovaWebGLTargetManager'
 import { NovaWebGLTextRenderer } from '@/model/render/backends/webgl/NovaWebGLTextRenderer'
 import { NovaWebGLTextureManager } from '@/model/render/backends/webgl/NovaWebGLTextureManager'
-import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaAssetRegistry } from '@/model/runtime/assets/NovaAssetRegistry'
+import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 
 /**
  * Реализует WebGL renderer для compiled Nova render frames.

@@ -22,7 +22,8 @@ import { RendererType } from '@/domain/types/renderer.types'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
-import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaAssetRegistry } from '@/model/runtime/assets/NovaAssetRegistry'
+import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import { resolveNovaIconRenderOpacity, resolveNovaIconRenderRect } from '@/model/render/utils/nova-icon-rendering'
 
 /**
