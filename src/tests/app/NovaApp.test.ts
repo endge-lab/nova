@@ -327,6 +327,22 @@ describe('NovaApp', () => {
     vi.unstubAllGlobals()
   })
 
+  it('continues idle text raster only for unresolved visible text', () => {
+    const app = createApp()
+    const surface = app.createSurface('text-raster')
+    const shouldContinue = (metrics: Record<string, number>) => {
+      surface.setRenderMetrics(metrics as never)
+      return (app as unknown as {
+        shouldContinueTextRaster(surface: NovaSurface<TestEvents>): boolean
+      }).shouldContinueTextRaster(surface)
+    }
+
+    expect(shouldContinue({ textBudgetExhausted: 1, textRasterDeferred: 0 })).toBe(false)
+    expect(shouldContinue({ textRasterDeferred: 1 })).toBe(true)
+
+    app.destroy()
+  })
+
   it('reads browser diagnostics with unavailable fallbacks', async () => {
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
     vi.stubGlobal('cancelAnimationFrame', vi.fn())

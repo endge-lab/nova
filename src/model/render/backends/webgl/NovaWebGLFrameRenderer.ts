@@ -2539,7 +2539,6 @@ export class NovaWebGLFrameRenderer {
 	    }
 
 	    if (this.shouldFreezeTextBuckets()) {
-	      stats.textRasterDeferred += 1
 	      stats.effectiveTextRasterScale = state.scale
 	      return state.scale
 	    }
@@ -2547,7 +2546,6 @@ export class NovaWebGLFrameRenderer {
 	    const throttleMs = Math.max(0, this._textConfig.bucketThrottleMs)
 	    const now = performance.now()
 	    if (this._textConfig.fallbackPreviousScale && throttleMs > 0 && now - state.lastSwitchAt < throttleMs) {
-	      stats.textRasterDeferred += 1
 	      stats.effectiveTextRasterScale = state.scale
 	      return state.scale
 	    }

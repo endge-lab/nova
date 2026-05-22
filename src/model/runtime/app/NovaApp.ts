@@ -296,7 +296,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         const metrics = surface.renderMetrics
         if (!metrics) return false
 
-        return (metrics.textRasterDeferred ?? 0) > 0 || (metrics.textBudgetExhausted ?? 0) > 0
+        return (metrics.textRasterDeferred ?? 0) > 0
     }
 
     /**
