@@ -601,6 +601,12 @@ export interface NovaRenderMetrics {
   visibleRectItems?: number
   culledRectItems?: number
   atlasUploads?: number
+  renderTargetRepaints?: number
+  renderTargetDraws?: number
+  renderTargetAllocations?: number
+  renderTargetBytes?: number
+  renderTargetUploadMs?: number
+  renderTargetTextureCount?: number
   uniformOnlyFrames?: number
   commands: number
   items: number

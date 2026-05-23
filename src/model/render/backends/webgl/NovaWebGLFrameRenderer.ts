@@ -166,6 +166,11 @@ interface RenderStats {
   culledRectItems: number
   atlasUploads: number
   atlasMemoryMB: number
+  renderTargetRepaints: number
+  renderTargetDraws: number
+  renderTargetAllocations: number
+  renderTargetBytes: number
+  renderTargetUploadMs: number
 }
 
 /**
@@ -814,6 +819,11 @@ export class NovaWebGLFrameRenderer {
       culledRectItems: 0,
       atlasUploads: 0,
       atlasMemoryMB: this.textureMemoryMB(),
+      renderTargetRepaints: 0,
+      renderTargetDraws: 0,
+      renderTargetAllocations: 0,
+      renderTargetBytes: 0,
+      renderTargetUploadMs: 0,
     }
     const itemMap = frame.items.length > 0 ? new Map(frame.items.map(item => [item.id, item])) : null
     const identity = mat3.create()
@@ -985,6 +995,12 @@ export class NovaWebGLFrameRenderer {
       visibleRectItems: stats.visibleRectItems,
       culledRectItems: stats.culledRectItems,
       atlasUploads: stats.atlasUploads,
+      renderTargetRepaints: stats.renderTargetRepaints,
+      renderTargetDraws: stats.renderTargetDraws,
+      renderTargetAllocations: stats.renderTargetAllocations,
+      renderTargetBytes: stats.renderTargetBytes,
+      renderTargetUploadMs: stats.renderTargetUploadMs,
+      renderTargetTextureCount: this._renderTargets.size,
       uniformOnlyFrames: stats.uploadBytes === 0 && stats.textRasterMs === 0 ? 1 : 0,
       atlasMemoryMB: this.textureMemoryMB(),
       cachedTextureMemoryMB: this.textureMemoryMB(),
@@ -5017,6 +5033,7 @@ export class NovaWebGLFrameRenderer {
    */
   private beginRenderTarget(target: NovaRenderTarget, stats: RenderStats): void {
     const entry = this.ensureRenderTargetTexture(target, stats)
+    stats.renderTargetRepaints += 1
     this.flush(stats)
     this._renderTargetStack.push(this._activeRenderTarget)
     this._activeRenderTarget = entry
@@ -5063,6 +5080,7 @@ export class NovaWebGLFrameRenderer {
   ): void {
     const entry = this._renderTargets.get(targetId)
     if (!entry) return
+    stats.renderTargetDraws += 1
     entry.texture.lastUsed = this._time
     this.queueTextureQuad(entry.texture, x, y, width, height, transform, 1, stats, 0, 1, 1, 0)
   }
@@ -5107,7 +5125,11 @@ export class NovaWebGLFrameRenderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._activeRenderTarget?.framebuffer ?? null)
-    stats.uploadMs += performance.now() - uploadStartedAt
+    const uploadElapsed = performance.now() - uploadStartedAt
+    stats.uploadMs += uploadElapsed
+    stats.renderTargetUploadMs += uploadElapsed
+    stats.renderTargetAllocations += 1
+    stats.renderTargetBytes += pixelWidth * pixelHeight * 4
 
     const textureEntry: TextureEntry = {
       key: `render-target:${target.id}`,
