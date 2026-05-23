@@ -1896,7 +1896,7 @@ export class NovaWebGLFrameRenderer {
       rect.styles?.opacity ?? 1,
       border?.color ?? '',
       border?.width ?? 0,
-      border?.radius ?? 0,
+      rect.styles?.radius ?? border?.radius ?? 0,
       border?.dashPattern?.join(',') ?? '',
       this.createShaderMetaSignature(rect),
     ].join('|')

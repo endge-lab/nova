@@ -608,7 +608,7 @@ describe('NovaApp', () => {
     const app = createApp()
     const surface = app.createSurface('logical')
 
-    expect(app.mainRendererType).toBe(RendererType.Web2D)
+    expect(app.mainRendererType).toBe(RendererType.WebGL)
     expect(() => surface.renderer).toThrow(/only during render/)
 
     app.destroy()

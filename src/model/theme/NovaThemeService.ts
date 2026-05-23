@@ -90,6 +90,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
             this.app.raph.kernel.set(NOVA_THEME_ACTIVE_PATH, id)
             this.app.raph.kernel.set(NOVA_THEME_VERSION_PATH, this.version() + 1)
         })
+        this.app.invalidate()
     }
 
     /**
@@ -192,6 +193,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
      */
     private bumpVersion(): void {
         this.app.raph.kernel.set(NOVA_THEME_VERSION_PATH, this.version() + 1)
+        this.app.invalidate()
     }
 }
 

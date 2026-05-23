@@ -80,6 +80,7 @@ export interface NovaRect extends NovaUIBase {
   height: number
   styles?: {
     background?: NovaStyleBackground
+    radius?: number
     border?: {
       color?: string
       width?: number

@@ -70,7 +70,8 @@ export function createNovaRenderItemBatchKey(item: NovaSchemaItem<any>): string 
   if (item.type === 'rect') {
     const background = typeof item.styles?.background === 'string' ? item.styles.background : 'texture'
     const border = item.styles?.border ? 'border' : 'none'
-    return `rect:${background}:${border}:${item.styles?.opacity ?? 1}`
+    const radius = item.styles?.radius ?? item.styles?.border?.radius ?? 0
+    return `rect:${background}:${border}:${radius}:${item.styles?.opacity ?? 1}`
   }
 
   if (item.type === 'border') return `border:${item.styles?.color ?? 'none'}:${item.styles?.width ?? 0}`
@@ -86,7 +87,7 @@ export function createNovaRenderItemBatchKey(item: NovaSchemaItem<any>): string 
 export function resolveNovaRenderStreamKind(item: NovaSchemaItem<any>): NovaRenderStreamKind {
   if (item.type === 'rect') {
     const border = item.styles?.border
-    const radius = border?.radius ?? 0
+    const radius = item.styles?.radius ?? border?.radius ?? 0
     const borderWidth = border?.width ?? 0
     const background = item.styles?.background
 

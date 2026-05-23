@@ -119,7 +119,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         // Сначала нормализуем базовую конфигурацию, потому что от нее зависит canvas и renderer.
         this._inputOptions = this.resolveInputOptions(options.input)
         this._webglAttributes = options.renderer?.webgl
-        this._mainRendererType = options.renderer?.main ?? RendererType.Web2D
+        this._mainRendererType = options.renderer?.main ?? RendererType.WebGL
         this._rendererConfig = resolveNovaRendererConfig(options.renderer?.config)
         this._canvas = NovaCanvas.attach(options.target, {
             ...options.size,

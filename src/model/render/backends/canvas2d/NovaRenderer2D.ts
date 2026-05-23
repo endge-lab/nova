@@ -396,7 +396,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           : source
             ? ctx.createPattern(source, 'repeat')!
             : 'transparent'
-      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.border?.radius || 0)
+      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.radius ?? p.styles.border?.radius ?? 0)
       ctx.fill()
     }
 
@@ -409,7 +409,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         ctx.setLineDash(p.styles.border.dashPattern)
       }
 
-      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.border.radius || 0)
+      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.radius ?? p.styles.border.radius ?? 0)
       ctx.stroke()
       ctx.setLineDash([])
     }
@@ -789,7 +789,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     ctx.save()
 
     const color = p.styles?.color || '#000'
-    const w = p.styles?.width || 1
+    const w = p.styles?.width ?? 1
+    if (w <= 0) {
+      ctx.restore()
+      return
+    }
+    const radius = p.styles?.radius || 0
 
     // Определим какие стороны рисовать
     const sides = new Set<string>()
@@ -809,6 +814,17 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       for (const s of p.position) {
         sides.add(s)
       }
+    }
+
+    if ((!p.position || p.position === 'all') && radius > 0) {
+      ctx.strokeStyle = color
+      ctx.lineWidth = w
+      if (p.styles?.dashPattern) ctx.setLineDash(p.styles.dashPattern)
+      this._drawRoundedRect(p.x, p.y, p.width, p.height, radius)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.restore()
+      return
     }
 
     if (p.styles?.dashPattern) {

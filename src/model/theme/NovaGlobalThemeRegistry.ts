@@ -63,6 +63,7 @@ export class NovaGlobalThemeRegistry {
             if (entry.inheritActive && this.activeTheme) {
                 this.registerThemes(entry.app)
                 this.tryUseTheme(entry.app, this.activeTheme)
+                entry.app.invalidate()
             }
         }
         this.notify()
@@ -78,6 +79,7 @@ export class NovaGlobalThemeRegistry {
             if (entry.inheritActive) {
                 this.registerThemes(entry.app)
                 this.tryUseTheme(entry.app, id)
+                entry.app.invalidate()
             }
         }
         this.notify()
