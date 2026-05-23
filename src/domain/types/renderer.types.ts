@@ -516,6 +516,10 @@ export interface NovaRenderer {
 
   setTransform(matrix: mat3): void
 
+  beginRenderTarget?(id: string, width: number, height: number, options?: { dpr?: number; kind?: 'texture' | 'cache' | 'effect' }): void
+  endRenderTarget?(): void
+  drawRenderTarget?(id: string, x: number, y: number, width: number, height: number): void
+
   text(params: NovaText): void
   rect(params: NovaRect): void
   border(params: NovaBorder): void

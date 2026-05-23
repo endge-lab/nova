@@ -439,6 +439,9 @@ export type NovaRenderCommandType =
   | 'setTransform'
   | 'clip'
   | 'clearClip'
+  | 'beginRenderTarget'
+  | 'endRenderTarget'
+  | 'drawRenderTarget'
   | 'drawItem'
   | 'drawSchemaBatch'
   | 'drawParticles'
@@ -472,6 +475,12 @@ export interface NovaRenderCommand {
   textBatch?: NovaTextBatch
   transform?: mat3
   clip?: NovaRenderClip
+  target?: NovaRenderTarget
+  targetId?: NovaRenderTargetId
+  x?: number
+  y?: number
+  width?: number
+  height?: number
   cursor?: string
 }
 

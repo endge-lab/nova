@@ -4,6 +4,7 @@ import type {
   NovaRenderFrame,
   NovaRenderItem,
   NovaRenderMetrics,
+  NovaRenderTarget,
   NovaRendererTextConfig,
 } from '@/domain/types/rendering/index'
 import type {
@@ -233,6 +234,15 @@ interface TextureEntry {
   bytes: number
   lastUsed: number
   generation: number
+}
+
+interface RenderTargetTextureEntry {
+  targetId: string
+  texture: TextureEntry
+  framebuffer: WebGLFramebuffer
+  width: number
+  height: number
+  dpr: number
 }
 
 /**
@@ -662,6 +672,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _textRasterCanvas = document.createElement('canvas')
   private readonly _textures = new Map<string, TextureEntry>()
+  private readonly _renderTargets = new Map<string, RenderTargetTextureEntry>()
   private readonly _textAtlasPages: Array<TextAtlasPage> = []
   private readonly _textAtlasEntries = new Map<string, TextAtlasEntry>()
   private readonly _textFallbackKeys = new Map<string, string>()
@@ -706,6 +717,10 @@ export class NovaWebGLFrameRenderer {
   private _time = 0
   private _viewportWidth = 1
   private _viewportHeight = 1
+  private _renderResolutionWidth = 1
+  private _renderResolutionHeight = 1
+  private _activeRenderTarget: RenderTargetTextureEntry | null = null
+  private readonly _renderTargetStack: Array<RenderTargetTextureEntry | null> = []
   private _atlasGeneration = 0
   private _textAtlasEvictionCount = 0
   private _glyphAtlasEvictionCount = 0
@@ -808,6 +823,10 @@ export class NovaWebGLFrameRenderer {
     this._viewportWidth = Math.max(1, frame.viewport.width)
     this._viewportHeight = Math.max(1, frame.viewport.height)
     this._device.resize()
+    this._renderResolutionWidth = this._device.canvas.width
+    this._renderResolutionHeight = this._device.canvas.height
+    this._activeRenderTarget = null
+    this._renderTargetStack.length = 0
     this.setScissor(null, currentTransform)
 
     const pushClip = (clip: NovaRenderClip | null | undefined, transform: mat3): void => {
@@ -851,6 +870,18 @@ export class NovaWebGLFrameRenderer {
           break
         case 'clearClip':
           popClip(currentTransform)
+          break
+        case 'beginRenderTarget':
+          if (command.target) this.beginRenderTarget(command.target, stats)
+          break
+        case 'endRenderTarget':
+          this.endRenderTarget(stats)
+          this.setScissor(clipStack[clipStack.length - 1] ?? null, currentTransform)
+          break
+        case 'drawRenderTarget':
+          if (command.targetId && command.x !== undefined && command.y !== undefined && command.width !== undefined && command.height !== undefined) {
+            this.drawRenderTarget(command.targetId, command.x, command.y, command.width, command.height, currentTransform, stats)
+          }
           break
         case 'drawItem': {
           const item = command.itemId ? itemMap?.get(command.itemId) : undefined
@@ -982,6 +1013,8 @@ export class NovaWebGLFrameRenderer {
    * Освобождает runtime resources и снимает связанные ссылки.
    */
   destroy(): void {
+    for (const target of this._renderTargets.values()) this._gl.deleteFramebuffer(target.framebuffer)
+    this._renderTargets.clear()
     for (const texture of this._textures.values()) this._gl.deleteTexture(texture.texture)
     this._textures.clear()
     this.destroyTextAtlas()
@@ -3140,7 +3173,7 @@ export class NovaWebGLFrameRenderer {
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._rectBatchProgram.use()
-    gl.uniform2f(this._rectBatchProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniform2f(this._rectBatchProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._rectBatchProgram.uniformLocation('u_transform'), false, transform)
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.count)
 
@@ -3545,7 +3578,7 @@ export class NovaWebGLFrameRenderer {
 	      group.staticDirtyRanges = null
 
 	      this._textureRectBatchProgram.use()
-	      gl.uniform2f(this._textureRectBatchProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+	      gl.uniform2f(this._textureRectBatchProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
 	      gl.uniformMatrix3fv(this._textureRectBatchProgram.uniformLocation('u_transform'), false, transform)
 	      gl.activeTexture(gl.TEXTURE0)
 	      gl.bindTexture(gl.TEXTURE_2D, group.texture.texture)
@@ -4143,7 +4176,7 @@ export class NovaWebGLFrameRenderer {
       stats.uploadMs += performance.now() - uploadStartedAt
 
       this._textureRectBatchProgram.use()
-      gl.uniform2f(this._textureRectBatchProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+      gl.uniform2f(this._textureRectBatchProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
       gl.uniformMatrix3fv(this._textureRectBatchProgram.uniformLocation('u_transform'), false, transform)
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, group.texture.texture)
@@ -4263,7 +4296,7 @@ export class NovaWebGLFrameRenderer {
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._stripeBatchProgram.use()
-    gl.uniform2f(this._stripeBatchProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniform2f(this._stripeBatchProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._stripeBatchProgram.uniformLocation('u_transform'), false, transform)
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, cache.count)
 
@@ -4353,7 +4386,7 @@ export class NovaWebGLFrameRenderer {
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._particleCircleProgram.use()
-    gl.uniform2f(this._particleCircleProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniform2f(this._particleCircleProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._particleCircleProgram.uniformLocation('u_transform'), false, transform)
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.count)
 
@@ -4413,7 +4446,7 @@ export class NovaWebGLFrameRenderer {
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._particleSpriteProgram.use()
-    gl.uniform2f(this._particleSpriteProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniform2f(this._particleSpriteProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._particleSpriteProgram.uniformLocation('u_transform'), false, transform)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture.texture)
@@ -4978,6 +5011,119 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Переключает WebGL output в offscreen framebuffer.
+   */
+  private beginRenderTarget(target: NovaRenderTarget, stats: RenderStats): void {
+    const entry = this.ensureRenderTargetTexture(target, stats)
+    this.flush(stats)
+    this._renderTargetStack.push(this._activeRenderTarget)
+    this._activeRenderTarget = entry
+    const gl = this._gl
+    gl.bindFramebuffer(gl.FRAMEBUFFER, entry.framebuffer)
+    gl.viewport(0, 0, entry.width, entry.height)
+    this._renderResolutionWidth = entry.width
+    this._renderResolutionHeight = entry.height
+    this.setScissor(null, mat3.create())
+    gl.clearColor(0, 0, 0, 0)
+    gl.clear(gl.COLOR_BUFFER_BIT)
+  }
+
+  /**
+   * Возвращает WebGL output в предыдущий framebuffer.
+   */
+  private endRenderTarget(stats: RenderStats): void {
+    this.flush(stats)
+    this._activeRenderTarget = this._renderTargetStack.pop() ?? null
+    const gl = this._gl
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._activeRenderTarget?.framebuffer ?? null)
+    if (this._activeRenderTarget) {
+      gl.viewport(0, 0, this._activeRenderTarget.width, this._activeRenderTarget.height)
+      this._renderResolutionWidth = this._activeRenderTarget.width
+      this._renderResolutionHeight = this._activeRenderTarget.height
+    } else {
+      this._device.resize()
+      this._renderResolutionWidth = this._device.canvas.width
+      this._renderResolutionHeight = this._device.canvas.height
+    }
+  }
+
+  /**
+   * Рисует offscreen framebuffer texture как обычный texture quad.
+   */
+  private drawRenderTarget(
+    targetId: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    transform: mat3,
+    stats: RenderStats,
+  ): void {
+    const entry = this._renderTargets.get(targetId)
+    if (!entry) return
+    entry.texture.lastUsed = this._time
+    this.queueTextureQuad(entry.texture, x, y, width, height, transform, 1, stats)
+  }
+
+  /**
+   * Создает или обновляет WebGL texture/framebuffer для render target.
+   */
+  private ensureRenderTargetTexture(target: NovaRenderTarget, stats: RenderStats): RenderTargetTextureEntry {
+    const dpr = target.dpr || 1
+    const width = Math.max(1, Math.ceil(target.width * dpr))
+    const height = Math.max(1, Math.ceil(target.height * dpr))
+    const current = this._renderTargets.get(target.id)
+    if (current && current.width === width && current.height === height && current.dpr === dpr) return current
+
+    if (current) {
+      this._gl.deleteFramebuffer(current.framebuffer)
+      this._gl.deleteTexture(current.texture.texture)
+      this._textures.delete(current.texture.key)
+    }
+
+    const gl = this._gl
+    const texture = gl.createTexture()
+    const framebuffer = gl.createFramebuffer()
+    if (!texture || !framebuffer) throw new Error('Failed to create Nova render target resources')
+
+    const uploadStartedAt = performance.now()
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._activeRenderTarget?.framebuffer ?? null)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    const textureEntry: TextureEntry = {
+      key: `render-target:${target.id}`,
+      texture,
+      width,
+      height,
+      bytes: width * height * 4,
+      lastUsed: this._time,
+      generation: this._atlasGeneration,
+    }
+    this._textures.set(textureEntry.key, textureEntry)
+    stats.uploadBytes += textureEntry.bytes
+    stats.atlasUploads += 1
+
+    const entry: RenderTargetTextureEntry = {
+      targetId: target.id,
+      texture: textureEntry,
+      framebuffer,
+      width,
+      height,
+      dpr,
+    }
+    this._renderTargets.set(target.id, entry)
+    return entry
+  }
+
+  /**
    * Обрезает destination rect и UV относительно clip rect.
    */
   private clipTextureRect(
@@ -5151,7 +5297,7 @@ export class NovaWebGLFrameRenderer {
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._roundedProgram.use()
-    gl.uniform2f(this._roundedProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniform2f(this._roundedProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._roundedProgram.uniformLocation('u_transform'), false, this._roundedTransform)
     gl.uniform1f(this._roundedProgram.uniformLocation('u_time'), this._time)
     gl.drawArrays(gl.TRIANGLES, 0, data.length / RECT_STRIDE)
@@ -5178,7 +5324,7 @@ export class NovaWebGLFrameRenderer {
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._solidProgram.use()
-    gl.uniform2f(this._solidProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniform2f(this._solidProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._solidProgram.uniformLocation('u_transform'), false, this._solidTransform)
     gl.uniform1f(this._solidProgram.uniformLocation('u_time'), this._time)
     gl.drawArrays(gl.TRIANGLES, 0, data.length / SOLID_STRIDE)
@@ -5216,7 +5362,7 @@ export class NovaWebGLFrameRenderer {
     stats.uploadMs += performance.now() - uploadStartedAt
 
     this._textureProgram.use()
-    gl.uniform2f(this._textureProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniform2f(this._textureProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._textureProgram.uniformLocation('u_transform'), false, this._textureTransform)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, texture.texture)

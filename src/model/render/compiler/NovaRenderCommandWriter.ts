@@ -5,6 +5,7 @@ import type {
   NovaRenderHandle,
   NovaRenderGroup,
   NovaRenderItem,
+  NovaRenderTargetKind,
 } from '@/domain/types/rendering/index'
 import type {
   NovaIconBatch,
@@ -120,6 +121,51 @@ export class NovaRenderCommandWriter {
   clearClip(): NovaRenderCommand {
     this._clipStack.pop()
     return this.command({ type: 'clearClip' })
+  }
+
+  /**
+   * Начинает запись команд в texture/cache render target.
+   */
+  beginRenderTarget(
+    id: string,
+    width: number,
+    height: number,
+    options: { dpr?: number; kind?: Extract<NovaRenderTargetKind, 'texture' | 'cache' | 'effect'> } = {},
+  ): NovaRenderCommand {
+    const target = this._frameBuilder.addTarget({
+      id,
+      kind: options.kind ?? 'cache',
+      width,
+      height,
+      dpr: options.dpr ?? 1,
+      ownerGroupId: this._group.id,
+    })
+    return this.command({
+      type: 'beginRenderTarget',
+      target,
+      targetId: id,
+    })
+  }
+
+  /**
+   * Завершает запись в render target и возвращает backend на screen.
+   */
+  endRenderTarget(): NovaRenderCommand {
+    return this.command({ type: 'endRenderTarget' })
+  }
+
+  /**
+   * Рисует ранее записанный render target как texture quad.
+   */
+  drawRenderTarget(id: string, x: number, y: number, width: number, height: number): NovaRenderCommand {
+    return this.command({
+      type: 'drawRenderTarget',
+      targetId: id,
+      x,
+      y,
+      width,
+      height,
+    })
   }
 
   /**

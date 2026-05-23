@@ -132,6 +132,28 @@ export class NovaRenderBuilder implements NovaRenderer {
   }
 
   /**
+   * Начинает запись в offscreen render target.
+   */
+  beginRenderTarget(id: string, width: number, height: number, options?: { dpr?: number; kind?: 'texture' | 'cache' | 'effect' }): void {
+    this._writer.beginRenderTarget(id, width, height, options)
+  }
+
+  /**
+   * Завершает запись в offscreen render target.
+   */
+  endRenderTarget(): void {
+    this._writer.endRenderTarget()
+  }
+
+  /**
+   * Рисует offscreen render target в текущий target.
+   */
+  drawRenderTarget(id: string, x: number, y: number, width: number, height: number): void {
+    if (width <= 0 || height <= 0) return
+    this._writer.drawRenderTarget(id, x, y, width, height)
+  }
+
+  /**
    * Выполняет внутреннюю операцию text.
    */
   text(params: NovaText): void {

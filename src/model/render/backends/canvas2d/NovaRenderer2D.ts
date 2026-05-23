@@ -54,6 +54,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _schemaRegistry: NovaSchemaRegistry
+  private readonly _renderTargets = new Map<string, HTMLCanvasElement>()
+  private readonly _targetStack: Array<CanvasRenderingContext2D | null> = []
+  private _activeTargetContext: CanvasRenderingContext2D | null = null
   private _clearTextBackground = false
 
   /**
@@ -72,6 +75,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    * Возвращает ctx.
    */
   get ctx(): CanvasRenderingContext2D {
+    if (this._activeTargetContext) return this._activeTargetContext
     return this.novaCanvas.getContext2D()
   }
 
@@ -81,8 +85,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   clear(): void {
     const ctx = this.ctx
     ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.clearRect(0, 0, this.novaCanvas.pixelWidth, this.novaCanvas.pixelHeight)
-    ctx.scale(this.novaCanvas.dpr, this.novaCanvas.dpr)
+    if (this._activeTargetContext) {
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+    } else {
+      ctx.clearRect(0, 0, this.novaCanvas.pixelWidth, this.novaCanvas.pixelHeight)
+      ctx.scale(this.novaCanvas.dpr, this.novaCanvas.dpr)
+    }
   }
 
   /**
@@ -90,6 +98,47 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    */
   clearRoot(): void {
     this.clear()
+  }
+
+  /**
+   * Начинает рисовать в offscreen canvas target.
+   */
+  beginRenderTarget(id: string, width: number, height: number, options: { dpr?: number } = {}): void {
+    const dpr = options.dpr ?? this.novaCanvas.dpr ?? 1
+    const pixelWidth = Math.max(1, Math.ceil(width * dpr))
+    const pixelHeight = Math.max(1, Math.ceil(height * dpr))
+    let canvas = this._renderTargets.get(id)
+    if (!canvas) {
+      canvas = document.createElement('canvas')
+      this._renderTargets.set(id, canvas)
+    }
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      canvas.width = pixelWidth
+      canvas.height = pixelHeight
+    }
+    const context = canvas.getContext('2d')
+    if (!context) return
+    this._targetStack.push(this._activeTargetContext)
+    this._activeTargetContext = context
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, pixelWidth, pixelHeight)
+    context.scale(dpr, dpr)
+  }
+
+  /**
+   * Завершает offscreen target.
+   */
+  endRenderTarget(): void {
+    this._activeTargetContext = this._targetStack.pop() ?? null
+  }
+
+  /**
+   * Рисует offscreen target обратно в активный canvas.
+   */
+  drawRenderTarget(id: string, x: number, y: number, width: number, height: number): void {
+    const canvas = this._renderTargets.get(id)
+    if (!canvas || width <= 0 || height <= 0) return
+    this.ctx.drawImage(canvas, x, y, width, height)
   }
 
   /**
@@ -132,6 +181,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           break
         case 'clearClip':
           this.clearClip()
+          break
+        case 'beginRenderTarget':
+        case 'endRenderTarget':
+        case 'drawRenderTarget':
+          // Canvas2D backend intentionally replays commands between target markers
+          // directly to root canvas. Offscreen target acceleration is WebGL-only.
           break
         case 'drawItem': {
           const item = command.itemId ? itemsById.get(command.itemId) : undefined
