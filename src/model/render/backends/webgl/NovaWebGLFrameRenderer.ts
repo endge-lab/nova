@@ -5062,7 +5062,7 @@ export class NovaWebGLFrameRenderer {
     const entry = this._renderTargets.get(targetId)
     if (!entry) return
     entry.texture.lastUsed = this._time
-    this.queueTextureQuad(entry.texture, x, y, width, height, transform, 1, stats)
+    this.queueTextureQuad(entry.texture, x, y, width, height, transform, 1, stats, 0, 1, 1, 0)
   }
 
   /**
