@@ -20,6 +20,12 @@ import {
 } from '@/model/runtime/refs/nova-ref'
 import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
 import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import {
+  NovaGlobalThemes,
+  type NovaGlobalThemeAsset,
+  type NovaThemeSelectorTarget,
+} from '@/model/theme/NovaGlobalThemeRegistry'
+import type { NovaThemeId, NovaThemeTokens } from '@/domain/types/theme.types'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
 
@@ -63,7 +69,47 @@ export class Nova {
   static createApp<E extends EventList = Record<string, any>>(options: NovaAppCreateOptions<E>): NovaApp<E> {
     const app = new NovaApp(options)
     this.applySchemaPlugins(app.schema)
+    app.setGlobalThemeDispose(NovaGlobalThemes.attach(app, {
+      inheritActive: options.globalTheme?.inherit ?? !options.theme,
+    }))
     return app
+  }
+
+  /**
+   * Регистрирует NovaCSS asset глобально для новых и уже созданных NovaApp.
+   */
+  static import(asset: NovaGlobalThemeAsset): void {
+    NovaGlobalThemes.import(asset)
+  }
+
+  /**
+   * Возвращает или меняет активную глобальную тему Nova.
+   */
+  static theme(): NovaThemeId | null
+  static theme(id: NovaThemeId): NovaThemeId
+  static theme(id?: NovaThemeId): NovaThemeId | null {
+    return id === undefined ? NovaGlobalThemes.theme() : NovaGlobalThemes.theme(id)
+  }
+
+  /**
+   * Подписывается на глобальные изменения импортированных themes.
+   */
+  static onThemeChange(listener: () => void): () => void {
+    return NovaGlobalThemes.subscribe(listener)
+  }
+
+  /**
+   * Резолвит глобальные theme tokens для selector target.
+   */
+  static resolveThemeTokens(target: NovaThemeSelectorTarget): NovaThemeTokens {
+    return NovaGlobalThemes.resolveTokens(target)
+  }
+
+  /**
+   * Сбрасывает global theme registry в unit-тестах.
+   */
+  static __resetGlobalThemesForTests(): void {
+    NovaGlobalThemes.resetForTests()
   }
 
   /**

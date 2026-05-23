@@ -164,6 +164,13 @@ export interface NovaRaphOptions {
 }
 
 /**
+ * Описывает наследование глобальной темы Nova.
+ */
+export interface NovaGlobalThemeCreateOptions {
+  inherit?: boolean
+}
+
+/**
  * Описывает контракт NovaAppCreateOptions.
  */
 export interface NovaAppCreateOptions<E extends EventList = Record<string, any>> {
@@ -174,6 +181,7 @@ export interface NovaAppCreateOptions<E extends EventList = Record<string, any>>
   scheduler?: NovaSchedulerOptions
   sound?: NovaSoundOptions
   theme?: NovaThemeCreateOptions
+  globalTheme?: NovaGlobalThemeCreateOptions
   debug?: NovaDebugOptions
   diagnostics?: NovaDiagnosticsOptions
   raph?: NovaRaphOptions
