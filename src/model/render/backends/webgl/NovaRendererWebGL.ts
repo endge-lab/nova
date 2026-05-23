@@ -16,6 +16,7 @@ import type {
   NovaStripeRectBatch,
   NovaText,
   NovaTextBatch,
+  NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
@@ -207,6 +208,13 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
    */
   rects(_batch: NovaRectBatch): void {
     this.throwImmediateApiError('rects')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию timeRangeSegments.
+   */
+  timeRangeSegments(_batch: NovaTimeRangeSegmentBatch): void {
+    this.throwImmediateApiError('timeRangeSegments')
   }
 
   /**

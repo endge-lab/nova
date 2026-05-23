@@ -17,6 +17,7 @@ import type {
   NovaText,
   NovaTextBatch,
   NovaTextChunk,
+  NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import { RendererType } from '@/domain/types/renderer.types'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
@@ -214,6 +215,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
             drawCalls += 1
           }
           break
+        case 'drawTimeRangeSegmentBatch':
+          if (command.timeRangeSegmentBatch) {
+            this.timeRangeSegments(command.timeRangeSegmentBatch)
+            drawCalls += 1
+          }
+          break
         case 'drawStripeBatch':
           if (command.stripeBatch) {
             this.stripes(command.stripeBatch)
@@ -389,7 +396,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           : source
             ? ctx.createPattern(source, 'repeat')!
             : 'transparent'
-      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.border?.radius || 0)
+      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.radius ?? p.styles.border?.radius ?? 0)
       ctx.fill()
     }
 
@@ -402,7 +409,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         ctx.setLineDash(p.styles.border.dashPattern)
       }
 
-      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.border.radius || 0)
+      this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.radius ?? p.styles.border.radius ?? 0)
       ctx.stroke()
       ctx.setLineDash([])
     }
@@ -670,6 +677,27 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   }
 
   /**
+   * Рисует retained time-range segment batch через Canvas2D fallback.
+   */
+  timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void {
+    const ctx = this.ctx
+    ctx.save()
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const colorOffset = index * 4
+      const alpha = batch.colors[colorOffset + 3] ?? 1
+      if (alpha <= 0) continue
+      const x = batch.viewportX + ((batch.startTime[index] ?? 0) - batch.timeStart) * batch.pxPerMs
+      const width = Math.max(1, ((batch.endTime[index] ?? 0) - (batch.startTime[index] ?? 0)) * batch.pxPerMs)
+      const y = (batch.y[index] ?? 0) + batch.yOffset
+      ctx.fillStyle = `rgba(${Math.round((batch.colors[colorOffset] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 1] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 2] ?? 0) * 255)}, ${alpha})`
+      ctx.fillRect(x, y, width, batch.height[index] ?? 0)
+    }
+
+    ctx.restore()
+  }
+
+  /**
    * Рисует retained stripe batch через Canvas2D fallback.
    */
   stripes(batch: NovaStripeRectBatch): void {
@@ -761,7 +789,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     ctx.save()
 
     const color = p.styles?.color || '#000'
-    const w = p.styles?.width || 1
+    const w = p.styles?.width ?? 1
+    if (w <= 0) {
+      ctx.restore()
+      return
+    }
+    const radius = p.styles?.radius || 0
 
     // Определим какие стороны рисовать
     const sides = new Set<string>()
@@ -781,6 +814,17 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       for (const s of p.position) {
         sides.add(s)
       }
+    }
+
+    if ((!p.position || p.position === 'all') && radius > 0) {
+      ctx.strokeStyle = color
+      ctx.lineWidth = w
+      if (p.styles?.dashPattern) ctx.setLineDash(p.styles.dashPattern)
+      this._drawRoundedRect(p.x, p.y, p.width, p.height, radius)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.restore()
+      return
     }
 
     if (p.styles?.dashPattern) {

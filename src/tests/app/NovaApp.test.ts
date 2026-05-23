@@ -265,6 +265,7 @@ class ThemeAwareNode extends NovaNode<TestEvents> {
 describe('NovaApp', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    Nova.__resetGlobalThemesForTests()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
@@ -607,7 +608,7 @@ describe('NovaApp', () => {
     const app = createApp()
     const surface = app.createSurface('logical')
 
-    expect(app.mainRendererType).toBe(RendererType.Web2D)
+    expect(app.mainRendererType).toBe(RendererType.WebGL)
     expect(() => surface.renderer).toThrow(/only during render/)
 
     app.destroy()
@@ -755,5 +756,162 @@ describe('NovaApp', () => {
 
     first.destroy()
     second.destroy()
+  })
+
+  it('registers imported NovaCSS themes globally and switches live apps', () => {
+    Nova.import({
+      themes: [
+        {
+          id: 'global-light',
+          tokens: {
+            '--nova-scene-bg': '#ffffff',
+          },
+        },
+        {
+          id: 'global-dark',
+          tokens: {
+            '--nova-scene-bg': '#080d18',
+          },
+        },
+      ],
+    })
+
+    const app = createApp()
+    Nova.theme('global-dark')
+
+    expect(Nova.theme()).toBe('global-dark')
+    expect(app.theme.active()).toBe('global-dark')
+    expect(app.theme.resolve('--nova-scene-bg')).toBe('#080d18')
+
+    app.destroy()
+  })
+
+  it('keeps local app theme active when global theme changes', () => {
+    Nova.import({
+      themes: [
+        {
+          id: 'global-dark',
+          tokens: {
+            '--nova-scene-bg': '#080d18',
+          },
+        },
+      ],
+    })
+
+    const app = Nova.createApp<TestEvents>({
+      target: createCanvas(),
+      size: { width: 300, height: 160, dpr: 1 },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+      theme: {
+        active: 'local',
+        themes: [
+          {
+            id: 'local',
+            tokens: {
+              '--nova-scene-bg': '#fafafa',
+            },
+          },
+        ],
+      },
+    })
+
+    Nova.theme('global-dark')
+
+    expect(app.theme.active()).toBe('local')
+    expect(app.theme.resolve('--nova-scene-bg')).toBe('#fafafa')
+
+    app.destroy()
+  })
+
+  it('does not inherit global theme when app disables global inheritance', () => {
+    Nova.import({
+      themes: [
+        {
+          id: 'global-dark',
+          tokens: {
+            '--nova-scene-bg': '#080d18',
+          },
+        },
+      ],
+    })
+
+    const app = Nova.createApp<TestEvents>({
+      target: createCanvas(),
+      size: { width: 300, height: 160, dpr: 1 },
+      scheduler: { type: RaphSchedulerType.Sync, loop: false },
+      globalTheme: {
+        inherit: false,
+      },
+    })
+
+    Nova.theme('global-dark')
+
+    expect(app.theme.active()).toBeNull()
+    expect(app.theme.resolve('--nova-scene-bg')).toBeUndefined()
+
+    app.destroy()
+  })
+
+  it('resolves global theme selector tokens for TimelineChart target identity', () => {
+    Nova.import({
+      themes: [
+        {
+          id: 'airport',
+          tokens: {
+            '--nova-timeline-timescale-bg': '#ffffff',
+          },
+          styleSheet: {
+            rules: [
+              {
+                selector: {
+                  specificity: 1,
+                  parts: [{ type: 'TimelineChart', classes: [] }],
+                },
+                declarations: {
+                  customProperties: {
+                    '--nova-timeline-timescale-bg': '#f8fafc',
+                  },
+                },
+                order: 0,
+              },
+              {
+                selector: {
+                  specificity: 101,
+                  parts: [{ type: 'TimelineChart', id: 'airport', classes: [] }],
+                },
+                declarations: {
+                  customProperties: {
+                    '--nova-timeline-timescale-bg': '#0f172a',
+                  },
+                },
+                order: 1,
+              },
+              {
+                selector: {
+                  specificity: 11,
+                  parts: [{ type: 'TimelineChart', classes: ['dense'] }],
+                },
+                declarations: {
+                  customProperties: {
+                    '--nova-timeline-timescale-major-text': '#f97316',
+                  },
+                },
+                order: 2,
+              },
+            ],
+          },
+        },
+      ],
+    })
+    Nova.theme('airport')
+
+    const tokens = Nova.resolveThemeTokens({
+      type: 'TimelineChart',
+      id: 'airport',
+      className: 'dense',
+    })
+
+    expect(tokens['--nova-timeline-timescale-bg']).toBe('#0f172a')
+    expect(tokens['--nova-timeline-timescale-major-text']).toBe('#f97316')
   })
 })

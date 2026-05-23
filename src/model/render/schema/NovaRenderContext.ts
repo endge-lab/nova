@@ -10,6 +10,7 @@ import type {
   NovaSchema,
   NovaSchemaItem,
   NovaText,
+  NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
@@ -89,6 +90,14 @@ export class NovaRenderContext {
   rects(batch: NovaRectBatch): void {
     if (batch.active === false || batch.count <= 0) return
     this._writer.drawRectBatch(batch)
+  }
+
+  /**
+   * Записывает retained time-range segment batch.
+   */
+  timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawTimeRangeSegmentBatch(batch)
   }
 
   /**

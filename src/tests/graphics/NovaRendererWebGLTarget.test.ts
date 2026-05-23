@@ -77,6 +77,13 @@ describe('Nova target WebGL2 renderer contracts', () => {
     expect(rect.borderWidth).toBe(2)
     expect(rect.borderRadius).toBe(4)
     expect(rect.opacity).toBe(0.75)
+    expect(compileNovaRectStyle({
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      styles: { background: '#ff0000', radius: 6 },
+    }).borderRadius).toBe(6)
     expect(text.font).toContain('700 13px monospace')
     expect(text.padding.left).toBe(4)
     expect(text.verticalAlign).toBe('middle')

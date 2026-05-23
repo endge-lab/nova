@@ -24,6 +24,7 @@ import type {
   NovaTextBatch,
   NovaTextRenderMode,
   NovaTextRenderRole,
+  NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import type { NovaAssetDrawableInput, NovaAssetRegistry, NovaStripeAssetDescriptor } from '@/model/runtime/assets/NovaAssetRegistry'
 import { isNovaAssetRef, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
@@ -55,6 +56,8 @@ const PARTICLE_CIRCLE_STATIC_STRIDE = 10
 const PARTICLE_SPRITE_STATIC_STRIDE = 2
 const RECT_BATCH_GEOMETRY_STRIDE = 4
 const RECT_BATCH_STATIC_STRIDE = 5
+const TIME_RANGE_SEGMENT_GEOMETRY_STRIDE = 4
+const TIME_RANGE_SEGMENT_STATIC_STRIDE = 8
 const TEXTURE_RECT_BATCH_GEOMETRY_STRIDE = 4
 const TEXTURE_RECT_BATCH_STATIC_STRIDE = 5
 const STRIPE_BATCH_GEOMETRY_STRIDE = 4
@@ -528,6 +531,22 @@ interface RectStreamBatchCache {
 }
 
 /**
+ * Описывает cache для GPU-resident time-range segment batch.
+ */
+interface TimeRangeSegmentBatchCache {
+  geometryData: Float32Array
+  staticData: Float32Array
+  count: number
+  revision?: number
+  staticRevision?: number
+  geometryUpload: WebGLUploadState
+  staticUpload: WebGLUploadState
+  geometryBuffer: WebGLBuffer
+  staticBuffer: WebGLBuffer
+  vao: WebGLVertexArrayObject
+}
+
+/**
  * Описывает группу instanced texture rects с одним WebGL texture.
  */
 interface TextureRectStreamGroupCache {
@@ -667,6 +686,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _particleCircleProgram: NovaWebGLProgram
   private readonly _particleSpriteProgram: NovaWebGLProgram
   private readonly _rectBatchProgram: NovaWebGLProgram
+  private readonly _timeRangeSegmentProgram: NovaWebGLProgram
   private readonly _textureRectBatchProgram: NovaWebGLProgram
   private readonly _stripeBatchProgram: NovaWebGLProgram
   private readonly _roundedBuffer: WebGLBuffer
@@ -693,6 +713,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _particleCircleBatchCache = new WeakMap<NovaParticleBatch, ParticleCircleBatchCache>()
   private readonly _particleSpriteBatchCache = new WeakMap<NovaParticleBatch, ParticleSpriteBatchCache>()
   private readonly _rectStreamBatchCache = new WeakMap<NovaRectBatch, RectStreamBatchCache>()
+  private readonly _timeRangeSegmentBatchCache = new WeakMap<NovaTimeRangeSegmentBatch, TimeRangeSegmentBatchCache>()
   private readonly _iconStreamBatchCache = new WeakMap<NovaIconBatch, TextureRectStreamBatchCache>()
   private readonly _textStreamBatchCache = new WeakMap<NovaTextBatch, TextureRectStreamBatchCache>()
   private readonly _stripeStreamBatchCache = new WeakMap<NovaStripeRectBatch, StripeStreamBatchCache>()
@@ -700,6 +721,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _ownedParticleCircleBatchCaches = new Set<ParticleCircleBatchCache>()
   private readonly _ownedParticleSpriteBatchCaches = new Set<ParticleSpriteBatchCache>()
   private readonly _ownedRectStreamBatchCaches = new Set<RectStreamBatchCache>()
+  private readonly _ownedTimeRangeSegmentBatchCaches = new Set<TimeRangeSegmentBatchCache>()
   private readonly _ownedTextureRectStreamGroupCaches = new Set<TextureRectStreamGroupCache>()
   private readonly _ownedGlyphTextStreamGroupCaches = new Set<GlyphTextStreamGroupCache>()
   private readonly _ownedStripeStreamBatchCaches = new Set<StripeStreamBatchCache>()
@@ -750,6 +772,7 @@ export class NovaWebGLFrameRenderer {
     this._particleCircleProgram = NovaWebGLProgram.create(this._gl, PARTICLE_CIRCLE_VERTEX_SHADER, PARTICLE_CIRCLE_FRAGMENT_SHADER)
     this._particleSpriteProgram = NovaWebGLProgram.create(this._gl, PARTICLE_SPRITE_VERTEX_SHADER, PARTICLE_SPRITE_FRAGMENT_SHADER)
     this._rectBatchProgram = NovaWebGLProgram.create(this._gl, RECT_BATCH_VERTEX_SHADER, RECT_BATCH_FRAGMENT_SHADER)
+    this._timeRangeSegmentProgram = NovaWebGLProgram.create(this._gl, TIME_RANGE_SEGMENT_VERTEX_SHADER, TIME_RANGE_SEGMENT_FRAGMENT_SHADER)
     this._textureRectBatchProgram = NovaWebGLProgram.create(this._gl, TEXTURE_RECT_BATCH_VERTEX_SHADER, TEXTURE_RECT_BATCH_FRAGMENT_SHADER)
     this._stripeBatchProgram = NovaWebGLProgram.create(this._gl, EARLY_STRIPE_BATCH_VERTEX_SHADER, EARLY_STRIPE_BATCH_FRAGMENT_SHADER)
     this._roundedBuffer = this.createBuffer()
@@ -919,6 +942,9 @@ export class NovaWebGLFrameRenderer {
         case 'drawRectBatch':
           if (command.rectBatch) this.drawRectBatch(command.rectBatch, currentTransform, stats)
           break
+        case 'drawTimeRangeSegmentBatch':
+          if (command.timeRangeSegmentBatch) this.drawTimeRangeSegmentBatch(command.timeRangeSegmentBatch, currentTransform, stats)
+          break
         case 'drawStripeBatch':
           if (command.stripeBatch) this.drawStripeBatch(command.stripeBatch, currentTransform, stats)
           break
@@ -1060,6 +1086,12 @@ export class NovaWebGLFrameRenderer {
       this._gl.deleteVertexArray(cache.vao)
     }
     this._ownedRectStreamBatchCaches.clear()
+    for (const cache of this._ownedTimeRangeSegmentBatchCaches) {
+      this._gl.deleteBuffer(cache.geometryBuffer)
+      this._gl.deleteBuffer(cache.staticBuffer)
+      this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedTimeRangeSegmentBatchCaches.clear()
 	    for (const cache of this._ownedTextureRectStreamGroupCaches) {
 	      this._gl.deleteBuffer(cache.geometryBuffer)
 	      this._gl.deleteBuffer(cache.staticBuffer)
@@ -1093,6 +1125,7 @@ export class NovaWebGLFrameRenderer {
     this._particleCircleProgram.destroy()
     this._particleSpriteProgram.destroy()
     this._rectBatchProgram.destroy()
+    this._timeRangeSegmentProgram.destroy()
     this._textureRectBatchProgram.destroy()
     this._stripeBatchProgram.destroy()
   }
@@ -1879,7 +1912,7 @@ export class NovaWebGLFrameRenderer {
       rect.styles?.opacity ?? 1,
       border?.color ?? '',
       border?.width ?? 0,
-      border?.radius ?? 0,
+      rect.styles?.radius ?? border?.radius ?? 0,
       border?.dashPattern?.join(',') ?? '',
       this.createShaderMetaSignature(rect),
     ].join('|')
@@ -3193,6 +3226,64 @@ export class NovaWebGLFrameRenderer {
     this._rectBatchProgram.use()
     gl.uniform2f(this._rectBatchProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
     gl.uniformMatrix3fv(this._rectBatchProgram.uniformLocation('u_transform'), false, transform)
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.count)
+
+    stats.instances += batch.count
+    stats.drawCalls += 1
+    stats.batches += 1
+    if (geometryDirty || staticDirty) {
+      stats.updatedHandles += batch.count
+      stats.dirtyStreamRanges += Number(Boolean(geometryDirty)) + Number(Boolean(staticDirty))
+    }
+  }
+
+  /**
+   * Рисует retained time-range segment batch, вычисляя x/width в shader uniforms.
+   */
+  private drawTimeRangeSegmentBatch(batch: NovaTimeRangeSegmentBatch, transform: mat3, stats: RenderStats): void {
+    if (batch.active === false || batch.count <= 0) return
+
+    let cache = this._timeRangeSegmentBatchCache.get(batch)
+    const revision = batch.revision ?? 0
+    const staticRevision = batch.staticRevision ?? 0
+    let geometryDirty: Array<FloatDirtyRange> | null = null
+    let staticDirty: Array<FloatDirtyRange> | null = null
+
+    if (!cache || cache.count !== batch.count) {
+      cache = this.createTimeRangeSegmentBatchCache(batch)
+      this._timeRangeSegmentBatchCache.set(batch, cache)
+      this._ownedTimeRangeSegmentBatchCaches.add(cache)
+    }
+
+    if (cache.revision !== revision) {
+      this.writeTimeRangeSegmentGeometry(batch, cache.geometryData)
+      cache.revision = revision
+      geometryDirty = [{ start: 0, end: batch.count * TIME_RANGE_SEGMENT_GEOMETRY_STRIDE }]
+    }
+
+    if (cache.staticRevision !== staticRevision) {
+      this.writeTimeRangeSegmentStaticData(batch, cache.staticData)
+      cache.staticRevision = staticRevision
+      staticDirty = [{ start: 0, end: batch.count * TIME_RANGE_SEGMENT_STATIC_STRIDE }]
+    }
+
+    this.flush(stats)
+    const uploadStartedAt = performance.now()
+    const gl = this._gl
+    gl.bindVertexArray(cache.vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.geometryBuffer)
+    this.uploadArrayBuffer(cache.geometryData, cache.geometryUpload, stats, geometryDirty)
+    gl.bindBuffer(gl.ARRAY_BUFFER, cache.staticBuffer)
+    this.uploadArrayBuffer(cache.staticData, cache.staticUpload, stats, staticDirty)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    this._timeRangeSegmentProgram.use()
+    gl.uniform2f(this._timeRangeSegmentProgram.uniformLocation('u_resolution'), this._device.canvas.width, this._device.canvas.height)
+    gl.uniformMatrix3fv(this._timeRangeSegmentProgram.uniformLocation('u_transform'), false, transform)
+    gl.uniform1f(this._timeRangeSegmentProgram.uniformLocation('u_timeStart'), batch.timeStart)
+    gl.uniform1f(this._timeRangeSegmentProgram.uniformLocation('u_pxPerMs'), batch.pxPerMs)
+    gl.uniform1f(this._timeRangeSegmentProgram.uniformLocation('u_viewportX'), batch.viewportX)
+    gl.uniform1f(this._timeRangeSegmentProgram.uniformLocation('u_yOffset'), batch.yOffset)
     gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, batch.count)
 
     stats.instances += batch.count
@@ -4616,6 +4707,59 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Создает cache для GPU-resident time-range segment batch.
+   */
+  private createTimeRangeSegmentBatchCache(batch: NovaTimeRangeSegmentBatch): TimeRangeSegmentBatchCache {
+    const geometryBuffer = this.createBuffer()
+    const staticBuffer = this.createBuffer()
+    const cache: TimeRangeSegmentBatchCache = {
+      geometryData: new Float32Array(batch.count * TIME_RANGE_SEGMENT_GEOMETRY_STRIDE),
+      staticData: new Float32Array(batch.count * TIME_RANGE_SEGMENT_STATIC_STRIDE),
+      count: batch.count,
+      geometryUpload: createWebGLUploadState(),
+      staticUpload: createWebGLUploadState(),
+      geometryBuffer,
+      staticBuffer,
+      vao: this.createTimeRangeSegmentBatchVao(geometryBuffer, staticBuffer),
+    }
+
+    this.writeTimeRangeSegmentGeometry(batch, cache.geometryData)
+    this.writeTimeRangeSegmentStaticData(batch, cache.staticData)
+    return cache
+  }
+
+  /**
+   * Записывает dynamic time-range segment geometry.
+   */
+  private writeTimeRangeSegmentGeometry(batch: NovaTimeRangeSegmentBatch, target: Float32Array): void {
+    for (let index = 0; index < batch.count; index += 1) {
+      const offset = index * TIME_RANGE_SEGMENT_GEOMETRY_STRIDE
+      target[offset] = batch.startTime[index] ?? 0
+      target[offset + 1] = batch.endTime[index] ?? 0
+      target[offset + 2] = batch.y[index] ?? 0
+      target[offset + 3] = batch.height[index] ?? 0
+    }
+  }
+
+  /**
+   * Записывает static time-range segment colors.
+   */
+  private writeTimeRangeSegmentStaticData(batch: NovaTimeRangeSegmentBatch, target: Float32Array): void {
+    for (let index = 0; index < batch.count; index += 1) {
+      const sourceOffset = index * 4
+      const targetOffset = index * TIME_RANGE_SEGMENT_STATIC_STRIDE
+      target[targetOffset] = batch.colors[sourceOffset] ?? 0
+      target[targetOffset + 1] = batch.colors[sourceOffset + 1] ?? 0
+      target[targetOffset + 2] = batch.colors[sourceOffset + 2] ?? 0
+      target[targetOffset + 3] = batch.colors[sourceOffset + 3] ?? 1
+      target[targetOffset + 4] = batch.styles?.[sourceOffset] ?? 0
+      target[targetOffset + 5] = batch.styles?.[sourceOffset + 1] ?? 0
+      target[targetOffset + 6] = batch.styles?.[sourceOffset + 2] ?? 0
+      target[targetOffset + 7] = batch.styles?.[sourceOffset + 3] ?? 0
+    }
+  }
+
+  /**
    * Записывает dynamic particle positions.
    */
   private writeParticlePositions(batch: NovaParticleBatch, target: Float32Array): void {
@@ -5605,6 +5749,28 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Создает VAO для GPU-resident time-range segment stream.
+   */
+  private createTimeRangeSegmentBatchVao(geometryBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer)
+    this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_timeRect', 4, TIME_RANGE_SEGMENT_GEOMETRY_STRIDE * FLOAT_BYTES, 0, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
+    this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_color', 4, TIME_RANGE_SEGMENT_STATIC_STRIDE * FLOAT_BYTES, 0, 1)
+    this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_style', 4, TIME_RANGE_SEGMENT_STATIC_STRIDE * FLOAT_BYTES, 4, 1)
+
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
    * Создает VAO для retained texture rect stream.
    */
   private createTextureRectBatchVao(geometryBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
@@ -6364,6 +6530,109 @@ void main() {
   if (v_state > 0.5) {
     color.rgb = min(color.rgb * 1.08 + vec3(0.03), vec3(1.0));
   }
+  outColor = color;
+}
+`
+
+const TIME_RANGE_SEGMENT_VERTEX_SHADER = `#version 300 es
+precision highp float;
+in vec2 a_unit;
+in vec4 a_timeRect;
+in vec4 a_color;
+in vec4 a_style;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+uniform float u_timeStart;
+uniform float u_pxPerMs;
+uniform float u_viewportX;
+uniform float u_yOffset;
+out vec4 v_color;
+out vec4 v_style;
+out vec2 v_uv;
+out vec2 v_size;
+void main() {
+  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
+  float x = u_viewportX + (a_timeRect.x - u_timeStart) * u_pxPerMs;
+  float width = max(1.0, (a_timeRect.y - a_timeRect.x) * u_pxPerMs);
+  float y = a_timeRect.z + u_yOffset;
+  vec2 position = vec2(x, y) + uv * vec2(width, a_timeRect.w);
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_color = a_color;
+  v_style = a_style;
+  v_uv = uv;
+  v_size = vec2(width, a_timeRect.w);
+}
+`
+
+const TIME_RANGE_SEGMENT_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+in vec4 v_color;
+in vec4 v_style;
+in vec2 v_uv;
+in vec2 v_size;
+out vec4 outColor;
+
+float box(vec2 p, vec2 b) {
+  vec2 d = abs(p) - b;
+  return 1.0 - smoothstep(0.0, 1.0, length(max(d, 0.0)) + min(max(d.x, d.y), 0.0));
+}
+
+vec4 iconColor(float iconType) {
+  if (iconType < 1.5) return vec4(0.17, 0.24, 0.39, 0.92);
+  if (iconType < 2.5) return vec4(0.15, 0.39, 0.92, 0.92);
+  if (iconType < 3.5) return vec4(0.58, 0.20, 0.92, 0.92);
+  return vec4(0.02, 0.47, 0.34, 0.92);
+}
+
+void main() {
+  vec4 color = v_color;
+  vec2 local = v_uv * v_size;
+
+  if (v_style.x > 0.5) {
+    float stripe = mod(gl_FragCoord.x + gl_FragCoord.y, 8.0);
+    float alpha = 1.0 - smoothstep(2.6, 3.4, stripe);
+    color = mix(color, vec4(0.56, 0.72, 0.91, color.a), alpha * 0.72);
+  }
+
+  if (v_style.y > 0.5 && v_size.x >= 28.0) {
+    vec2 center = vec2(v_size.x - 10.0, v_size.y * 0.5);
+    vec2 p = local - center;
+    vec4 icon = iconColor(v_style.y);
+    float mark = 0.0;
+
+    if (v_style.y < 1.5) {
+      float tri = max(abs(p.x) * 0.85 + p.y * 0.55, -p.y - 5.2);
+      mark = 1.0 - smoothstep(4.6, 5.6, tri);
+      mark *= step(-4.5, p.y);
+    } else if (v_style.y < 2.5) {
+      float ring = 1.0 - smoothstep(4.8, 5.8, abs(length(p) - 5.2));
+      float handA = box(p - vec2(0.0, -1.8), vec2(0.8, 3.0));
+      float handB = box(p - vec2(2.2, 1.0), vec2(2.6, 0.7));
+      mark = max(ring, max(handA, handB));
+    } else if (v_style.y < 3.5) {
+      mark = max(box(p + vec2(1.8, -1.8), vec2(1.2, 5.2)), box(p - vec2(1.8, 1.8), vec2(5.2, 1.2)));
+    } else {
+      float nodeA = 1.0 - smoothstep(2.4, 3.2, length(p + vec2(4.0, 2.8)));
+      float nodeB = 1.0 - smoothstep(2.4, 3.2, length(p - vec2(4.0, 2.8)));
+      float line = box(p, vec2(5.0, 0.8));
+      mark = max(line, max(nodeA, nodeB));
+    }
+
+    color = mix(color, icon, clamp(mark, 0.0, 1.0));
+  }
+
+  if (v_style.z > 0.5 && v_size.x >= 64.0) {
+    float left = 8.0;
+    float right = v_size.x - (v_style.y > 0.5 ? 24.0 : 8.0);
+    float inLabel = step(left, local.x) * step(local.x, right) * step(4.0, local.y) * step(local.y, v_size.y - 4.0);
+    float seed = fract(v_style.w * 0.013 + floor((local.x - left) / 4.0) * 0.173);
+    float stroke = step(0.62, seed) * step(fract(local.x / 4.0), 0.42) * step(abs(local.y - v_size.y * 0.5), 4.2);
+    color = mix(color, vec4(0.07, 0.09, 0.15, color.a), inLabel * stroke * 0.82);
+  }
+
   outColor = color;
 }
 `

@@ -80,6 +80,7 @@ export interface NovaRect extends NovaUIBase {
   height: number
   styles?: {
     background?: NovaStyleBackground
+    radius?: number
     border?: {
       color?: string
       width?: number
@@ -286,6 +287,26 @@ export interface NovaRectBatch extends NovaUIBase {
   colors: NovaRectNumberData
   states?: NovaRectNumberData
   opacity?: number
+  revision?: number
+  staticRevision?: number
+}
+
+/**
+ * Описывает retained batch временных сегментов, где x/width вычисляются на GPU.
+ */
+export interface NovaTimeRangeSegmentBatch extends NovaUIBase {
+  count: number
+  startTime: NovaRectNumberData
+  endTime: NovaRectNumberData
+  y: NovaRectNumberData
+  height: NovaRectNumberData
+  colors: NovaRectNumberData
+  styles?: NovaRectNumberData
+  timeOrigin: number
+  timeStart: number
+  pxPerMs: number
+  viewportX: number
+  yOffset: number
   revision?: number
   staticRevision?: number
 }
@@ -528,6 +549,7 @@ export interface NovaRenderer {
   polygon(params: NovaPolygon): void
   icon(params: NovaIcon): void
   rects(batch: NovaRectBatch): void
+  timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void
   stripes(batch: NovaStripeRectBatch): void
   icons(batch: NovaIconBatch): void
   texts(batch: NovaTextBatch): void

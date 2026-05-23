@@ -105,6 +105,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     private _keyboardHovered = false
     private _contextVersion = 0
     private readonly _ownsSyncScope: boolean
+    private _globalThemeDispose: (() => void) | null = null
 
     /**
      * Создает приложение, подключает canvas, input, renderer и Raph-loop.
@@ -118,7 +119,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         // Сначала нормализуем базовую конфигурацию, потому что от нее зависит canvas и renderer.
         this._inputOptions = this.resolveInputOptions(options.input)
         this._webglAttributes = options.renderer?.webgl
-        this._mainRendererType = options.renderer?.main ?? RendererType.Web2D
+        this._mainRendererType = options.renderer?.main ?? RendererType.WebGL
         this._rendererConfig = resolveNovaRendererConfig(options.renderer?.config)
         this._canvas = NovaCanvas.attach(options.target, {
             ...options.size,
@@ -731,6 +732,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      * Освобождает runtime, события, metrics, surfaces и canvas.
      */
     destroy(): void {
+        this._globalThemeDispose?.()
+        this._globalThemeDispose = null
         this.cursors.destroy()
         this.motion.destroy()
         this.sound.destroy()
@@ -770,6 +773,13 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         if (this._ownsRaphKernel) {
             this.raph.kernel.clear()
         }
+    }
+
+    /**
+     * Подключает cleanup для глобального theme registry.
+     */
+    setGlobalThemeDispose(dispose: (() => void) | null): void {
+        this._globalThemeDispose = dispose
     }
 
     /**

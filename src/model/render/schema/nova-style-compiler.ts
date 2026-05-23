@@ -57,7 +57,7 @@ export function compileNovaRectStyle(rect: NovaRect): NovaCompiledBoxStyle {
     opacity: rect.styles?.opacity ?? 1,
     borderColor: parseNovaColor(rect.styles?.border?.color, 0x00000000),
     borderWidth: rect.styles?.border?.width ?? 0,
-    borderRadius: rect.styles?.border?.radius ?? 0,
+    borderRadius: rect.styles?.radius ?? rect.styles?.border?.radius ?? 0,
     dashPattern: rect.styles?.border?.dashPattern,
   }
 }
