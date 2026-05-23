@@ -15,6 +15,7 @@ import type {
   NovaSemanticScopeKind,
   NovaStripeRectBatch,
   NovaTextBatch,
+  NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/nova-render-item'
 import type { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
@@ -295,6 +296,34 @@ export class NovaRenderCommandWriter {
   }
 
   /**
+   * Записывает retained time-range segment batch как отдельный stream command.
+   */
+  drawTimeRangeSegmentBatch(batch: NovaTimeRangeSegmentBatch, nodeId = this._currentNodeId): NovaRenderCommand {
+    const order = this._frameBuilder.nextOrder()
+    const item = createNovaRenderItem({
+      id: `item:${++this._itemId}`,
+      nodeId,
+      groupId: this._group.id,
+      layerId: this._group.layerId,
+      kind: 'time-range-segment-batch',
+      order,
+      batchKey: 'time-range-segment-batch:plain',
+      bounds: { x: batch.viewportX, y: batch.y[0] ?? 0, width: 1, height: batch.height[0] ?? 0 },
+      clip: this.currentClip,
+    })
+
+    this._frameBuilder.addItem(item)
+    this.addTimeRangeSegmentBatchHandle(item, batch, nodeId)
+
+    return this.command({
+      type: 'drawTimeRangeSegmentBatch',
+      itemId: item.id,
+      timeRangeSegmentBatch: batch,
+      order,
+    })
+  }
+
+  /**
    * Записывает retained stripe batch как отдельный stream command.
    */
   drawStripeBatch(batch: NovaStripeRectBatch, nodeId = this._currentNodeId): NovaRenderCommand {
@@ -418,6 +447,38 @@ export class NovaRenderCommandWriter {
       layerId: renderItem.layerId,
       streamId: `${renderItem.groupId}:rect-batch`,
       streamKind: 'rect-batch',
+      offset: 0,
+      count: batch.count,
+      batchKey: renderItem.batchKey,
+      versions: {
+        transform: 0,
+        layout: batch.revision ?? 0,
+        paint: batch.staticRevision ?? 0,
+        children: 0,
+        resource: 0,
+        cache: 0,
+        visibility: 0,
+      },
+      localBounds: renderItem.bounds,
+    }
+
+    this._graph.addHandle(handle)
+  }
+
+  /**
+   * Добавляет handle для retained time-range segment stream.
+   */
+  private addTimeRangeSegmentBatchHandle(renderItem: NovaRenderItem, batch: NovaTimeRangeSegmentBatch, nodeId: string): void {
+    if (!this._graph) return
+
+    const handle: NovaRenderHandle = {
+      id: `handle:${++this._handleId}`,
+      nodeId,
+      itemId: renderItem.id,
+      groupId: renderItem.groupId,
+      layerId: renderItem.layerId,
+      streamId: `${renderItem.groupId}:time-range-segment-batch`,
+      streamKind: 'time-range-segment-batch',
       offset: 0,
       count: batch.count,
       batchKey: renderItem.batchKey,

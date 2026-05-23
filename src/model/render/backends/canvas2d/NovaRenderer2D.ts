@@ -17,6 +17,7 @@ import type {
   NovaText,
   NovaTextBatch,
   NovaTextChunk,
+  NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import { RendererType } from '@/domain/types/renderer.types'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
@@ -211,6 +212,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         case 'drawRectBatch':
           if (command.rectBatch) {
             this.rects(command.rectBatch)
+            drawCalls += 1
+          }
+          break
+        case 'drawTimeRangeSegmentBatch':
+          if (command.timeRangeSegmentBatch) {
+            this.timeRangeSegments(command.timeRangeSegmentBatch)
             drawCalls += 1
           }
           break
@@ -664,6 +671,27 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         batch.width[index] ?? 0,
         batch.height[index] ?? 0,
       )
+    }
+
+    ctx.restore()
+  }
+
+  /**
+   * Рисует retained time-range segment batch через Canvas2D fallback.
+   */
+  timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void {
+    const ctx = this.ctx
+    ctx.save()
+
+    for (let index = 0; index < batch.count; index += 1) {
+      const colorOffset = index * 4
+      const alpha = batch.colors[colorOffset + 3] ?? 1
+      if (alpha <= 0) continue
+      const x = batch.viewportX + ((batch.startTime[index] ?? 0) - batch.timeStart) * batch.pxPerMs
+      const width = Math.max(1, ((batch.endTime[index] ?? 0) - (batch.startTime[index] ?? 0)) * batch.pxPerMs)
+      const y = (batch.y[index] ?? 0) + batch.yOffset
+      ctx.fillStyle = `rgba(${Math.round((batch.colors[colorOffset] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 1] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 2] ?? 0) * 255)}, ${alpha})`
+      ctx.fillRect(x, y, width, batch.height[index] ?? 0)
     }
 
     ctx.restore()

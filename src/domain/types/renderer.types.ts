@@ -291,6 +291,25 @@ export interface NovaRectBatch extends NovaUIBase {
 }
 
 /**
+ * Описывает retained batch временных сегментов, где x/width вычисляются на GPU.
+ */
+export interface NovaTimeRangeSegmentBatch extends NovaUIBase {
+  count: number
+  startTime: NovaRectNumberData
+  endTime: NovaRectNumberData
+  y: NovaRectNumberData
+  height: NovaRectNumberData
+  colors: NovaRectNumberData
+  timeOrigin: number
+  timeStart: number
+  pxPerMs: number
+  viewportX: number
+  yOffset: number
+  revision?: number
+  staticRevision?: number
+}
+
+/**
  * Описывает retained stripe batch.
  */
 export interface NovaStripeRectBatch extends NovaUIBase {
@@ -528,6 +547,7 @@ export interface NovaRenderer {
   polygon(params: NovaPolygon): void
   icon(params: NovaIcon): void
   rects(batch: NovaRectBatch): void
+  timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void
   stripes(batch: NovaStripeRectBatch): void
   icons(batch: NovaIconBatch): void
   texts(batch: NovaTextBatch): void

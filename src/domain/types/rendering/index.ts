@@ -8,6 +8,7 @@ import type {
   NovaSchemaItem,
   NovaStripeRectBatch,
   NovaTextBatch,
+  NovaTimeRangeSegmentBatch,
   NovaTextRenderMode,
   RendererType,
 } from '@/domain/types/renderer.types'
@@ -298,6 +299,7 @@ export type NovaRenderItemKind =
   | 'particle-circle'
   | 'particle-sprite'
   | 'rect-batch'
+  | 'time-range-segment-batch'
   | 'stripe-batch'
   | 'icon-batch'
   | 'text-batch'
@@ -339,6 +341,7 @@ export type NovaRenderStreamKind =
   | 'particle-circle'
   | 'particle-sprite'
   | 'rect-batch'
+  | 'time-range-segment-batch'
   | 'stripe-batch'
   | 'icon-batch'
   | 'text-batch'
@@ -446,6 +449,7 @@ export type NovaRenderCommandType =
   | 'drawSchemaBatch'
   | 'drawParticles'
   | 'drawRectBatch'
+  | 'drawTimeRangeSegmentBatch'
   | 'drawStripeBatch'
   | 'drawIconBatch'
   | 'drawTextBatch'
@@ -470,6 +474,7 @@ export interface NovaRenderCommand {
   schemaContentVersion?: number
   particleBatch?: NovaParticleBatch
   rectBatch?: NovaRectBatch
+  timeRangeSegmentBatch?: NovaTimeRangeSegmentBatch
   stripeBatch?: NovaStripeRectBatch
   iconBatch?: NovaIconBatch
   textBatch?: NovaTextBatch

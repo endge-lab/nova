@@ -16,6 +16,7 @@ import type {
   NovaStripeRectBatch,
   NovaText,
   NovaTextBatch,
+  NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
@@ -208,6 +209,14 @@ export class NovaRenderBuilder implements NovaRenderer {
   rects(batch: NovaRectBatch): void {
     if (batch.active === false || batch.count <= 0) return
     this._writer.drawRectBatch(batch)
+  }
+
+  /**
+   * Записывает retained time-range segment batch без разворачивания в rect primitives.
+   */
+  timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void {
+    if (batch.active === false || batch.count <= 0) return
+    this._writer.drawTimeRangeSegmentBatch(batch)
   }
 
   /**
