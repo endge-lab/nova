@@ -242,6 +242,8 @@ interface RenderTargetTextureEntry {
   framebuffer: WebGLFramebuffer
   width: number
   height: number
+  pixelWidth: number
+  pixelHeight: number
   dpr: number
 }
 
@@ -5020,7 +5022,7 @@ export class NovaWebGLFrameRenderer {
     this._activeRenderTarget = entry
     const gl = this._gl
     gl.bindFramebuffer(gl.FRAMEBUFFER, entry.framebuffer)
-    gl.viewport(0, 0, entry.width, entry.height)
+    gl.viewport(0, 0, entry.pixelWidth, entry.pixelHeight)
     this._renderResolutionWidth = entry.width
     this._renderResolutionHeight = entry.height
     this.setScissor(null, mat3.create())
@@ -5037,7 +5039,7 @@ export class NovaWebGLFrameRenderer {
     const gl = this._gl
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._activeRenderTarget?.framebuffer ?? null)
     if (this._activeRenderTarget) {
-      gl.viewport(0, 0, this._activeRenderTarget.width, this._activeRenderTarget.height)
+      gl.viewport(0, 0, this._activeRenderTarget.pixelWidth, this._activeRenderTarget.pixelHeight)
       this._renderResolutionWidth = this._activeRenderTarget.width
       this._renderResolutionHeight = this._activeRenderTarget.height
     } else {
@@ -5070,10 +5072,19 @@ export class NovaWebGLFrameRenderer {
    */
   private ensureRenderTargetTexture(target: NovaRenderTarget, stats: RenderStats): RenderTargetTextureEntry {
     const dpr = target.dpr || 1
-    const width = Math.max(1, Math.ceil(target.width * dpr))
-    const height = Math.max(1, Math.ceil(target.height * dpr))
+    const width = Math.max(1, target.width)
+    const height = Math.max(1, target.height)
+    const pixelWidth = Math.max(1, Math.ceil(width * dpr))
+    const pixelHeight = Math.max(1, Math.ceil(height * dpr))
     const current = this._renderTargets.get(target.id)
-    if (current && current.width === width && current.height === height && current.dpr === dpr) return current
+    if (
+      current
+      && current.width === width
+      && current.height === height
+      && current.pixelWidth === pixelWidth
+      && current.pixelHeight === pixelHeight
+      && current.dpr === dpr
+    ) return current
 
     if (current) {
       this._gl.deleteFramebuffer(current.framebuffer)
@@ -5092,7 +5103,7 @@ export class NovaWebGLFrameRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, pixelWidth, pixelHeight, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._activeRenderTarget?.framebuffer ?? null)
@@ -5101,9 +5112,9 @@ export class NovaWebGLFrameRenderer {
     const textureEntry: TextureEntry = {
       key: `render-target:${target.id}`,
       texture,
-      width,
-      height,
-      bytes: width * height * 4,
+      width: pixelWidth,
+      height: pixelHeight,
+      bytes: pixelWidth * pixelHeight * 4,
       lastUsed: this._time,
       generation: this._atlasGeneration,
     }
@@ -5117,6 +5128,8 @@ export class NovaWebGLFrameRenderer {
       framebuffer,
       width,
       height,
+      pixelWidth,
+      pixelHeight,
       dpr,
     }
     this._renderTargets.set(target.id, entry)
@@ -5920,9 +5933,10 @@ export class NovaWebGLFrameRenderer {
     }
 
     const bounds = transformRectBounds(transform, clip.x, clip.y, clip.width, clip.height)
-    const dpr = this._device.canvas.dpr
+    const dpr = this._activeRenderTarget?.dpr ?? this._device.canvas.dpr
+    const pixelHeight = this._activeRenderTarget?.pixelHeight ?? this._device.canvas.pixelHeight
     const x = Math.max(0, Math.floor(bounds.x * dpr))
-    const y = Math.max(0, Math.floor(this._device.canvas.pixelHeight - (bounds.y + bounds.height) * dpr))
+    const y = Math.max(0, Math.floor(pixelHeight - (bounds.y + bounds.height) * dpr))
     const width = Math.max(0, Math.ceil(bounds.width * dpr))
     const height = Math.max(0, Math.ceil(bounds.height * dpr))
     gl.enable(gl.SCISSOR_TEST)
