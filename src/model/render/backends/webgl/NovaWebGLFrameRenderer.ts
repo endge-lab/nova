@@ -57,7 +57,7 @@ const PARTICLE_SPRITE_STATIC_STRIDE = 2
 const RECT_BATCH_GEOMETRY_STRIDE = 4
 const RECT_BATCH_STATIC_STRIDE = 5
 const TIME_RANGE_SEGMENT_GEOMETRY_STRIDE = 4
-const TIME_RANGE_SEGMENT_STATIC_STRIDE = 4
+const TIME_RANGE_SEGMENT_STATIC_STRIDE = 8
 const TEXTURE_RECT_BATCH_GEOMETRY_STRIDE = 4
 const TEXTURE_RECT_BATCH_STATIC_STRIDE = 5
 const STRIPE_BATCH_GEOMETRY_STRIDE = 4
@@ -4736,6 +4736,10 @@ export class NovaWebGLFrameRenderer {
       target[targetOffset + 1] = batch.colors[sourceOffset + 1] ?? 0
       target[targetOffset + 2] = batch.colors[sourceOffset + 2] ?? 0
       target[targetOffset + 3] = batch.colors[sourceOffset + 3] ?? 1
+      target[targetOffset + 4] = batch.styles?.[sourceOffset] ?? 0
+      target[targetOffset + 5] = batch.styles?.[sourceOffset + 1] ?? 0
+      target[targetOffset + 6] = batch.styles?.[sourceOffset + 2] ?? 0
+      target[targetOffset + 7] = batch.styles?.[sourceOffset + 3] ?? 0
     }
   }
 
@@ -5738,6 +5742,7 @@ export class NovaWebGLFrameRenderer {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
     this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_color', 4, TIME_RANGE_SEGMENT_STATIC_STRIDE * FLOAT_BYTES, 0, 1)
+    this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_style', 4, TIME_RANGE_SEGMENT_STATIC_STRIDE * FLOAT_BYTES, 4 * FLOAT_BYTES, 1)
 
     gl.bindVertexArray(null)
     return vao
@@ -6512,6 +6517,7 @@ precision highp float;
 in vec2 a_unit;
 in vec4 a_timeRect;
 in vec4 a_color;
+in vec4 a_style;
 uniform vec2 u_resolution;
 uniform mat3 u_transform;
 uniform float u_timeStart;
@@ -6519,6 +6525,9 @@ uniform float u_pxPerMs;
 uniform float u_viewportX;
 uniform float u_yOffset;
 out vec4 v_color;
+out vec4 v_style;
+out vec2 v_uv;
+out vec2 v_size;
 void main() {
   vec2 uv = (a_unit + vec2(1.0)) * 0.5;
   float x = u_viewportX + (a_timeRect.x - u_timeStart) * u_pxPerMs;
@@ -6530,15 +6539,79 @@ void main() {
   vec2 clipSpace = zeroToOne * 2.0 - 1.0;
   gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
   v_color = a_color;
+  v_style = a_style;
+  v_uv = uv;
+  v_size = vec2(width, a_timeRect.w);
 }
 `
 
 const TIME_RANGE_SEGMENT_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
+precision highp float;
 in vec4 v_color;
+in vec4 v_style;
+in vec2 v_uv;
+in vec2 v_size;
 out vec4 outColor;
+
+float box(vec2 p, vec2 b) {
+  vec2 d = abs(p) - b;
+  return 1.0 - smoothstep(0.0, 1.0, length(max(d, 0.0)) + min(max(d.x, d.y), 0.0));
+}
+
+vec4 iconColor(float iconType) {
+  if (iconType < 1.5) return vec4(0.17, 0.24, 0.39, 0.92);
+  if (iconType < 2.5) return vec4(0.15, 0.39, 0.92, 0.92);
+  if (iconType < 3.5) return vec4(0.58, 0.20, 0.92, 0.92);
+  return vec4(0.02, 0.47, 0.34, 0.92);
+}
+
 void main() {
-  outColor = v_color;
+  vec4 color = v_color;
+  vec2 local = v_uv * v_size;
+
+  if (v_style.x > 0.5) {
+    float stripe = mod(gl_FragCoord.x + gl_FragCoord.y, 8.0);
+    float alpha = 1.0 - smoothstep(2.6, 3.4, stripe);
+    color = mix(color, vec4(0.56, 0.72, 0.91, color.a), alpha * 0.72);
+  }
+
+  if (v_style.y > 0.5 && v_size.x >= 28.0) {
+    vec2 center = vec2(v_size.x - 10.0, v_size.y * 0.5);
+    vec2 p = local - center;
+    vec4 icon = iconColor(v_style.y);
+    float mark = 0.0;
+
+    if (v_style.y < 1.5) {
+      float tri = max(abs(p.x) * 0.85 + p.y * 0.55, -p.y - 5.2);
+      mark = 1.0 - smoothstep(4.6, 5.6, tri);
+      mark *= step(-4.5, p.y);
+    } else if (v_style.y < 2.5) {
+      float ring = 1.0 - smoothstep(4.8, 5.8, abs(length(p) - 5.2));
+      float handA = box(p - vec2(0.0, -1.8), vec2(0.8, 3.0));
+      float handB = box(p - vec2(2.2, 1.0), vec2(2.6, 0.7));
+      mark = max(ring, max(handA, handB));
+    } else if (v_style.y < 3.5) {
+      mark = max(box(p + vec2(1.8, -1.8), vec2(1.2, 5.2)), box(p - vec2(1.8, 1.8), vec2(5.2, 1.2)));
+    } else {
+      float nodeA = 1.0 - smoothstep(2.4, 3.2, length(p + vec2(4.0, 2.8)));
+      float nodeB = 1.0 - smoothstep(2.4, 3.2, length(p - vec2(4.0, 2.8)));
+      float line = box(p, vec2(5.0, 0.8));
+      mark = max(line, max(nodeA, nodeB));
+    }
+
+    color = mix(color, icon, clamp(mark, 0.0, 1.0));
+  }
+
+  if (v_style.z > 0.5 && v_size.x >= 64.0) {
+    float left = 8.0;
+    float right = v_size.x - (v_style.y > 0.5 ? 24.0 : 8.0);
+    float inLabel = step(left, local.x) * step(local.x, right) * step(4.0, local.y) * step(local.y, v_size.y - 4.0);
+    float seed = fract(v_style.w * 0.013 + floor((local.x - left) / 4.0) * 0.173);
+    float stroke = step(0.62, seed) * step(fract(local.x / 4.0), 0.42) * step(abs(local.y - v_size.y * 0.5), 4.2);
+    color = mix(color, vec4(0.07, 0.09, 0.15, color.a), inLabel * stroke * 0.82);
+  }
+
+  outColor = color;
 }
 `
 

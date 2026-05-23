@@ -300,6 +300,7 @@ export interface NovaTimeRangeSegmentBatch extends NovaUIBase {
   y: NovaRectNumberData
   height: NovaRectNumberData
   colors: NovaRectNumberData
+  styles?: NovaRectNumberData
   timeOrigin: number
   timeStart: number
   pxPerMs: number
