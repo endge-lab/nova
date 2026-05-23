@@ -5742,7 +5742,7 @@ export class NovaWebGLFrameRenderer {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
     this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_color', 4, TIME_RANGE_SEGMENT_STATIC_STRIDE * FLOAT_BYTES, 0, 1)
-    this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_style', 4, TIME_RANGE_SEGMENT_STATIC_STRIDE * FLOAT_BYTES, 4 * FLOAT_BYTES, 1)
+    this.bindAttribDivisor(this._timeRangeSegmentProgram, 'a_style', 4, TIME_RANGE_SEGMENT_STATIC_STRIDE * FLOAT_BYTES, 4, 1)
 
     gl.bindVertexArray(null)
     return vao
