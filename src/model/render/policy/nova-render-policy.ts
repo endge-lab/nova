@@ -35,8 +35,8 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
 	    quality: 'balanced',
 	    mode: 'auto',
 	    modes: Object.freeze({
-	      timeScale: 'glyph-atlas',
-	      taskLabels: 'auto',
+	      timeScale: 'run-atlas',
+	      taskLabels: 'run-atlas',
 	      uiLabels: 'run-atlas',
 	    }),
 	    interaction: Object.freeze({

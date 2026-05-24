@@ -1359,7 +1359,7 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.atlasUploads).toBe(0)
   })
 
-  it('keeps short auto retained task label batches in glyph atlas mode', () => {
+  it('routes short auto retained task label batches through run atlas by default', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1400,9 +1400,10 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
 
-    expect(metrics.glyphRasterCount).toBeGreaterThan(0)
-    expect(metrics.glyphQuads).toBeGreaterThan(0)
-    expect(metrics.textRasterCount).toBe(0)
+    expect(metrics.textRasterCount).toBeGreaterThan(0)
+    expect(metrics.textAtlasPages).toBeGreaterThan(0)
+    expect(metrics.glyphRasterCount).toBe(0)
+    expect(metrics.glyphQuads).toBe(0)
     expect(metrics.textModeFallbacks).toBe(0)
   })
 

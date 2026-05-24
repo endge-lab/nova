@@ -2537,10 +2537,9 @@ export class NovaWebGLFrameRenderer {
    * Выбирает text path в auto-режиме по форме строки, а не только по роли.
    */
   private resolveAutoTextRenderMode(text: NovaText, role: NovaTextRenderRole | undefined): NovaTextRenderMode {
-    if (role === 'timescale') return 'glyph-atlas'
     if (role === 'debug') return 'run-atlas'
     if (this.shouldUseRunAtlasForAutoText(text)) return 'run-atlas'
-    if (role === 'task-label') return 'glyph-atlas'
+    if (role === 'timescale' || role === 'task-label') return 'run-atlas'
     return 'run-atlas'
   }
 
@@ -3362,10 +3361,9 @@ export class NovaWebGLFrameRenderer {
    * Выбирает auto text path для retained batch.
    */
   private resolveAutoTextBatchRenderMode(batch: NovaTextBatch, role: NovaTextRenderRole | undefined): NovaTextRenderMode {
-    if (role === 'timescale') return 'glyph-atlas'
     if (role === 'debug') return 'run-atlas'
     if (this.shouldUseRunAtlasForAutoTextBatch(batch)) return 'run-atlas'
-    if (role === 'task-label') return 'glyph-atlas'
+    if (role === 'timescale' || role === 'task-label') return 'run-atlas'
     return 'run-atlas'
   }
 
