@@ -143,6 +143,7 @@ function ids(cases: Array<RetainedContractCase>): Array<string> {
 function noop(): void {}
 
 function createWebGLContextStub(): WebGL2RenderingContext {
+  const shaderSources: Array<string> = []
   const constants: Record<string, number> = {
     ARRAY_BUFFER: 0x8892,
     BLEND: 0x0be2,
@@ -216,7 +217,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     linkProgram: noop,
     pixelStorei: noop,
     scissor: noop,
-    shaderSource: noop,
+    shaderSource: vi.fn((_shader: WebGLShader, source: string) => shaderSources.push(source)),
     texImage2D: noop,
     texParameteri: noop,
     uniform1f: noop,
@@ -228,6 +229,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     vertexAttribDivisor: vi.fn(),
     vertexAttribPointer: noop,
     viewport: noop,
+    __shaderSources: shaderSources,
   } as unknown as WebGL2RenderingContext
 }
 
@@ -1553,6 +1555,156 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(zoomed.atlasUploads).toBe(0)
     expect(zoomed.glyphCacheHits).toBeGreaterThan(0)
     expect(zoomed.msdfGlyphCount).toBeGreaterThan(0)
+  })
+
+  it('routes MSDF text through distance-field shader instead of texture shader', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub() as WebGL2RenderingContext & { __shaderSources: Array<string> }
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+          },
+          interaction: {
+            mode: 'stable-quality',
+          },
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 120,
+        height: 18,
+        text: '23 мая',
+        styles: { color: '#111827', font: { size: 12 } },
+        meta: { textRole: 'timescale' },
+      },
+    ] as NovaSchema
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(gl.__shaderSources.some(source => source.includes('median3') && source.includes('fwidth'))).toBe(true)
+    expect(metrics.distanceFieldDrawCalls).toBeGreaterThan(0)
+    expect(metrics.distanceFieldGlyphQuads).toBeGreaterThan(0)
+    expect(metrics.textModeFallbacks).toBe(0)
+  })
+
+  it('reuses runtime SDF glyph atlas entries across colors', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+          },
+          interaction: {
+            mode: 'stable-quality',
+          },
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 20,
+        height: 18,
+        text: 'A',
+        styles: { color: '#111827', font: { size: 12 } },
+        meta: { textRole: 'timescale' },
+      },
+      {
+        type: 'text',
+        x: 36,
+        y: 10,
+        width: 20,
+        height: 18,
+        text: 'A',
+        styles: { color: '#ef4444', font: { size: 12 } },
+        meta: { textRole: 'timescale' },
+      },
+    ] as NovaSchema
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.glyphRasterCount).toBe(1)
+    expect(metrics.glyphCacheHits).toBeGreaterThan(0)
+    expect(metrics.runtimeSdfGlyphCount).toBe(2)
+    expect(metrics.distanceFieldGlyphQuads).toBe(2)
+  })
+
+  it('uses prebuilt MSDF atlas metrics when a font atlas is configured', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const atlasCanvas = document.createElement('canvas')
+    atlasCanvas.width = 32
+    atlasCanvas.height = 32
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'auto',
+          modes: {
+            timeScale: 'msdf',
+          },
+          interaction: {
+            mode: 'stable-quality',
+          },
+          sdf: {
+            source: 'prebuilt-msdf',
+            prebuiltAtlas: {
+              texture: atlasCanvas,
+              fontKey: 'mock-msdf',
+              scale: 1,
+              pxRange: 4,
+              glyphs: {
+                A: { x: 0, y: 0, width: 16, height: 16, advance: 10 },
+              },
+            },
+          },
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 20,
+        height: 18,
+        text: 'A',
+        styles: { color: '#111827', font: { size: 12 } },
+        meta: { textRole: 'timescale' },
+      },
+    ] as NovaSchema
+    schema.contentVersion = 1
+
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+
+    expect(metrics.prebuiltMsdfGlyphCount).toBe(1)
+    expect(metrics.runtimeSdfGlyphCount).toBe(0)
+    expect(metrics.glyphRasterCount).toBe(0)
+    expect(metrics.distanceFieldDrawCalls).toBeGreaterThan(0)
   })
 
   it('lets item textMode override zone mode and falls back unsupported glyph text to run atlas', () => {

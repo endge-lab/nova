@@ -13,6 +13,7 @@ type BenchmarkTarget = {
   maxTextAtlasEvictionsPerFrame?: number
   maxGlyphAtlasEvictionsPerFrame?: number
   minGlyphCacheHitRate?: number
+  maxDistanceFieldDrawCallDelta?: number
   maxLodDroppedTextRuns?: number
 }
 
@@ -418,6 +419,46 @@ const RETAINED_BENCHMARKS: Array<RetainedBenchmarkCase> = [
       maxUploadMBPerFrame: 0.05,
       maxFullUploadsPerFrame: 0,
       maxDrawCalls: 8,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+      maxGlyphAtlasEvictionsPerFrame: 0,
+      minGlyphCacheHitRate: 0.95,
+    },
+  },
+  {
+    id: 'runtime-sdf-timescale-50k',
+    area: 'text',
+    workload: 'zoom-bucket-crossing',
+    count: 50_000,
+    profile: 'quality',
+    pixiBaseline: 'required',
+    target: {
+      minFps: 45,
+      maxFrameMs: 22.25,
+      maxUploadMBPerFrame: 0.05,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 9,
+      maxDistanceFieldDrawCallDelta: 1,
+      maxTextRasterMs: 0,
+      maxAtlasMemoryMB: 64,
+      maxGlyphAtlasEvictionsPerFrame: 0,
+      minGlyphCacheHitRate: 0.95,
+    },
+  },
+  {
+    id: 'prebuilt-msdf-timescale-50k',
+    area: 'text',
+    workload: 'zoom-bucket-crossing',
+    count: 50_000,
+    profile: 'quality',
+    pixiBaseline: 'required',
+    target: {
+      minFps: 45,
+      maxFrameMs: 22.25,
+      maxUploadMBPerFrame: 0.05,
+      maxFullUploadsPerFrame: 0,
+      maxDrawCalls: 9,
+      maxDistanceFieldDrawCallDelta: 1,
       maxTextRasterMs: 0,
       maxAtlasMemoryMB: 64,
       maxGlyphAtlasEvictionsPerFrame: 0,

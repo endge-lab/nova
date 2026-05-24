@@ -53,6 +53,7 @@ const FLOAT_BYTES = 4
 const RECT_STRIDE = 21
 const SOLID_STRIDE = 9
 const TEXTURE_STRIDE = 8
+const DISTANCE_FIELD_STRIDE = 10
 const PARTICLE_POSITION_STRIDE = 2
 const PARTICLE_CIRCLE_STATIC_STRIDE = 10
 const PARTICLE_SPRITE_STATIC_STRIDE = 2
@@ -62,6 +63,7 @@ const TIME_RANGE_SEGMENT_GEOMETRY_STRIDE = 4
 const TIME_RANGE_SEGMENT_STATIC_STRIDE = 8
 const TEXTURE_RECT_BATCH_GEOMETRY_STRIDE = 4
 const TEXTURE_RECT_BATCH_STATIC_STRIDE = 5
+const DISTANCE_FIELD_GLYPH_STATIC_STRIDE = 11
 const STRIPE_BATCH_GEOMETRY_STRIDE = 4
 const STRIPE_BATCH_STATIC_STRIDE = 10
 const FULL_UPLOAD_DIRTY_RATIO = 0.6
@@ -154,6 +156,10 @@ interface RenderStats {
   glyphQuads: number
   msdfGlyphCount: number
   sdfGlyphCount: number
+  distanceFieldGlyphQuads: number
+  distanceFieldDrawCalls: number
+  runtimeSdfGlyphCount: number
+  prebuiltMsdfGlyphCount: number
   textRunCacheHits: number
   textRunCacheMisses: number
   textShapeMs: number
@@ -309,6 +315,8 @@ interface GlyphAtlasEntry {
   advance: number
   scale: number
   mode: 'glyph-atlas' | 'msdf'
+  fieldSource: 'bitmap' | 'runtime-sdf' | 'prebuilt-msdf'
+  pxRange: number
   bytes: number
   lastUsed: number
 }
@@ -324,6 +332,8 @@ interface RasterizedGlyph {
   drawHeight: number
   advance: number
   scale: number
+  fieldSource: 'bitmap' | 'runtime-sdf' | 'prebuilt-msdf'
+  pxRange: number
 }
 
 /**
@@ -360,6 +370,9 @@ interface GlyphTextQuad {
   u1: number
   v1: number
   opacity: number
+  color: NovaParsedColor
+  pxRange: number
+  fieldMode: number
 }
 
 /**
@@ -379,6 +392,7 @@ interface GlyphTextStreamGroupCache {
   geometryData: Float32Array
   staticData: Float32Array
   count: number
+  mode: 'glyph-atlas' | 'msdf'
   labelRanges: Map<number, GlyphTextLabelRange>
   geometryDirtyRanges: Array<FloatDirtyRange> | null
   staticDirtyRanges: Array<FloatDirtyRange> | null
@@ -685,6 +699,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _roundedProgram: NovaWebGLProgram
   private readonly _solidProgram: NovaWebGLProgram
   private readonly _textureProgram: NovaWebGLProgram
+  private readonly _distanceFieldTextProgram: NovaWebGLProgram
   private readonly _particleCircleProgram: NovaWebGLProgram
   private readonly _particleSpriteProgram: NovaWebGLProgram
   private readonly _rectBatchProgram: NovaWebGLProgram
@@ -694,10 +709,12 @@ export class NovaWebGLFrameRenderer {
   private readonly _roundedBuffer: WebGLBuffer
   private readonly _solidBuffer: WebGLBuffer
   private readonly _textureBuffer: WebGLBuffer
+  private readonly _distanceFieldBuffer: WebGLBuffer
   private readonly _particleQuadBuffer: WebGLBuffer
   private readonly _roundedVao: WebGLVertexArrayObject
   private readonly _solidVao: WebGLVertexArrayObject
   private readonly _textureVao: WebGLVertexArrayObject
+  private readonly _distanceFieldVao: WebGLVertexArrayObject
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _textRasterCanvas = document.createElement('canvas')
   private readonly _textures = new Map<string, TextureEntry>()
@@ -707,6 +724,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _textFallbackKeys = new Map<string, string>()
   private readonly _glyphAtlasPages: Array<TextAtlasPage> = []
   private readonly _glyphAtlasEntries = new Map<string, GlyphAtlasEntry>()
+  private readonly _prebuiltMsdfAtlasPages = new Map<string, TextAtlasPage>()
   private readonly _sourceTextureKeys = new WeakMap<object, string>()
   private readonly _plainRectBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, RectBatchCache>()
   private readonly _rectBatchCache = new WeakMap<Array<NovaSchemaItem<any>>, RectBatchCache>()
@@ -730,6 +748,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _roundedUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _solidUpload: WebGLUploadState = createWebGLUploadState()
   private readonly _textureUpload: WebGLUploadState = createWebGLUploadState()
+  private readonly _distanceFieldUpload: WebGLUploadState = createWebGLUploadState()
 
   private _rectData: Array<number> = []
   private _rectCachedData: Float32Array | null = null
@@ -739,12 +758,15 @@ export class NovaWebGLFrameRenderer {
   private _solidCachedDirtyRanges: Array<FloatDirtyRange> | null = null
   private _textureData: Array<number> = []
   private _textureBatch: TextureEntry | null = null
+  private _distanceFieldData: Array<number> = []
+  private _distanceFieldBatch: TextureEntry | null = null
   private _textureCachedData: Float32Array | null = null
   private _textureCachedDirtyRanges: Array<FloatDirtyRange> | null = null
   private _textureCachedBatch: TextureBatchCache | null = null
   private _roundedTransform = mat3.create()
   private _solidTransform = mat3.create()
   private _textureTransform = mat3.create()
+  private _distanceFieldTransform = mat3.create()
   private _time = 0
   private _viewportWidth = 1
   private _viewportHeight = 1
@@ -771,6 +793,7 @@ export class NovaWebGLFrameRenderer {
     this._roundedProgram = NovaWebGLProgram.create(this._gl, ROUNDED_RECT_VERTEX_SHADER, ROUNDED_RECT_FRAGMENT_SHADER)
     this._solidProgram = NovaWebGLProgram.create(this._gl, SOLID_VERTEX_SHADER, SOLID_FRAGMENT_SHADER)
     this._textureProgram = NovaWebGLProgram.create(this._gl, TEXTURE_VERTEX_SHADER, TEXTURE_FRAGMENT_SHADER)
+    this._distanceFieldTextProgram = NovaWebGLProgram.create(this._gl, DISTANCE_FIELD_TEXT_VERTEX_SHADER, DISTANCE_FIELD_TEXT_FRAGMENT_SHADER)
     this._particleCircleProgram = NovaWebGLProgram.create(this._gl, PARTICLE_CIRCLE_VERTEX_SHADER, PARTICLE_CIRCLE_FRAGMENT_SHADER)
     this._particleSpriteProgram = NovaWebGLProgram.create(this._gl, PARTICLE_SPRITE_VERTEX_SHADER, PARTICLE_SPRITE_FRAGMENT_SHADER)
     this._rectBatchProgram = NovaWebGLProgram.create(this._gl, RECT_BATCH_VERTEX_SHADER, RECT_BATCH_FRAGMENT_SHADER)
@@ -780,11 +803,13 @@ export class NovaWebGLFrameRenderer {
     this._roundedBuffer = this.createBuffer()
     this._solidBuffer = this.createBuffer()
     this._textureBuffer = this.createBuffer()
+    this._distanceFieldBuffer = this.createBuffer()
     this._particleQuadBuffer = this.createBuffer()
     this.initializeParticleQuadBuffer()
     this._roundedVao = this.createRoundedVao()
     this._solidVao = this.createSolidVao()
     this._textureVao = this.createTextureVao()
+    this._distanceFieldVao = this.createDistanceFieldVao()
   }
 
   /**
@@ -827,6 +852,10 @@ export class NovaWebGLFrameRenderer {
 	      glyphQuads: 0,
 	      msdfGlyphCount: 0,
 	      sdfGlyphCount: 0,
+	      distanceFieldGlyphQuads: 0,
+	      distanceFieldDrawCalls: 0,
+	      runtimeSdfGlyphCount: 0,
+	      prebuiltMsdfGlyphCount: 0,
 	      textRunCacheHits: 0,
 	      textRunCacheMisses: 0,
 	      textShapeMs: 0,
@@ -1007,6 +1036,10 @@ export class NovaWebGLFrameRenderer {
 	      glyphQuads: stats.glyphQuads,
 	      msdfGlyphCount: stats.msdfGlyphCount,
 	      sdfGlyphCount: stats.sdfGlyphCount,
+	      distanceFieldGlyphQuads: stats.distanceFieldGlyphQuads,
+	      distanceFieldDrawCalls: stats.distanceFieldDrawCalls,
+	      runtimeSdfGlyphCount: stats.runtimeSdfGlyphCount,
+	      prebuiltMsdfGlyphCount: stats.prebuiltMsdfGlyphCount,
 	      textRunCacheHits: stats.textRunCacheHits,
 	      textRunCacheMisses: stats.textRunCacheMisses,
 	      textShapeMs: stats.textShapeMs,
@@ -2152,21 +2185,49 @@ export class NovaWebGLFrameRenderer {
       const entry = this.resolveGlyphAtlasEntry(glyph, style, color, scale, mode, stats)
       if (!entry) return false
 
-      this.queueClippedTextureQuad(
-        entry.page.texture,
-        this.resolveGlyphQuadX(cursorX, entry),
-        this.resolveGlyphQuadY(y, entry, style),
-        entry.drawWidth,
-        entry.drawHeight,
-        transform,
-        style.opacity,
-        stats,
-        entry.x / entry.page.width,
-        entry.y / entry.page.height,
-        (entry.x + entry.width) / entry.page.width,
-        (entry.y + entry.height) / entry.page.height,
-        text.clip === true ? { x: text.x, y: text.y, width: text.width, height: text.height } : text.clip,
-      )
+      const x = this.resolveGlyphQuadX(cursorX, entry)
+      const yPosition = this.resolveGlyphQuadY(y, entry, style)
+      const u0 = entry.x / entry.page.width
+      const v0 = entry.y / entry.page.height
+      const u1 = (entry.x + entry.width) / entry.page.width
+      const v1 = (entry.y + entry.height) / entry.page.height
+      const clip = text.clip === true ? { x: text.x, y: text.y, width: text.width, height: text.height } : text.clip
+      if (mode === 'msdf') {
+        this.queueClippedDistanceFieldGlyphQuad(
+          entry.page.texture,
+          x,
+          yPosition,
+          entry.drawWidth,
+          entry.drawHeight,
+          transform,
+          color,
+          style.opacity,
+          entry.pxRange,
+          entry.fieldSource === 'prebuilt-msdf' ? 'prebuilt-msdf' : 'runtime-sdf',
+          stats,
+          u0,
+          v0,
+          u1,
+          v1,
+          clip,
+        )
+      } else {
+        this.queueClippedTextureQuad(
+          entry.page.texture,
+          x,
+          yPosition,
+          entry.drawWidth,
+          entry.drawHeight,
+          transform,
+          style.opacity,
+          stats,
+          u0,
+          v0,
+          u1,
+          v1,
+          clip,
+        )
+      }
       stats.glyphQuads += 1
       cursorX += entry.advance
     }
@@ -2213,8 +2274,18 @@ export class NovaWebGLFrameRenderer {
     mode: 'glyph-atlas' | 'msdf',
     stats: RenderStats,
   ): GlyphAtlasEntry | null {
+	    let fieldSource: 'bitmap' | 'runtime-sdf' | 'prebuilt-msdf' = mode === 'msdf' ? this.resolveGlyphDistanceFieldSource() : 'bitmap'
+	    let pxRange = mode === 'msdf' && fieldSource !== 'bitmap' ? this.resolveSdfPxRange(fieldSource) : 0
+	    if (mode === 'msdf' && fieldSource === 'prebuilt-msdf') {
+	      const prebuiltEntry = this.resolvePrebuiltMsdfGlyphAtlasEntry(glyph, style, stats)
+	      if (prebuiltEntry) return prebuiltEntry
+	      fieldSource = 'runtime-sdf'
+	      pxRange = this.resolveSdfPxRange(fieldSource)
+	    }
 	    const keyScale = mode === 'msdf' ? Math.max(0.1, this._device.canvas.dpr).toFixed(3) : scale.toFixed(3)
-	    const key = ['glyph', mode, keyScale, style.font, style.lineHeight, color, glyph].join(':')
+	    const key = mode === 'msdf'
+	      ? ['glyph', mode, fieldSource, keyScale, style.font, style.lineHeight, pxRange.toFixed(2), glyph].join(':')
+	      : ['glyph', mode, keyScale, style.font, style.lineHeight, color, glyph].join(':')
     const current = this._glyphAtlasEntries.get(key)
 	    if (current) {
 	      stats.glyphCacheHits += 1
@@ -2224,6 +2295,8 @@ export class NovaWebGLFrameRenderer {
 	      if (mode === 'msdf') {
 	        stats.msdfGlyphCount += 1
 	        stats.sdfGlyphCount += 1
+	        if (current.fieldSource === 'prebuilt-msdf') stats.prebuiltMsdfGlyphCount += 1
+	        else stats.runtimeSdfGlyphCount += 1
 	      }
       return current
     }
@@ -2237,12 +2310,14 @@ export class NovaWebGLFrameRenderer {
 
     stats.glyphCacheMisses += 1
     const rasterStartedAt = performance.now()
-	    const raster = this.rasterizeGlyph(glyph, style, color, scale, mode)
+	    const raster = this.rasterizeGlyph(glyph, style, color, scale, mode, fieldSource, pxRange)
 	    stats.textRasterMs += performance.now() - rasterStartedAt
 	    stats.glyphRasterCount += 1
 	    if (mode === 'msdf') {
 	      stats.msdfGlyphCount += 1
 	      stats.sdfGlyphCount += 1
+	      if (raster.fieldSource === 'prebuilt-msdf') stats.prebuiltMsdfGlyphCount += 1
+	      else stats.runtimeSdfGlyphCount += 1
 	    }
 
 	    const entry = this.uploadGlyphAtlasEntry(key, raster, mode, stats)
@@ -2254,11 +2329,21 @@ export class NovaWebGLFrameRenderer {
   /**
    * Выполняет rasterize одного glyph в alpha texture.
    */
-	  private rasterizeGlyph(glyph: string, style: NovaCompiledTextStyle, color: string, scale: number, mode: 'glyph-atlas' | 'msdf'): RasterizedGlyph {
+	  private rasterizeGlyph(
+	    glyph: string,
+	    style: NovaCompiledTextStyle,
+	    color: string,
+	    scale: number,
+	    mode: 'glyph-atlas' | 'msdf',
+	    fieldSource: 'bitmap' | 'runtime-sdf' | 'prebuilt-msdf' = 'bitmap',
+	    pxRange = 0,
+	  ): RasterizedGlyph {
     const canvas = this._textRasterCanvas
     const measureContext = this.measureContext(style.font)
     const advance = this.measureGlyphAdvance(measureContext, glyph)
-    const padding = 2
+    const padding = mode === 'msdf'
+      ? Math.max(this._textConfig.sdf.minPaddingPx, Math.ceil(pxRange / Math.max(1, scale)))
+      : 2
     const drawWidth = Math.max(1, Math.ceil(advance + padding * 2))
     const drawHeight = Math.max(1, Math.ceil(style.lineHeight + padding * 2))
     const width = Math.max(1, Math.ceil(drawWidth * scale))
@@ -2267,29 +2352,140 @@ export class NovaWebGLFrameRenderer {
     canvas.height = height
 
     const ctx = canvas.getContext('2d')
-    if (!ctx) return { canvas, width, height, drawWidth, drawHeight, advance, scale }
+    if (!ctx) return { canvas, width, height, drawWidth, drawHeight, advance, scale, fieldSource, pxRange }
 
     ctx.setTransform(scale, 0, 0, scale, 0, 0)
     ctx.clearRect(0, 0, drawWidth, drawHeight)
     ctx.font = style.font
     ctx.textBaseline = 'alphabetic'
-    ctx.fillStyle = color
+    ctx.fillStyle = mode === 'msdf' ? '#ffffff' : color
 	    ctx.fillText(glyph, padding, padding + style.fontSize, Math.max(1, advance + padding))
-	    if (mode === 'msdf' && this._textConfig.sdf.enabled) this.encodeRuntimeSdf(canvas, width, height)
-	    return { canvas, width, height, drawWidth, drawHeight, advance, scale }
+	    if (mode === 'msdf' && this._textConfig.sdf.enabled) this.encodeRuntimeSdf(canvas, width, height, pxRange)
+	    return { canvas, width, height, drawWidth, drawHeight, advance, scale, fieldSource, pxRange }
+	  }
+
+	  private resolveGlyphDistanceFieldSource(): 'runtime-sdf' | 'prebuilt-msdf' {
+	    if (!this._textConfig.sdf.enabled) return 'runtime-sdf'
+	    if (this._textConfig.sdf.source === 'prebuilt-msdf' && this._textConfig.sdf.prebuiltAtlas) return 'prebuilt-msdf'
+	    return 'runtime-sdf'
+	  }
+
+	  private resolveSdfPxRange(source: 'runtime-sdf' | 'prebuilt-msdf'): number {
+	    if (source === 'prebuilt-msdf') return Math.max(1, this._textConfig.sdf.prebuiltAtlas?.pxRange ?? this._textConfig.sdf.pxRange)
+	    return Math.max(1, this._textConfig.sdf.pxRange)
+	  }
+
+	  private resolvePrebuiltMsdfGlyphAtlasEntry(
+	    glyph: string,
+	    style: NovaCompiledTextStyle,
+	    stats: RenderStats,
+	  ): GlyphAtlasEntry | null {
+	    const atlas = this._textConfig.sdf.prebuiltAtlas
+	    const metrics = atlas?.glyphs[glyph]
+	    if (!atlas || !metrics || !atlas.texture) return null
+
+	    const source = this.resolvePrebuiltMsdfAtlasSource(atlas.texture)
+	    if (!source) return null
+
+	    const sourceKey = this._assets.resolveDrawableKey('msdf-font', atlas.texture as NovaAssetDrawableInput, source => this.resolveSourceKey(source))
+	    const fontKey = atlas.fontKey ?? style.font
+	    const scale = Math.max(0.001, atlas.scale ?? 1)
+	    const pxRange = Math.max(1, atlas.pxRange ?? this._textConfig.sdf.pxRange)
+	    const key = ['glyph', 'msdf', 'prebuilt-msdf', fontKey, scale.toFixed(3), pxRange.toFixed(2), sourceKey, glyph].join(':')
+	    const current = this._glyphAtlasEntries.get(key)
+	    if (current) {
+	      current.lastUsed = this._time
+	      current.page.lastUsed = this._time
+	      current.page.pinnedFrame = this._time
+	      stats.glyphCacheHits += 1
+	      stats.msdfGlyphCount += 1
+	      stats.prebuiltMsdfGlyphCount += 1
+	      return current
+	    }
+
+	    stats.glyphCacheMisses += 1
+	    let page = this._prebuiltMsdfAtlasPages.get(sourceKey)
+	    if (!page) {
+	      let texture = this._textures.get(sourceKey)
+	      if (!texture) texture = this.createTextureFromSource(sourceKey, source, stats)
+	      const width = texture.width
+	      const height = texture.height
+	      page = {
+	        key: texture.key,
+	        texture,
+	        width,
+	        height,
+	        cursorX: width,
+	        cursorY: 0,
+	        rowHeight: height,
+	        entries: new Set(),
+	        lastUsed: this._time,
+	        generation: texture.generation,
+	        pinnedFrame: this._time,
+	      }
+	      this._prebuiltMsdfAtlasPages.set(sourceKey, page)
+	      this._glyphAtlasPages.push(page)
+	    }
+
+	    page.entries.add(key)
+	    page.lastUsed = this._time
+	    page.pinnedFrame = this._time
+	    const drawWidth = metrics.drawWidth ?? metrics.width / scale
+	    const drawHeight = metrics.drawHeight ?? metrics.height / scale
+	    const entry: GlyphAtlasEntry = {
+	      key,
+	      page,
+	      x: metrics.x,
+	      y: metrics.y,
+	      width: metrics.width,
+	      height: metrics.height,
+	      drawWidth,
+	      drawHeight,
+	      advance: metrics.advance / scale,
+	      scale,
+	      mode: 'msdf',
+	      fieldSource: 'prebuilt-msdf',
+	      pxRange,
+	      bytes: 0,
+	      lastUsed: this._time,
+	    }
+	    this._glyphAtlasEntries.set(key, entry)
+	    stats.msdfGlyphCount += 1
+	    stats.prebuiltMsdfGlyphCount += 1
+	    stats.glyphAtlasPages = this._glyphAtlasPages.length
+	    return entry
+	  }
+
+	  private resolvePrebuiltMsdfAtlasSource(input: unknown): CanvasImageSource | null {
+	    const source = this._assets.resolveDrawable(input as NovaAssetDrawableInput)
+	    if (source) return source
+	    if (this.isCanvasImageSource(input)) return input
+	    return null
+	  }
+
+	  private isCanvasImageSource(value: unknown): value is CanvasImageSource {
+	    return typeof value === 'object'
+	      && value !== null
+	      && (
+	        (typeof HTMLCanvasElement !== 'undefined' && value instanceof HTMLCanvasElement)
+	        || (typeof ImageBitmap !== 'undefined' && value instanceof ImageBitmap)
+	        || (typeof OffscreenCanvas !== 'undefined' && value instanceof OffscreenCanvas)
+	        || (typeof HTMLImageElement !== 'undefined' && value instanceof HTMLImageElement)
+	        || (typeof HTMLVideoElement !== 'undefined' && value instanceof HTMLVideoElement)
+	      )
 	  }
 
 	  /**
 	   * Кодирует single-channel runtime SDF в alpha channel glyph canvas.
 	   */
-	  private encodeRuntimeSdf(canvas: HTMLCanvasElement, width: number, height: number): void {
+	  private encodeRuntimeSdf(canvas: HTMLCanvasElement, width: number, height: number, pxRange: number): void {
 	    const ctx = canvas.getContext('2d')
 	    if (!ctx || typeof ctx.getImageData !== 'function' || typeof ctx.putImageData !== 'function') return
 
 	    const image = ctx.getImageData(0, 0, width, height)
 	    const source = image.data
 	    const target = new Uint8ClampedArray(source.length)
-	    const radius = Math.max(1, Math.min(32, Math.round(this._textConfig.sdf.pxRange)))
+	    const radius = Math.max(1, Math.min(64, Math.round(pxRange || this._textConfig.sdf.pxRange)))
 	    const radiusSq = radius * radius
 
 	    for (let y = 0; y < height; y += 1) {
@@ -2374,6 +2570,8 @@ export class NovaWebGLFrameRenderer {
       advance: raster.advance,
       scale: raster.scale,
       mode,
+      fieldSource: raster.fieldSource,
+      pxRange: raster.pxRange,
       bytes,
       lastUsed: this._time,
     }
@@ -3644,7 +3842,7 @@ export class NovaWebGLFrameRenderer {
 	        ])
 	        group.staticDirtyRanges = mergeFloatDirtyRanges([
 	          ...(group.staticDirtyRanges ?? []),
-	          { start: range.start * TEXTURE_RECT_BATCH_STATIC_STRIDE, end: range.end * TEXTURE_RECT_BATCH_STATIC_STRIDE },
+	          { start: range.start * this.resolveGlyphTextStaticStride(group.mode), end: range.end * this.resolveGlyphTextStaticStride(group.mode) },
 	        ])
 	        stats.glyphGeometryUploads += 1
 	      }
@@ -3663,12 +3861,15 @@ export class NovaWebGLFrameRenderer {
 	  ): GlyphTextStreamGroupCache {
 	    const geometryBuffer = this.createBuffer()
 	    const staticBuffer = this.createBuffer()
+	    const mode = quads.some(quad => quad.fieldMode > 0 || quad.pxRange > 0) ? 'msdf' : 'glyph-atlas'
+	    const staticStride = this.resolveGlyphTextStaticStride(mode)
 	    const group: GlyphTextStreamGroupCache = {
 	      texture,
 	      textureGeneration: texture.generation,
 	      geometryData: new Float32Array(quads.length * TEXTURE_RECT_BATCH_GEOMETRY_STRIDE),
-	      staticData: new Float32Array(quads.length * TEXTURE_RECT_BATCH_STATIC_STRIDE),
+	      staticData: new Float32Array(quads.length * staticStride),
 	      count: quads.length,
+	      mode,
 	      labelRanges,
 	      geometryDirtyRanges: null,
 	      staticDirtyRanges: null,
@@ -3676,7 +3877,9 @@ export class NovaWebGLFrameRenderer {
 	      staticUpload: createWebGLUploadState(),
 	      geometryBuffer,
 	      staticBuffer,
-	      vao: this.createTextureRectBatchVao(geometryBuffer, staticBuffer),
+	      vao: mode === 'msdf'
+	        ? this.createDistanceFieldGlyphBatchVao(geometryBuffer, staticBuffer)
+	        : this.createTextureRectBatchVao(geometryBuffer, staticBuffer),
 	    }
 
 	    for (let index = 0; index < quads.length; index += 1) {
@@ -3697,12 +3900,24 @@ export class NovaWebGLFrameRenderer {
 	    group.geometryData[geometryOffset + 2] = quad.width
 	    group.geometryData[geometryOffset + 3] = quad.height
 
-	    const staticOffset = index * TEXTURE_RECT_BATCH_STATIC_STRIDE
+	    const staticOffset = index * this.resolveGlyphTextStaticStride(group.mode)
 	    group.staticData[staticOffset] = quad.u0
 	    group.staticData[staticOffset + 1] = quad.v0
 	    group.staticData[staticOffset + 2] = quad.u1
 	    group.staticData[staticOffset + 3] = quad.v1
 	    group.staticData[staticOffset + 4] = quad.opacity
+	    if (group.mode === 'msdf') {
+	      group.staticData[staticOffset + 5] = quad.color.r
+	      group.staticData[staticOffset + 6] = quad.color.g
+	      group.staticData[staticOffset + 7] = quad.color.b
+	      group.staticData[staticOffset + 8] = quad.color.a
+	      group.staticData[staticOffset + 9] = quad.pxRange
+	      group.staticData[staticOffset + 10] = quad.fieldMode
+	    }
+	  }
+
+	  private resolveGlyphTextStaticStride(mode: 'glyph-atlas' | 'msdf'): number {
+	    return mode === 'msdf' ? DISTANCE_FIELD_GLYPH_STATIC_STRIDE : TEXTURE_RECT_BATCH_STATIC_STRIDE
 	  }
 
 	  /**
@@ -3724,16 +3939,25 @@ export class NovaWebGLFrameRenderer {
 	      group.geometryDirtyRanges = null
 	      group.staticDirtyRanges = null
 
-	      this._textureRectBatchProgram.use()
-	      gl.uniform2f(this._textureRectBatchProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
-	      gl.uniformMatrix3fv(this._textureRectBatchProgram.uniformLocation('u_transform'), false, transform)
+	      const program = group.mode === 'msdf' ? this._distanceFieldTextProgram : this._textureRectBatchProgram
+	      program.use()
+	      gl.uniform2f(program.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
+	      gl.uniformMatrix3fv(program.uniformLocation('u_transform'), false, transform)
+	      if (group.mode === 'msdf') {
+	        gl.uniform1f(program.uniformLocation('u_edgeSoftness'), Math.max(0.1, this._textConfig.sdf.edgeSoftness))
+	        gl.uniform1i(program.uniformLocation('u_instanced'), 1)
+	      }
 	      gl.activeTexture(gl.TEXTURE0)
 	      gl.bindTexture(gl.TEXTURE_2D, group.texture.texture)
-	      gl.uniform1i(this._textureRectBatchProgram.uniformLocation('u_texture'), 0)
+	      gl.uniform1i(program.uniformLocation('u_texture'), 0)
 	      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, group.count)
 
 	      stats.instances += group.count
 	      stats.glyphQuads += group.count
+	      if (group.mode === 'msdf') {
+	        stats.distanceFieldGlyphQuads += group.count
+	        stats.distanceFieldDrawCalls += 1
+	      }
 	      stats.drawCalls += 1
 	      stats.batches += 1
 	    }
@@ -3831,6 +4055,9 @@ export class NovaWebGLFrameRenderer {
 	          u1: clipped.u1,
 	          v1: clipped.v1,
 	          opacity: style.opacity,
+	          color: parseNovaColor(color),
+	          pxRange: mode === 'msdf' ? entry.pxRange : 0,
+	          fieldMode: entry.fieldSource === 'prebuilt-msdf' ? 1 : 0,
 	        })
 	      }
 	      cursorX += entry.advance
@@ -5172,6 +5399,7 @@ export class NovaWebGLFrameRenderer {
   ): void {
     if (width <= 0 || height <= 0 || opacity <= 0) return
     if (!this.isTextureBindable(texture)) return
+    this.flushDistanceField(stats)
     this.flushRounded(stats)
     this.flushSolid(stats)
     this.prepareTextureTransform(transform, stats)
@@ -5208,6 +5436,99 @@ export class NovaWebGLFrameRenderer {
     if (!rect) return
 
     this.queueTextureQuad(texture, rect.x, rect.y, rect.width, rect.height, transform, opacity, stats, rect.u0, rect.v0, rect.u1, rect.v1)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию queue distance-field glyph quad.
+   */
+  private queueDistanceFieldGlyphQuad(
+    texture: TextureEntry,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    transform: mat3,
+    color: string,
+    opacity: number,
+    pxRange: number,
+    fieldSource: 'runtime-sdf' | 'prebuilt-msdf',
+    stats: RenderStats,
+    u0 = 0,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+  ): void {
+    if (width <= 0 || height <= 0 || opacity <= 0) return
+    if (!this.isTextureBindable(texture)) return
+    this.flushRounded(stats)
+    this.flushSolid(stats)
+    this.flushTexture(stats)
+    this.prepareDistanceFieldTransform(transform, stats)
+
+    if (this._distanceFieldBatch && this._distanceFieldBatch !== texture) this.flushDistanceField(stats)
+    this._distanceFieldBatch = texture
+    this.pushDistanceFieldQuadVertices(
+      this._distanceFieldData,
+      x,
+      y,
+      width,
+      height,
+      parseNovaColor(color),
+      opacity,
+      pxRange,
+      fieldSource === 'prebuilt-msdf' ? 1 : 0,
+      u0,
+      v0,
+      u1,
+      v1,
+    )
+    stats.instances += 1
+    stats.distanceFieldGlyphQuads += 1
+  }
+
+  /**
+   * Добавляет distance-field glyph quad с CPU clipping и пересчетом UV.
+   */
+  private queueClippedDistanceFieldGlyphQuad(
+    texture: TextureEntry,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    transform: mat3,
+    color: string,
+    opacity: number,
+    pxRange: number,
+    fieldSource: 'runtime-sdf' | 'prebuilt-msdf',
+    stats: RenderStats,
+    u0 = 0,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+    clip?: NovaRect | true,
+  ): void {
+    const rect = clip === true
+      ? this.clipTextureRect(x, y, width, height, u0, v0, u1, v1, { x, y, width, height })
+      : this.clipTextureRect(x, y, width, height, u0, v0, u1, v1, clip)
+    if (!rect) return
+
+    this.queueDistanceFieldGlyphQuad(
+      texture,
+      rect.x,
+      rect.y,
+      rect.width,
+      rect.height,
+      transform,
+      color,
+      opacity,
+      pxRange,
+      fieldSource,
+      stats,
+      rect.u0,
+      rect.v0,
+      rect.u1,
+      rect.v1,
+    )
   }
 
   /**
@@ -5412,6 +5733,38 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Выполняет внутреннюю операцию push distance-field glyph quad vertices.
+   */
+  private pushDistanceFieldQuadVertices(
+    target: Array<number>,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: NovaParsedColor,
+    opacity: number,
+    pxRange: number,
+    fieldMode: number,
+    u0 = 0,
+    v0 = 0,
+    u1 = 1,
+    v1 = 1,
+  ): void {
+    const vertices = [
+      [x, y, u0, v0],
+      [x + width, y, u1, v0],
+      [x, y + height, u0, v1],
+      [x, y + height, u0, v1],
+      [x + width, y, u1, v0],
+      [x + width, y + height, u1, v1],
+    ]
+
+    for (const [px, py, u, v] of vertices) {
+      target.push(px, py, u, v, color.r, color.g, color.b, color.a * opacity, pxRange, fieldMode)
+    }
+  }
+
+  /**
    * Записывает texture quad vertices.
    */
   private writeTextureQuadVertices(
@@ -5470,6 +5823,7 @@ export class NovaWebGLFrameRenderer {
     this.flushRounded(stats)
     this.flushSolid(stats)
     this.flushTexture(stats)
+    this.flushDistanceField(stats)
   }
 
   /**
@@ -5500,9 +5854,19 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Выполняет внутреннюю операцию prepare distance-field transform.
+   */
+  private prepareDistanceFieldTransform(transform: mat3, stats: RenderStats): void {
+    if (mat3Equals(this._distanceFieldTransform, transform)) return
+    this.flushDistanceField(stats)
+    mat3.copy(this._distanceFieldTransform, transform)
+  }
+
+  /**
    * Сбрасывает накопленные операции в следующий слой runtime.
    */
   private flushRounded(stats: RenderStats): void {
+    if (this._distanceFieldData.length > 0) this.flushDistanceField(stats)
     if (this._rectData.length === 0 && !this._rectCachedData) return
     const gl = this._gl
     const data = this._rectCachedData ?? new Float32Array(this._rectData)
@@ -5530,6 +5894,7 @@ export class NovaWebGLFrameRenderer {
    * Сбрасывает накопленные операции в следующий слой runtime.
    */
   private flushSolid(stats: RenderStats): void {
+    if (this._distanceFieldData.length > 0) this.flushDistanceField(stats)
     if (this._solidData.length === 0 && !this._solidCachedData) return
     const gl = this._gl
     const data = this._solidCachedData ?? new Float32Array(this._solidData)
@@ -5593,6 +5958,43 @@ export class NovaWebGLFrameRenderer {
     this._textureCachedData = null
     this._textureCachedDirtyRanges = null
     this._textureCachedBatch = null
+  }
+
+  /**
+   * Сбрасывает накопленные distance-field glyph операции в следующий слой runtime.
+   */
+  private flushDistanceField(stats: RenderStats): void {
+    if (this._distanceFieldData.length === 0) return
+    const texture = this._distanceFieldBatch
+    if (!texture || !this.isTextureBindable(texture)) {
+      this._distanceFieldData = []
+      this._distanceFieldBatch = null
+      return
+    }
+
+    const gl = this._gl
+    const data = new Float32Array(this._distanceFieldData)
+    const uploadStartedAt = performance.now()
+    gl.bindVertexArray(this._distanceFieldVao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._distanceFieldBuffer)
+    this.uploadArrayBuffer(data, this._distanceFieldUpload, stats)
+    stats.uploadMs += performance.now() - uploadStartedAt
+
+    this._distanceFieldTextProgram.use()
+    gl.uniform2f(this._distanceFieldTextProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
+    gl.uniformMatrix3fv(this._distanceFieldTextProgram.uniformLocation('u_transform'), false, this._distanceFieldTransform)
+    gl.uniform1f(this._distanceFieldTextProgram.uniformLocation('u_edgeSoftness'), Math.max(0.1, this._textConfig.sdf.edgeSoftness))
+    gl.uniform1i(this._distanceFieldTextProgram.uniformLocation('u_instanced'), 0)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texture.texture)
+    gl.uniform1i(this._distanceFieldTextProgram.uniformLocation('u_texture'), 0)
+    gl.drawArrays(gl.TRIANGLES, 0, data.length / DISTANCE_FIELD_STRIDE)
+
+    stats.drawCalls += 1
+    stats.distanceFieldDrawCalls += 1
+    stats.batches += 1
+    this._distanceFieldData = []
+    this._distanceFieldBatch = null
   }
 
   /**
@@ -5716,6 +6118,23 @@ export class NovaWebGLFrameRenderer {
   }
 
   /**
+   * Создает distance-field glyph vao.
+   */
+  private createDistanceFieldVao(buffer: WebGLBuffer = this._distanceFieldBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    const stride = DISTANCE_FIELD_STRIDE * FLOAT_BYTES
+    gl.bindVertexArray(vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+    this.bindAttrib(this._distanceFieldTextProgram, 'a_position', 2, stride, 0)
+    this.bindAttrib(this._distanceFieldTextProgram, 'a_uv', 2, stride, 2)
+    this.bindAttrib(this._distanceFieldTextProgram, 'a_color', 4, stride, 4)
+    this.bindAttrib(this._distanceFieldTextProgram, 'a_sdfParams', 2, stride, 8)
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
    * Создает VAO для circle particle stream.
    */
   private createParticleCircleVao(positionBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
@@ -5826,6 +6245,31 @@ export class NovaWebGLFrameRenderer {
     const stride = TEXTURE_RECT_BATCH_STATIC_STRIDE * FLOAT_BYTES
     this.bindAttribDivisor(this._textureRectBatchProgram, 'a_uvRect', 4, stride, 0, 1)
     this.bindAttribDivisor(this._textureRectBatchProgram, 'a_opacity', 1, stride, 4, 1)
+
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
+   * Создает VAO для retained distance-field glyph stream.
+   */
+  private createDistanceFieldGlyphBatchVao(geometryBuffer: WebGLBuffer, staticBuffer: WebGLBuffer): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttribDivisor(this._distanceFieldTextProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, geometryBuffer)
+    this.bindAttribDivisor(this._distanceFieldTextProgram, 'a_rect', 4, TEXTURE_RECT_BATCH_GEOMETRY_STRIDE * FLOAT_BYTES, 0, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, staticBuffer)
+    const stride = DISTANCE_FIELD_GLYPH_STATIC_STRIDE * FLOAT_BYTES
+    this.bindAttribDivisor(this._distanceFieldTextProgram, 'a_uvRect', 4, stride, 0, 1)
+    this.bindAttribDivisor(this._distanceFieldTextProgram, 'a_opacity', 1, stride, 4, 1)
+    this.bindAttribDivisor(this._distanceFieldTextProgram, 'a_glyphColor', 4, stride, 5, 1)
+    this.bindAttribDivisor(this._distanceFieldTextProgram, 'a_sdfInstanceParams', 2, stride, 9, 1)
 
     gl.bindVertexArray(null)
     return vao
@@ -6533,6 +6977,77 @@ in vec4 v_color;
 out vec4 outColor;
 void main() {
   outColor = texture(u_texture, v_uv) * v_color;
+}
+`
+
+const DISTANCE_FIELD_TEXT_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_position;
+in vec2 a_uv;
+in vec4 a_color;
+in vec2 a_sdfParams;
+in vec2 a_unit;
+in vec4 a_rect;
+in vec4 a_uvRect;
+in float a_opacity;
+in vec4 a_glyphColor;
+in vec2 a_sdfInstanceParams;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+uniform int u_instanced;
+out vec2 v_uv;
+out vec4 v_color;
+out vec2 v_sdfParams;
+void main() {
+  vec2 position = a_position;
+  vec2 uv = a_uv;
+  vec4 color = a_color;
+  vec2 sdfParams = a_sdfParams;
+  if (u_instanced == 1) {
+    vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
+    position = a_rect.xy + unitUv * a_rect.zw;
+    uv = mix(a_uvRect.xy, a_uvRect.zw, unitUv);
+    color = vec4(a_glyphColor.rgb, a_glyphColor.a * a_opacity);
+    sdfParams = a_sdfInstanceParams;
+  }
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_uv = uv;
+  v_color = color;
+  v_sdfParams = sdfParams;
+}
+`
+
+const DISTANCE_FIELD_TEXT_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform sampler2D u_texture;
+uniform float u_edgeSoftness;
+in vec2 v_uv;
+in vec4 v_color;
+in vec2 v_sdfParams;
+out vec4 outColor;
+
+float median3(float r, float g, float b) {
+  return max(min(r, g), min(max(r, g), b));
+}
+
+float screenPxRange(float pxRange) {
+  vec2 textureSizePx = vec2(textureSize(u_texture, 0));
+  vec2 unitRange = vec2(pxRange) / max(textureSizePx, vec2(1.0));
+  vec2 screenTexSize = vec2(1.0) / max(fwidth(v_uv), vec2(0.000001));
+  return max(0.5 * dot(unitRange, screenTexSize), 1.0);
+}
+
+void main() {
+  vec4 sampleColor = texture(u_texture, v_uv);
+  float signedDistance = v_sdfParams.y > 0.5
+    ? median3(sampleColor.r, sampleColor.g, sampleColor.b)
+    : sampleColor.a;
+  float range = screenPxRange(max(v_sdfParams.x, 1.0)) / max(u_edgeSoftness, 0.1);
+  float alpha = clamp(range * (signedDistance - 0.5) + 0.5, 0.0, 1.0);
+  outColor = vec4(v_color.rgb, v_color.a * alpha);
 }
 `
 

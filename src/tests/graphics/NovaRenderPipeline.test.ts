@@ -259,6 +259,8 @@ describe('Nova render pipeline contracts', () => {
       enabled: true,
       pxRange: 8,
       source: 'prebuilt-msdf',
+      minPaddingPx: 2,
+      edgeSoftness: 1,
     })
   })
 

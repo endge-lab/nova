@@ -63,6 +63,8 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
 	      enabled: true,
 	      pxRange: 8,
 	      source: 'runtime-sdf',
+	      minPaddingPx: 2,
+	      edgeSoftness: 1,
 	    }),
 	    maxAtlasMemoryMB: 128,
 	    maxGlyphAtlasMemoryMB: 64,

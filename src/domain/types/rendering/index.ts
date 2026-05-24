@@ -151,6 +151,35 @@ export interface NovaRendererTextSdfConfig {
   enabled: boolean
   pxRange: number
   source: 'runtime-sdf' | 'prebuilt-msdf'
+  minPaddingPx: number
+  edgeSoftness: number
+  prebuiltAtlas?: NovaMsdfFontAtlasConfig
+}
+
+/**
+ * Описывает glyph metrics внутри prebuilt MSDF atlas.
+ */
+export interface NovaMsdfGlyphMetrics {
+  x: number
+  y: number
+  width: number
+  height: number
+  advance: number
+  bearingX?: number
+  bearingY?: number
+  drawWidth?: number
+  drawHeight?: number
+}
+
+/**
+ * Описывает внешний MSDF font atlas.
+ */
+export interface NovaMsdfFontAtlasConfig {
+  texture?: unknown
+  glyphs: Record<string, NovaMsdfGlyphMetrics>
+  pxRange?: number
+  fontKey?: string
+  scale?: number
 }
 
 /**
@@ -592,6 +621,10 @@ export interface NovaRenderMetrics {
   glyphQuads?: number
   msdfGlyphCount?: number
   sdfGlyphCount?: number
+  distanceFieldGlyphQuads?: number
+  distanceFieldDrawCalls?: number
+  runtimeSdfGlyphCount?: number
+  prebuiltMsdfGlyphCount?: number
   textRunCacheHits?: number
   textRunCacheMisses?: number
   textShapeMs?: number
