@@ -18,6 +18,14 @@ import {
   type NovaRefMap,
   type NovaScope,
 } from '@/model/runtime/refs/nova-ref'
+import {
+  createNovaComputed,
+  createNovaSignal,
+  trackNovaNode,
+  type NovaComputed,
+  type NovaSignal,
+} from '@/model/runtime/reactivity/nova-reactivity'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
 import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import {
@@ -163,6 +171,27 @@ export class Nova {
    */
   static refMap<T extends object>(): NovaRefMap<T> {
     return createNovaRefMap<T>()
+  }
+
+  /**
+   * Создает mutable reactive value для Nova DSL.
+   */
+  static signal<T>(initialValue: T): NovaSignal<T> {
+    return createNovaSignal(initialValue)
+  }
+
+  /**
+   * Создает lazy computed reactive value для Nova DSL.
+   */
+  static computed<T>(compute: () => T): NovaComputed<T> {
+    return createNovaComputed(compute)
+  }
+
+  /**
+   * Выполняет callback с привязкой signal reads к NovaNode.
+   */
+  static trackNode<T>(node: NovaNode<any>, callback: () => T): T {
+    return trackNovaNode(node, callback)
   }
 
   /**
