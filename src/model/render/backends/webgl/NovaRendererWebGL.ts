@@ -13,6 +13,7 @@ import type {
   NovaRectBatch,
   NovaRenderer,
   NovaRendererCapabilities,
+  NovaRendererStateMark,
   NovaSchema,
   NovaStripeRectBatch,
   NovaText,
@@ -140,6 +141,20 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
    */
   clearClip(): void {
     this.throwImmediateApiError('clearClip')
+  }
+
+  /**
+   * Сохраняет границу mutable render-state.
+   */
+  markState(): NovaRendererStateMark {
+    this.throwImmediateApiError('markState')
+  }
+
+  /**
+   * Восстанавливает mutable render-state до сохраненной границы.
+   */
+  restoreState(_mark: NovaRendererStateMark): void {
+    this.throwImmediateApiError('restoreState')
   }
 
   /**

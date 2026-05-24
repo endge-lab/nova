@@ -11,6 +11,7 @@ import type {
   NovaIconBatch,
   NovaParticleBatch,
   NovaRectBatch,
+  NovaRendererStateMark,
   NovaSchemaItem,
   NovaSemanticScopeKind,
   NovaStripeRectBatch,
@@ -27,6 +28,7 @@ import type { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderF
 export class NovaRenderCommandWriter {
   private readonly _transformStack: Array<mat3> = []
   private readonly _clipStack: Array<NovaRenderClip> = []
+  private readonly _stateMarks: Array<NovaRendererStateMark> = []
   private _currentTransform = mat3.create()
   private _itemId = 0
   private _commandId = 0
@@ -64,6 +66,13 @@ export class NovaRenderCommandWriter {
   }
 
   /**
+   * Возвращает активную render-state границу.
+   */
+  private get activeStateMark(): NovaRendererStateMark | undefined {
+    return this._stateMarks[this._stateMarks.length - 1]
+  }
+
+  /**
    * Обновляет current node.
    */
   setCurrentNode(nodeId: string): void {
@@ -88,9 +97,10 @@ export class NovaRenderCommandWriter {
   /**
    * Выполняет внутреннюю операцию restore.
    */
-  restore(): NovaRenderCommand {
-    this._currentTransform = this._transformStack.pop() ?? mat3.create()
-    return this.command({ type: 'restore' })
+  restore(): NovaRenderCommand | null {
+    const minDepth = this.activeStateMark?.transformDepth ?? 0
+    if (this._transformStack.length <= minDepth) return null
+    return this.restoreUnsafe()
   }
 
   /**
@@ -119,9 +129,39 @@ export class NovaRenderCommandWriter {
   /**
    * Очищает clip.
    */
-  clearClip(): NovaRenderCommand {
-    this._clipStack.pop()
-    return this.command({ type: 'clearClip' })
+  clearClip(): NovaRenderCommand | null {
+    const minDepth = this.activeStateMark?.clipDepth ?? 0
+    if (this._clipStack.length <= minDepth) return null
+    return this.clearClipUnsafe()
+  }
+
+  /**
+   * Сохраняет границу mutable render-state.
+   */
+  markState(): NovaRendererStateMark {
+    const mark = {
+      transformDepth: this._transformStack.length,
+      clipDepth: this._clipStack.length,
+    }
+    this._stateMarks.push(mark)
+    return mark
+  }
+
+  /**
+   * Восстанавливает mutable render-state до сохраненной границы.
+   */
+  restoreState(mark: NovaRendererStateMark): void {
+    while (this._clipStack.length > mark.clipDepth) {
+      this.clearClipUnsafe()
+    }
+    while (this._transformStack.length > mark.transformDepth) {
+      this.restoreUnsafe()
+    }
+
+    const markIndex = this._stateMarks.lastIndexOf(mark)
+    if (markIndex >= 0) {
+      this._stateMarks.splice(markIndex)
+    }
   }
 
   /**
@@ -365,6 +405,22 @@ export class NovaRenderCommandWriter {
       groupId: this._group.id,
       layerId: this._group.layerId,
     })
+  }
+
+  /**
+   * Выполняет restore без проверки active state mark.
+   */
+  private restoreUnsafe(): NovaRenderCommand {
+    this._currentTransform = this._transformStack.pop() ?? mat3.create()
+    return this.command({ type: 'restore' })
+  }
+
+  /**
+   * Выполняет clearClip без проверки active state mark.
+   */
+  private clearClipUnsafe(): NovaRenderCommand {
+    this._clipStack.pop()
+    return this.command({ type: 'clearClip' })
   }
 
   /**

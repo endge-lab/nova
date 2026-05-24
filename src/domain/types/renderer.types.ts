@@ -539,6 +539,14 @@ export interface NovaRendererCanvas {
 }
 
 /**
+ * Описывает сохраненную границу mutable render-state.
+ */
+export interface NovaRendererStateMark {
+  transformDepth: number
+  clipDepth: number
+}
+
+/**
  * Рендерер.
  */
 export interface NovaRenderer {
@@ -554,6 +562,8 @@ export interface NovaRenderer {
 
   clip(x: number, y: number, width: number, height: number): void
   clearClip(): void
+  markState(): NovaRendererStateMark
+  restoreState(mark: NovaRendererStateMark): void
 
   setTransform(matrix: mat3): void
 

@@ -13,6 +13,7 @@ import type {
   NovaRect,
   NovaRectBatch,
   NovaRenderer,
+  NovaRendererStateMark,
   NovaSchema,
   NovaStripeRectBatch,
   NovaText,
@@ -59,8 +60,11 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   private readonly _schemaRegistry: NovaSchemaRegistry
   private readonly _renderTargets = new Map<string, HTMLCanvasElement>()
   private readonly _targetStack: Array<CanvasRenderingContext2D | null> = []
+  private readonly _stateMarks: Array<NovaRendererStateMark> = []
   private _activeTargetContext: CanvasRenderingContext2D | null = null
   private _clearTextBackground = false
+  private _transformDepth = 0
+  private _clipDepth = 0
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -80,6 +84,13 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   get ctx(): CanvasRenderingContext2D {
     if (this._activeTargetContext) return this._activeTargetContext
     return this.novaCanvas.getContext2D()
+  }
+
+  /**
+   * Возвращает активную render-state границу.
+   */
+  private get activeStateMark(): NovaRendererStateMark | undefined {
+    return this._stateMarks[this._stateMarks.length - 1]
   }
 
   /**
@@ -346,13 +357,16 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    */
   save(): void {
     this.ctx.save()
+    this._transformDepth += 1
   }
 
   /**
    * Выполняет внутреннюю операцию restore.
    */
   restore(): void {
-    this.ctx.restore()
+    const minDepth = this.activeStateMark?.transformDepth ?? 0
+    if (this._transformDepth <= minDepth) return
+    this.restoreUnsafe()
   }
 
   /**
@@ -361,6 +375,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   clip(x: number, y: number, width: number, height: number): void {
     const ctx = this.ctx
     ctx.save()
+    this._clipDepth += 1
     ctx.beginPath()
     ctx.rect(x, y, width, height)
     ctx.clip()
@@ -370,7 +385,38 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    * Очищает clip.
    */
   clearClip(): void {
-    this.ctx.restore()
+    const minDepth = this.activeStateMark?.clipDepth ?? 0
+    if (this._clipDepth <= minDepth) return
+    this.clearClipUnsafe()
+  }
+
+  /**
+   * Сохраняет границу mutable render-state.
+   */
+  markState(): NovaRendererStateMark {
+    const mark = {
+      transformDepth: this._transformDepth,
+      clipDepth: this._clipDepth,
+    }
+    this._stateMarks.push(mark)
+    return mark
+  }
+
+  /**
+   * Восстанавливает mutable render-state до сохраненной границы.
+   */
+  restoreState(mark: NovaRendererStateMark): void {
+    while (this._clipDepth > mark.clipDepth) {
+      this.clearClipUnsafe()
+    }
+    while (this._transformDepth > mark.transformDepth) {
+      this.restoreUnsafe()
+    }
+
+    const markIndex = this._stateMarks.lastIndexOf(mark)
+    if (markIndex >= 0) {
+      this._stateMarks.splice(markIndex)
+    }
   }
 
   /**
@@ -1060,6 +1106,22 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    * Освобождает runtime resources и снимает связанные ссылки.
    */
   destroy(): void {}
+
+  /**
+   * Выполняет restore без проверки active state mark.
+   */
+  private restoreUnsafe(): void {
+    this.ctx.restore()
+    this._transformDepth = Math.max(0, this._transformDepth - 1)
+  }
+
+  /**
+   * Выполняет clearClip без проверки active state mark.
+   */
+  private clearClipUnsafe(): void {
+    this.ctx.restore()
+    this._clipDepth = Math.max(0, this._clipDepth - 1)
+  }
 
   /**
    * Выполняет внутреннюю операцию text markdown.

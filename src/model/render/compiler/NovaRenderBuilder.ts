@@ -12,6 +12,7 @@ import type {
   NovaRectBatch,
   NovaRenderer,
   NovaRendererCapabilities,
+  NovaRendererStateMark,
   NovaSchema,
   NovaSchemaItem,
   NovaStripeRectBatch,
@@ -125,6 +126,20 @@ export class NovaRenderBuilder implements NovaRenderer {
    */
   clearClip(): void {
     this._writer.clearClip()
+  }
+
+  /**
+   * Сохраняет границу mutable render-state.
+   */
+  markState(): NovaRendererStateMark {
+    return this._writer.markState()
+  }
+
+  /**
+   * Восстанавливает mutable render-state до сохраненной границы.
+   */
+  restoreState(mark: NovaRendererStateMark): void {
+    this._writer.restoreState(mark)
   }
 
   /**

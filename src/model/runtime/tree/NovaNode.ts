@@ -559,13 +559,15 @@ export class NovaNode<
 
     const nodeAwareRenderer = this.resolveNodeAwareRenderer()
     nodeAwareRenderer?.beginNode(this)
+    this.renderer.save()
+    const renderStateMark = this.renderer.markState()
     try {
-      this.renderer.save()
       this.renderer.setTransform(matrix)
       this.render()
       this.renderChildren()
-      this.renderer.restore()
     } finally {
+      this.renderer.restoreState(renderStateMark)
+      this.renderer.restore()
       nodeAwareRenderer?.endNode(this)
     }
     this.surface.markRenderNodeRebuilt()

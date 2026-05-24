@@ -294,6 +294,43 @@ describe('Nova renderer performance smoke tests', () => {
     expect(renderer.diagnostics.lastFrame?.commands.some(command => command.type === 'drawSchemaBatch')).toBe(true)
   })
 
+  it('keeps render state boundary compilation overhead within a mock benchmark budget', () => {
+    const canvas = createCanvasStub(1600, 900, create2DContextStub())
+    const frameBuilder = new NovaRenderFrameBuilder('state-boundary-perf', {
+      x: 0,
+      y: 0,
+      width: canvas.width,
+      height: canvas.height,
+      dpr: canvas.dpr,
+    })
+    const writer = new NovaRenderCommandWriter(frameBuilder)
+    const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+    const scopes = 3000
+
+    const startedAt = performance.now()
+    for (let index = 0; index < scopes; index += 1) {
+      builder.save()
+      const mark = builder.markState()
+      builder.clip(index % 100, 0, 32, 32)
+      builder.rect({
+        type: 'rect',
+        x: index % 100,
+        y: Math.floor(index / 100),
+        width: 8,
+        height: 8,
+        styles: { background: '#22d3ee' },
+      })
+      builder.restoreState(mark)
+      builder.restore()
+    }
+    const frame = frameBuilder.build()
+    const elapsedMs = performance.now() - startedAt
+
+    console.info(`[NovaRendererPerf] render state boundaries ${scopes} scopes: ${elapsedMs.toFixed(2)} ms`)
+    expect(frame.commands.filter(command => command.type === 'clearClip')).toHaveLength(scopes)
+    expect(elapsedMs).toBeLessThan(400)
+  })
+
   it('keeps TextRunAtlas static and partial-change workloads within a mock budget', () => {
     const atlas = new NovaTextAtlasManager(resolveNovaRendererConfig().text)
     const labels = Array.from({ length: 1000 }, (_, index) => ({
