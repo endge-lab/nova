@@ -58,6 +58,26 @@ export interface NovaStripeAssetDescriptor {
 }
 
 /**
+ * Описывает stop linear-gradient fill descriptor.
+ */
+export interface NovaLinearGradientStop {
+  readonly offset: number
+  readonly color: string
+}
+
+/**
+ * Описывает linear-gradient fill descriptor.
+ */
+export interface NovaLinearGradientAssetDescriptor {
+  readonly type: 'linear-gradient'
+  readonly from: string
+  readonly to: string
+  readonly angle: number
+  readonly stops?: ReadonlyArray<NovaLinearGradientStop>
+  readonly size?: number
+}
+
+/**
  * Описывает asset descriptor.
  */
 export type NovaAssetDescriptor =
@@ -65,6 +85,7 @@ export type NovaAssetDescriptor =
   | NovaImageAssetDescriptor
   | NovaCanvasAssetDescriptor
   | NovaStripeAssetDescriptor
+  | NovaLinearGradientAssetDescriptor
 
 /**
  * Описывает input bundle assets.
@@ -238,6 +259,12 @@ export class NovaAssetRegistry {
           ready: true,
         }
         break
+      case 'linear-gradient':
+        materialized = {
+          source: this.createLinearGradientCanvas(descriptor),
+          ready: true,
+        }
+        break
       case 'image':
         materialized = this.createImageMaterialization(record, descriptor)
         break
@@ -277,6 +304,41 @@ export class NovaAssetRegistry {
       ctx.fillRect(x, 0, stripeWidth, patternSize * 2)
     }
 
+    return canvas
+  }
+
+  /**
+   * Создает canvas с linear-gradient fill.
+   */
+  private createLinearGradientCanvas(descriptor: NovaLinearGradientAssetDescriptor): HTMLCanvasElement {
+    const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = size
+    canvas.height = size
+
+    if (!ctx) return canvas
+
+    const angle = (descriptor.angle * Math.PI) / 180
+    const radius = Math.sqrt(2) * size / 2
+    const cx = size / 2
+    const cy = size / 2
+    const dx = Math.cos(angle) * radius
+    const dy = Math.sin(angle) * radius
+    const gradient = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy)
+    const stops = descriptor.stops?.length
+      ? descriptor.stops
+      : [
+          { offset: 0, color: descriptor.from },
+          { offset: 1, color: descriptor.to },
+        ]
+
+    for (const stop of stops) {
+      gradient.addColorStop(Math.max(0, Math.min(1, stop.offset)), stop.color)
+    }
+
+    ctx.fillStyle = gradient
+    ctx.fillRect(0, 0, size, size)
     return canvas
   }
 
@@ -474,6 +536,26 @@ export function createNovaStripeAsset(options: {
 }
 
 /**
+ * Создает linear-gradient descriptor.
+ */
+export function createNovaLinearGradientAsset(options: {
+  from: string
+  to: string
+  angle?: number
+  stops?: ReadonlyArray<NovaLinearGradientStop>
+  size?: number
+}): NovaLinearGradientAssetDescriptor {
+  return Object.freeze({
+    type: 'linear-gradient',
+    from: options.from,
+    to: options.to,
+    angle: options.angle ?? 90,
+    stops: options.stops,
+    size: options.size,
+  })
+}
+
+/**
  * Описывает публичный Nova assets facade.
  */
 export const NovaAssets = Object.freeze({
@@ -483,6 +565,7 @@ export const NovaAssets = Object.freeze({
   image: createNovaImageAsset,
   canvas: createNovaCanvasAsset,
   stripe: createNovaStripeAsset,
+  linearGradient: createNovaLinearGradientAsset,
   /**
    * Выполняет действие ref в рамках ответственности текущего класса.
    */

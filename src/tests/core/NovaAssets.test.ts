@@ -91,4 +91,33 @@ describe('Nova assets registry', () => {
     expect(onUpdate).not.toHaveBeenCalled()
     getContext.mockRestore()
   })
+
+  it('materializes linear gradient fills synchronously', () => {
+    const onUpdate = vi.fn()
+    const registry = new NovaAssetRegistry(undefined, onUpdate)
+    const addColorStop = vi.fn()
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      createLinearGradient: vi.fn(() => ({ addColorStop })),
+      fillRect: vi.fn(),
+      fillStyle: '',
+    } as unknown as CanvasRenderingContext2D)
+    const bundle = Nova.assets.define('gradient-test', {
+      fills: {
+        fade: Nova.assets.linearGradient({
+          from: '#ffffff',
+          to: 'rgba(255,255,255,0)',
+          angle: 90,
+        }),
+      },
+    })
+
+    registry.use(bundle)
+    const source = registry.resolveDrawable(bundle.fills.fade)
+
+    expect(source).toBeInstanceOf(HTMLCanvasElement)
+    expect(addColorStop).toHaveBeenCalledWith(0, '#ffffff')
+    expect(addColorStop).toHaveBeenCalledWith(1, 'rgba(255,255,255,0)')
+    expect(onUpdate).not.toHaveBeenCalled()
+    getContext.mockRestore()
+  })
 })
