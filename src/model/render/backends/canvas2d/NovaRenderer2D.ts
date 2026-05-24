@@ -8,6 +8,7 @@ import type {
   NovaIcon,
   NovaIconBatch,
   NovaLine,
+  NovaNineSliceImage,
   NovaParticleBatch,
   NovaPolygon,
   NovaRect,
@@ -25,7 +26,7 @@ import { RendererType } from '@/domain/types/renderer.types'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
-import type { NovaAssetRegistry } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaAssetRegistry, NovaNineSliceInsets } from '@/model/runtime/assets/NovaAssetRegistry'
 import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import { resolveNovaIconRenderOpacity, resolveNovaIconRenderRect } from '@/model/render/utils/nova-icon-rendering'
 
@@ -323,6 +324,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         case 'icon':
           this.icon(item as NovaIcon)
           break
+        case 'nine-slice-image':
+          this.nineSliceImage(item as NovaNineSliceImage)
+          break
         default:
           this._schemaRegistry.renderSchemaComponent(this, item, 'schema')
           break
@@ -441,14 +445,20 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     if (p.styles?.background) {
       const background = p.styles.background
       const source = this._assets.resolveDrawable(background)
-      ctx.fillStyle =
-        typeof background === 'string'
-          ? background
-          : source
-            ? ctx.createPattern(source, 'repeat')!
-            : 'transparent'
       this._drawRoundedRect(p.x, p.y, p.width, p.height, p.styles.radius ?? p.styles.border?.radius ?? 0)
-      ctx.fill()
+      if (typeof background === 'string') {
+        ctx.fillStyle = background
+        ctx.fill()
+      } else if (source) {
+        const fillMode = this._assets.resolveDrawableFillMode(background)
+        if (fillMode === 'stretch') {
+          ctx.clip()
+          ctx.drawImage(source, p.x, p.y, p.width, p.height)
+        } else {
+          ctx.fillStyle = ctx.createPattern(source, fillMode)!
+          ctx.fill()
+        }
+      }
     }
 
     // Рамка
@@ -670,6 +680,79 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     const rect = resolveNovaIconRenderRect(p, this.novaCanvas.dpr)
     ctx.drawImage(iconObject, rect.x, rect.y, rect.width, rect.height)
+    ctx.restore()
+  }
+
+  /**
+   * Выполняет внутреннюю операцию nine-slice-image.
+   */
+  nineSliceImage(p: NovaNineSliceImage): void {
+    const ctx = this.ctx
+    const source = this._assets.resolveDrawable(p.image)
+    if (!source) return
+
+    const descriptor = this._assets.resolveNineSlice(p.image)
+    const slice = normalizeNineSliceInput(p.slice ?? descriptor?.slice ?? 0)
+    const centerMode = p.centerMode ?? descriptor?.centerMode ?? 'stretch'
+    const sourceWidth = resolveCanvasSourceWidth(source)
+    const sourceHeight = resolveCanvasSourceHeight(source)
+    const columns = resolveNineSliceSegments(sourceWidth, p.width, slice.left, slice.right)
+    const rows = resolveNineSliceSegments(sourceHeight, p.height, slice.top, slice.bottom)
+
+    ctx.save()
+    ctx.globalAlpha = p.styles?.opacity ?? 1
+
+    for (let row = 0; row < rows.length; row += 1) {
+      for (let column = 0; column < columns.length; column += 1) {
+        const sourceRect = {
+          x: columns[column].sourceStart,
+          y: rows[row].sourceStart,
+          width: columns[column].sourceSize,
+          height: rows[row].sourceSize,
+        }
+        const targetRect = {
+          x: p.x + columns[column].targetStart,
+          y: p.y + rows[row].targetStart,
+          width: columns[column].targetSize,
+          height: rows[row].targetSize,
+        }
+        if (sourceRect.width <= 0 || sourceRect.height <= 0 || targetRect.width <= 0 || targetRect.height <= 0) continue
+        if (centerMode === 'repeat' && row === 1 && column === 1) {
+          this.drawRepeatedNineSliceCenter(source, sourceRect, targetRect)
+          continue
+        }
+        ctx.drawImage(source, sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height, targetRect.x, targetRect.y, targetRect.width, targetRect.height)
+      }
+    }
+
+    ctx.restore()
+  }
+
+  /**
+   * Рисует repeated center для nine-slice-image.
+   */
+  private drawRepeatedNineSliceCenter(
+    source: CanvasImageSource,
+    sourceRect: { x: number; y: number; width: number; height: number },
+    targetRect: { x: number; y: number; width: number; height: number },
+  ): void {
+    const ctx = this.ctx
+    const tile = document.createElement('canvas')
+    const tileCtx = tile.getContext('2d')
+    tile.width = Math.max(1, sourceRect.width)
+    tile.height = Math.max(1, sourceRect.height)
+    if (!tileCtx) return
+
+    tileCtx.drawImage(source, sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height, 0, 0, tile.width, tile.height)
+    const pattern = ctx.createPattern(tile, 'repeat')
+    if (!pattern) return
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(targetRect.x, targetRect.y, targetRect.width, targetRect.height)
+    ctx.clip()
+    ctx.fillStyle = pattern
+    ctx.fillRect(targetRect.x, targetRect.y, targetRect.width, targetRect.height)
     ctx.restore()
   }
 
@@ -1189,4 +1272,66 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     return chunks
   }
+}
+
+interface NineSliceSegment {
+  sourceStart: number
+  sourceSize: number
+  targetStart: number
+  targetSize: number
+}
+
+/**
+ * Нормализует input nine-slice.
+ */
+function normalizeNineSliceInput(input: number | Partial<NovaNineSliceInsets>): NovaNineSliceInsets {
+  if (typeof input === 'number') {
+    return { top: input, right: input, bottom: input, left: input }
+  }
+
+  return {
+    top: input.top ?? 0,
+    right: input.right ?? input.left ?? 0,
+    bottom: input.bottom ?? input.top ?? 0,
+    left: input.left ?? input.right ?? 0,
+  }
+}
+
+/**
+ * Строит 3 сегмента nine-slice по одной оси.
+ */
+function resolveNineSliceSegments(sourceSize: number, targetSize: number, startSlice: number, endSlice: number): Array<NineSliceSegment> {
+  const safeSource = Math.max(1, sourceSize)
+  const safeTarget = Math.max(0, targetSize)
+  const start = Math.max(0, Math.min(startSlice, safeSource))
+  const end = Math.max(0, Math.min(endSlice, safeSource - start))
+  const middleSource = Math.max(0, safeSource - start - end)
+  const edgeScale = safeTarget < start + end && start + end > 0 ? safeTarget / (start + end) : 1
+  const targetStart = start * edgeScale
+  const targetEnd = end * edgeScale
+  const targetMiddle = Math.max(0, safeTarget - targetStart - targetEnd)
+
+  return [
+    { sourceStart: 0, sourceSize: start, targetStart: 0, targetSize: targetStart },
+    { sourceStart: start, sourceSize: middleSource, targetStart, targetSize: targetMiddle },
+    { sourceStart: safeSource - end, sourceSize: end, targetStart: targetStart + targetMiddle, targetSize: targetEnd },
+  ]
+}
+
+/**
+ * Возвращает width canvas source.
+ */
+function resolveCanvasSourceWidth(source: CanvasImageSource): number {
+  if ('naturalWidth' in source) return Math.max(1, Number(source.naturalWidth) || 1)
+  if ('width' in source) return Math.max(1, Number(source.width) || 1)
+  return Math.max(1, Number(source.displayWidth) || 1)
+}
+
+/**
+ * Возвращает height canvas source.
+ */
+function resolveCanvasSourceHeight(source: CanvasImageSource): number {
+  if ('naturalHeight' in source) return Math.max(1, Number(source.naturalHeight) || 1)
+  if ('height' in source) return Math.max(1, Number(source.height) || 1)
+  return Math.max(1, Number(source.displayHeight) || 1)
 }

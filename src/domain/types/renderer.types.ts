@@ -1,6 +1,6 @@
 import type { mat3 } from 'gl-matrix'
 import type { DataRect } from '@endge/utils'
-import type { NovaAssetDrawableInput, NovaAssetRef } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaAssetDrawableInput, NovaAssetRef, NovaNineSliceInsets } from '@/model/runtime/assets/NovaAssetRegistry'
 import type { NovaSemanticSchemaItem } from '@/domain/types/semantic.types'
 
 /**
@@ -266,6 +266,22 @@ export interface NovaIcon extends NovaUIBase {
 }
 
 /**
+ * Описывает контракт NovaNineSliceImage.
+ */
+export interface NovaNineSliceImage extends NovaUIBase {
+  x: number
+  y: number
+  width: number
+  height: number
+  image: NovaAssetRef<'image'> | string
+  slice?: number | Partial<NovaNineSliceInsets>
+  centerMode?: 'stretch' | 'repeat'
+  styles?: {
+    opacity?: number
+  }
+}
+
+/**
  * Описывает контракт NovaPolygon.
  */
 export interface NovaPolygon extends NovaUIBase {
@@ -427,6 +443,7 @@ export type NovaSchemaItem<TCustom extends { type: string } = never> =
   | ({ type: 'circle' } & NovaCircle)
   | ({ type: 'arc' } & NovaArc)
   | ({ type: 'icon' } & NovaIcon)
+  | ({ type: 'nine-slice-image' } & NovaNineSliceImage)
   | ({ type: 'polygon' } & NovaPolygon)
   | TCustom
 

@@ -78,6 +78,7 @@ describe('NovaRenderer2D', () => {
     const bundle = Nova.assets.define('renderer-assets', {
       fills: {
         fade: Nova.assets.linearGradient({ from: '#fff', to: '#000' }),
+        stripe: Nova.assets.stripe({ bgColor: '#fff', stripeColor: '#000', stripeWidth: 2 }),
       },
       icons: {
         marker: Nova.assets.canvas(canvasAsset),
@@ -93,6 +94,13 @@ describe('NovaRenderer2D', () => {
       height: 10,
       styles: { background: bundle.fills.fade },
     })
+    renderer.rect({
+      x: 0,
+      y: 12,
+      width: 20,
+      height: 10,
+      styles: { background: bundle.fills.stripe },
+    })
     renderer.icon({
       x: 0,
       y: 0,
@@ -104,5 +112,31 @@ describe('NovaRenderer2D', () => {
     expect(context.calls).toContain('createPattern')
     expect(context.calls).toContain('drawImage')
     getContext.mockRestore()
+  })
+
+  it('draws nine-slice images as nine source regions', () => {
+    const context = createContextSpy()
+    const registry = new NovaAssetRegistry()
+    const canvasAsset = document.createElement('canvas')
+    canvasAsset.width = 30
+    canvasAsset.height = 30
+    const bundle = Nova.assets.define('nine-slice-renderer-assets', {
+      images: {
+        panel: Nova.assets.nineSliceImage(canvasAsset, { slice: 10 }),
+      },
+    })
+    registry.use(bundle)
+    const renderer = new NovaRenderer2D(createCanvasStub(context), undefined, registry)
+
+    renderer.schema([{
+      type: 'nine-slice-image',
+      x: 0,
+      y: 0,
+      width: 90,
+      height: 60,
+      image: bundle.images.panel,
+    }])
+
+    expect(context.calls.filter(call => call === 'drawImage')).toHaveLength(9)
   })
 })

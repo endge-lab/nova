@@ -1,7 +1,22 @@
 /**
  * Описывает kind Nova asset.
  */
-export type NovaAssetKind = 'icon' | 'image' | 'fill'
+export type NovaAssetKind = 'icon' | 'image' | 'fill' | 'font'
+
+/**
+ * Описывает режим заполнения drawable asset внутри rect.
+ */
+export type NovaAssetFillMode = 'stretch' | 'repeat' | 'repeat-x' | 'repeat-y' | 'no-repeat'
+
+/**
+ * Описывает сторону nine-slice bitmap.
+ */
+export interface NovaNineSliceInsets {
+  readonly top: number
+  readonly right: number
+  readonly bottom: number
+  readonly left: number
+}
 
 /**
  * Описывает ref на asset без раскрытия atlas/texture деталей.
@@ -46,6 +61,20 @@ export interface NovaCanvasAssetDescriptor {
 }
 
 /**
+ * Описывает pattern fill descriptor.
+ */
+export interface NovaPatternAssetDescriptor {
+  readonly type: 'pattern'
+  readonly source: CanvasImageSource | string
+  readonly repeat: Exclude<NovaAssetFillMode, 'stretch'>
+  readonly width?: number
+  readonly height?: number
+  readonly scale?: number
+  readonly offsetX?: number
+  readonly offsetY?: number
+}
+
+/**
  * Описывает stripe fill descriptor.
  */
 export interface NovaStripeAssetDescriptor {
@@ -58,12 +87,17 @@ export interface NovaStripeAssetDescriptor {
 }
 
 /**
- * Описывает stop linear-gradient fill descriptor.
+ * Описывает stop gradient fill descriptor.
  */
-export interface NovaLinearGradientStop {
+export interface NovaGradientStop {
   readonly offset: number
   readonly color: string
 }
+
+/**
+ * Описывает stop linear-gradient fill descriptor.
+ */
+export type NovaLinearGradientStop = NovaGradientStop
 
 /**
  * Описывает linear-gradient fill descriptor.
@@ -78,14 +112,108 @@ export interface NovaLinearGradientAssetDescriptor {
 }
 
 /**
+ * Описывает radial-gradient fill descriptor.
+ */
+export interface NovaRadialGradientAssetDescriptor {
+  readonly type: 'radial-gradient'
+  readonly inner: string
+  readonly outer: string
+  readonly centerX: number
+  readonly centerY: number
+  readonly radiusX: number
+  readonly radiusY: number
+  readonly stops?: ReadonlyArray<NovaGradientStop>
+  readonly size?: number
+}
+
+/**
+ * Описывает conic-gradient fill descriptor.
+ */
+export interface NovaConicGradientAssetDescriptor {
+  readonly type: 'conic-gradient'
+  readonly from: string
+  readonly to: string
+  readonly centerX: number
+  readonly centerY: number
+  readonly startAngle: number
+  readonly stops?: ReadonlyArray<NovaGradientStop>
+  readonly size?: number
+}
+
+/**
+ * Описывает noise fill descriptor.
+ */
+export interface NovaNoiseAssetDescriptor {
+  readonly type: 'noise'
+  readonly baseColor: string
+  readonly noiseColor: string
+  readonly opacity: number
+  readonly density: number
+  readonly seed: number
+  readonly size?: number
+}
+
+/**
+ * Описывает точку mesh-gradient.
+ */
+export interface NovaMeshGradientPoint {
+  readonly x: number
+  readonly y: number
+  readonly color: string
+  readonly radius?: number
+  readonly opacity?: number
+}
+
+/**
+ * Описывает mesh-gradient fill descriptor.
+ */
+export interface NovaMeshGradientAssetDescriptor {
+  readonly type: 'mesh-gradient'
+  readonly background: string
+  readonly points: ReadonlyArray<NovaMeshGradientPoint>
+  readonly size?: number
+}
+
+/**
+ * Описывает nine-slice image descriptor.
+ */
+export interface NovaNineSliceImageAssetDescriptor {
+  readonly type: 'nine-slice-image'
+  readonly source: CanvasImageSource | string
+  readonly slice: NovaNineSliceInsets
+  readonly width?: number
+  readonly height?: number
+  readonly centerMode: 'stretch' | 'repeat'
+}
+
+/**
+ * Описывает font descriptor.
+ */
+export interface NovaFontAssetDescriptor {
+  readonly type: 'font'
+  readonly family: string
+  readonly src: string
+  readonly weight?: string
+  readonly style?: string
+  readonly display?: 'auto' | 'block' | 'swap' | 'fallback' | 'optional'
+}
+
+/**
  * Описывает asset descriptor.
  */
 export type NovaAssetDescriptor =
   | NovaSvgAssetDescriptor
   | NovaImageAssetDescriptor
   | NovaCanvasAssetDescriptor
+  | NovaPatternAssetDescriptor
   | NovaStripeAssetDescriptor
   | NovaLinearGradientAssetDescriptor
+  | NovaRadialGradientAssetDescriptor
+  | NovaConicGradientAssetDescriptor
+  | NovaNoiseAssetDescriptor
+  | NovaMeshGradientAssetDescriptor
+  | NovaNineSliceImageAssetDescriptor
+  | NovaFontAssetDescriptor
 
 /**
  * Описывает input bundle assets.
@@ -94,6 +222,7 @@ export interface NovaAssetBundleInput {
   readonly icons?: Record<string, NovaAssetDescriptor>
   readonly images?: Record<string, NovaAssetDescriptor>
   readonly fills?: Record<string, NovaAssetDescriptor>
+  readonly fonts?: Record<string, NovaAssetDescriptor>
 }
 
 /**
@@ -107,11 +236,17 @@ export interface NovaAssetRecord<K extends NovaAssetKind = NovaAssetKind> {
 /**
  * Описывает bundle с typed refs.
  */
-export interface NovaAssetBundle<I extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>, F extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>, M extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>> {
+export interface NovaAssetBundle<
+  I extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+  F extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+  M extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+  T extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+> {
   readonly namespace: string
   readonly icons: { readonly [K in keyof I]: NovaAssetRef<'icon'> }
   readonly fills: { readonly [K in keyof F]: NovaAssetRef<'fill'> }
   readonly images: { readonly [K in keyof M]: NovaAssetRef<'image'> }
+  readonly fonts: { readonly [K in keyof T]: NovaAssetRef<'font'> }
   readonly records: ReadonlyMap<string, NovaAssetRecord>
 }
 
@@ -136,6 +271,13 @@ interface AssetMaterialization {
   loading?: boolean
 }
 
+interface RgbaColor {
+  r: number
+  g: number
+  b: number
+  a: number
+}
+
 /**
  * Проверяет ref Nova asset.
  */
@@ -155,6 +297,7 @@ export class NovaAssetRegistry {
   private readonly _records = new Map<string, NovaAssetRecord>()
   private readonly _materialized = new Map<string, AssetMaterialization>()
   private readonly _recordUseCounts = new Map<string, number>()
+  private readonly _fontFaces = new Map<string, FontFace>()
 
   /**
    * Создает registry.
@@ -185,6 +328,7 @@ export class NovaAssetRegistry {
         continue
       }
       this._recordUseCounts.delete(id)
+      this.unuseFontFace(id)
       this._records.delete(id)
       this._materialized.delete(id)
     }
@@ -227,6 +371,24 @@ export class NovaAssetRegistry {
   }
 
   /**
+   * Возвращает fill mode для drawable asset.
+   */
+  resolveDrawableFillMode(input: NovaAssetDrawableInput): NovaAssetFillMode {
+    if (!input || !(typeof input === 'string' || isNovaAssetRef(input))) return 'repeat'
+    const descriptor = this.resolveRecord(input)?.descriptor
+    if (!descriptor) return 'repeat'
+    return resolveNovaAssetFillMode(descriptor)
+  }
+
+  /**
+   * Возвращает stable slice metadata для nine-slice image.
+   */
+  resolveNineSlice(input: NovaAssetRef<'image'> | string | undefined | null): NovaNineSliceImageAssetDescriptor | undefined {
+    const descriptor = this.resolveRecord(input)?.descriptor
+    return descriptor?.type === 'nine-slice-image' ? descriptor : undefined
+  }
+
+  /**
    * Возвращает стабильный drawable key.
    */
   resolveDrawableKey(prefix: string, input: NovaAssetDrawableInput, fallback: (source: CanvasImageSource) => string): string {
@@ -259,11 +421,44 @@ export class NovaAssetRegistry {
           ready: true,
         }
         break
+      case 'pattern':
+        materialized = this.createPatternMaterialization(record, descriptor)
+        break
       case 'linear-gradient':
         materialized = {
           source: this.createLinearGradientCanvas(descriptor),
           ready: true,
         }
+        break
+      case 'radial-gradient':
+        materialized = {
+          source: this.createRadialGradientCanvas(descriptor),
+          ready: true,
+        }
+        break
+      case 'conic-gradient':
+        materialized = {
+          source: this.createConicGradientCanvas(descriptor),
+          ready: true,
+        }
+        break
+      case 'noise':
+        materialized = {
+          source: this.createNoiseCanvas(descriptor),
+          ready: true,
+        }
+        break
+      case 'mesh-gradient':
+        materialized = {
+          source: this.createMeshGradientCanvas(descriptor),
+          ready: true,
+        }
+        break
+      case 'nine-slice-image':
+        materialized = this.createNineSliceMaterialization(record, descriptor)
+        break
+      case 'font':
+        materialized = this.createFontMaterialization(record, descriptor)
         break
       case 'image':
         materialized = this.createImageMaterialization(record, descriptor)
@@ -326,15 +521,10 @@ export class NovaAssetRegistry {
     const dx = Math.cos(angle) * radius
     const dy = Math.sin(angle) * radius
     const gradient = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy)
-    const stops = descriptor.stops?.length
-      ? descriptor.stops
-      : [
-          { offset: 0, color: descriptor.from },
-          { offset: 1, color: descriptor.to },
-        ]
+    const stops = normalizeGradientStops(descriptor.stops, descriptor.from, descriptor.to)
 
     for (const stop of stops) {
-      gradient.addColorStop(Math.max(0, Math.min(1, stop.offset)), stop.color)
+      gradient.addColorStop(stop.offset, stop.color)
     }
 
     ctx.fillStyle = gradient
@@ -343,29 +533,193 @@ export class NovaAssetRegistry {
   }
 
   /**
+   * Создает canvas с radial-gradient fill.
+   */
+  private createRadialGradientCanvas(descriptor: NovaRadialGradientAssetDescriptor): HTMLCanvasElement {
+    const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = size
+    canvas.height = size
+
+    if (!ctx) return canvas
+
+    const cx = descriptor.centerX * size
+    const cy = descriptor.centerY * size
+    const radiusX = Math.max(1, descriptor.radiusX * size)
+    const radiusY = Math.max(1, descriptor.radiusY * size)
+    const radius = Math.max(radiusX, radiusY)
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius)
+    const stops = normalizeGradientStops(descriptor.stops, descriptor.inner, descriptor.outer)
+
+    for (const stop of stops) {
+      gradient.addColorStop(stop.offset, stop.color)
+    }
+
+    ctx.save()
+    ctx.translate(cx, cy)
+    ctx.scale(radiusX / radius, radiusY / radius)
+    ctx.translate(-cx, -cy)
+    ctx.fillStyle = gradient
+    ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2)
+    ctx.restore()
+    return canvas
+  }
+
+  /**
+   * Создает canvas с conic-gradient fill.
+   */
+  private createConicGradientCanvas(descriptor: NovaConicGradientAssetDescriptor): HTMLCanvasElement {
+    const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = size
+    canvas.height = size
+
+    if (!ctx) return canvas
+
+    const cx = descriptor.centerX * size
+    const cy = descriptor.centerY * size
+    const stops = normalizeGradientStops(descriptor.stops, descriptor.from, descriptor.to)
+    if ('createConicGradient' in ctx && typeof ctx.createConicGradient === 'function') {
+      const gradient = ctx.createConicGradient((descriptor.startAngle * Math.PI) / 180, cx, cy)
+      for (const stop of stops) gradient.addColorStop(stop.offset, stop.color)
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, size, size)
+      return canvas
+    }
+
+    const image = ctx.createImageData(size, size)
+    const startRadians = (descriptor.startAngle * Math.PI) / 180
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const angle = Math.atan2(y - cy, x - cx)
+        const offset = positiveModulo((angle - startRadians) / (Math.PI * 2), 1)
+        const color = sampleGradientStops(stops, offset)
+        const index = (y * size + x) * 4
+        image.data[index] = color.r
+        image.data[index + 1] = color.g
+        image.data[index + 2] = color.b
+        image.data[index + 3] = color.a
+      }
+    }
+    ctx.putImageData(image, 0, 0)
+    return canvas
+  }
+
+  /**
+   * Создает canvas с procedural noise fill.
+   */
+  private createNoiseCanvas(descriptor: NovaNoiseAssetDescriptor): HTMLCanvasElement {
+    const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = size
+    canvas.height = size
+
+    if (!ctx) return canvas
+
+    const base = parseAssetColor(descriptor.baseColor)
+    const noise = parseAssetColor(descriptor.noiseColor)
+    const opacity = clamp01(descriptor.opacity)
+    const density = clamp01(descriptor.density)
+    const image = ctx.createImageData(size, size)
+    let seed = descriptor.seed || 1
+
+    for (let index = 0; index < image.data.length; index += 4) {
+      seed = seededRandom(seed)
+      const random = seed / 0x7fffffff
+      const mix = random < density ? opacity * random : 0
+      image.data[index] = mixChannel(base.r, noise.r, mix)
+      image.data[index + 1] = mixChannel(base.g, noise.g, mix)
+      image.data[index + 2] = mixChannel(base.b, noise.b, mix)
+      image.data[index + 3] = mixChannel(base.a, noise.a, mix)
+    }
+
+    ctx.putImageData(image, 0, 0)
+    return canvas
+  }
+
+  /**
+   * Создает canvas с mesh-gradient fill.
+   */
+  private createMeshGradientCanvas(descriptor: NovaMeshGradientAssetDescriptor): HTMLCanvasElement {
+    const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = size
+    canvas.height = size
+
+    if (!ctx) return canvas
+
+    ctx.fillStyle = descriptor.background
+    ctx.fillRect(0, 0, size, size)
+    for (const point of descriptor.points) {
+      const x = point.x * size
+      const y = point.y * size
+      const radius = Math.max(1, (point.radius ?? 0.45) * size)
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius)
+      const alpha = clamp01(point.opacity ?? 1)
+      gradient.addColorStop(0, withAlpha(point.color, alpha))
+      gradient.addColorStop(1, withAlpha(point.color, 0))
+      ctx.fillStyle = gradient
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+    }
+    return canvas
+  }
+
+  /**
    * Создает materialization для image asset.
    */
   private createImageMaterialization(record: NovaAssetRecord, descriptor: NovaImageAssetDescriptor): AssetMaterialization {
-    if (typeof descriptor.source !== 'string') {
-      return {
-        source: descriptor.source,
-        ready: true,
-      }
-    }
+    return this.createImageBackedMaterialization(record, descriptor.source, source => source)
+  }
 
+  /**
+   * Создает materialization для pattern fill.
+   */
+  private createPatternMaterialization(record: NovaAssetRecord, descriptor: NovaPatternAssetDescriptor): AssetMaterialization {
+    return this.createImageBackedMaterialization(record, descriptor.source, source => this.createPatternCanvas(source, descriptor))
+  }
+
+  /**
+   * Создает materialization для nine-slice image.
+   */
+  private createNineSliceMaterialization(record: NovaAssetRecord, descriptor: NovaNineSliceImageAssetDescriptor): AssetMaterialization {
+    return this.createImageBackedMaterialization(record, descriptor.source, source => source)
+  }
+
+  /**
+   * Создает materialization для font asset.
+   */
+  private createFontMaterialization(record: NovaAssetRecord, descriptor: NovaFontAssetDescriptor): AssetMaterialization {
     const materialized: AssetMaterialization = { ready: false, loading: true }
-    const image = new Image()
-    image.onload = (): void => {
-      materialized.source = image
+    const FontFaceCtor = globalThis.FontFace
+    const fonts = typeof document !== 'undefined' ? document.fonts : undefined
+
+    if (!FontFaceCtor || !fonts) {
       materialized.ready = true
       materialized.loading = false
-      this._onUpdate?.()
+      return materialized
     }
-    image.onerror = (): void => {
-      materialized.loading = false
-      this._onUpdate?.()
-    }
-    image.src = descriptor.source
+
+    const face = new FontFaceCtor(descriptor.family, `url(${descriptor.src})`, {
+      weight: descriptor.weight,
+      style: descriptor.style,
+      display: descriptor.display,
+    })
+    this._fontFaces.set(record.ref.id, face)
+    face.load()
+      .then(loaded => {
+        fonts.add(loaded)
+        materialized.ready = true
+        materialized.loading = false
+        this._onUpdate?.()
+      })
+      .catch(() => {
+        materialized.loading = false
+        this._onUpdate?.()
+      })
     this._materialized.set(record.ref.id, materialized)
     return materialized
   }
@@ -411,6 +765,79 @@ export class NovaAssetRegistry {
     this._materialized.set(record.ref.id, materialized)
     return materialized
   }
+
+  /**
+   * Создает canvas pattern source с учетом размера и scale.
+   */
+  private createPatternCanvas(source: CanvasImageSource, descriptor: NovaPatternAssetDescriptor): HTMLCanvasElement {
+    const sourceWidth = resolveAssetSourceWidth(source)
+    const sourceHeight = resolveAssetSourceHeight(source)
+    const scale = Math.max(0.01, descriptor.scale ?? 1)
+    const width = Math.max(1, Math.ceil(descriptor.width ?? sourceWidth * scale))
+    const height = Math.max(1, Math.ceil(descriptor.height ?? sourceHeight * scale))
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    canvas.width = width
+    canvas.height = height
+
+    if (!ctx) return canvas
+
+    ctx.clearRect(0, 0, width, height)
+    ctx.drawImage(
+      source,
+      descriptor.offsetX ?? 0,
+      descriptor.offsetY ?? 0,
+      Math.max(1, sourceWidth * scale),
+      Math.max(1, sourceHeight * scale),
+    )
+    return canvas
+  }
+
+  /**
+   * Создает image-backed materialization для source или url.
+   */
+  private createImageBackedMaterialization(
+    record: NovaAssetRecord,
+    source: CanvasImageSource | string,
+    materialize: (source: CanvasImageSource) => CanvasImageSource,
+  ): AssetMaterialization {
+    if (typeof source !== 'string') {
+      return {
+        source: materialize(source),
+        ready: true,
+      }
+    }
+
+    const materialized: AssetMaterialization = { ready: false, loading: true }
+    const image = new Image()
+    image.onload = (): void => {
+      materialized.source = materialize(image)
+      materialized.ready = true
+      materialized.loading = false
+      this._onUpdate?.()
+    }
+    image.onerror = (): void => {
+      materialized.loading = false
+      this._onUpdate?.()
+    }
+    image.src = source
+    this._materialized.set(record.ref.id, materialized)
+    return materialized
+  }
+
+  /**
+   * Снимает зарегистрированный FontFace из document.fonts.
+   */
+  private unuseFontFace(id: string): void {
+    const face = this._fontFaces.get(id)
+    if (!face) return
+    this._fontFaces.delete(id)
+    try {
+      document.fonts?.delete(face)
+    } catch {
+      // document.fonts может отсутствовать в тестовой или серверной среде.
+    }
+  }
 }
 
 /**
@@ -429,18 +856,25 @@ function createAssetRef<K extends NovaAssetKind>(namespace: string, kind: K, nam
 /**
  * Создает asset bundle.
  */
-export function defineNovaAssets<I extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>, F extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>, M extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>>(
+export function defineNovaAssets<
+  I extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+  F extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+  M extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+  T extends Record<string, NovaAssetDescriptor> = Record<string, NovaAssetDescriptor>,
+>(
   namespace: string,
   input: {
     readonly icons?: I
     readonly fills?: F
     readonly images?: M
+    readonly fonts?: T
   },
-): NovaAssetBundle<I, F, M> {
+): NovaAssetBundle<I, F, M, T> {
   const records = new Map<string, NovaAssetRecord>()
   const icons = {} as { [K in keyof I]: NovaAssetRef<'icon'> }
   const fills = {} as { [K in keyof F]: NovaAssetRef<'fill'> }
   const images = {} as { [K in keyof M]: NovaAssetRef<'image'> }
+  const fonts = {} as { [K in keyof T]: NovaAssetRef<'font'> }
 
   for (const [name, descriptor] of Object.entries(input.icons ?? {}) as Array<[keyof I & string, NovaAssetDescriptor]>) {
     const ref = createAssetRef(namespace, 'icon', name)
@@ -460,11 +894,18 @@ export function defineNovaAssets<I extends Record<string, NovaAssetDescriptor> =
     records.set(ref.id, { ref, descriptor })
   }
 
+  for (const [name, descriptor] of Object.entries(input.fonts ?? {}) as Array<[keyof T & string, NovaAssetDescriptor]>) {
+    const ref = createAssetRef(namespace, 'font', name)
+    fonts[name] = ref
+    records.set(ref.id, { ref, descriptor })
+  }
+
   return Object.freeze({
     namespace,
     icons: Object.freeze(icons),
     fills: Object.freeze(fills),
     images: Object.freeze(images),
+    fonts: Object.freeze(fonts),
     records,
   })
 }
@@ -516,6 +957,32 @@ export function createNovaCanvasAsset(
 }
 
 /**
+ * Создает pattern descriptor.
+ */
+export function createNovaPatternAsset(
+  source: CanvasImageSource | string,
+  options: {
+    repeat?: Exclude<NovaAssetFillMode, 'stretch'>
+    width?: number
+    height?: number
+    scale?: number
+    offsetX?: number
+    offsetY?: number
+  } = {},
+): NovaPatternAssetDescriptor {
+  return Object.freeze({
+    type: 'pattern',
+    source,
+    repeat: options.repeat ?? 'repeat',
+    width: options.width,
+    height: options.height,
+    scale: options.scale,
+    offsetX: options.offsetX,
+    offsetY: options.offsetY,
+  })
+}
+
+/**
  * Создает stripe descriptor.
  */
 export function createNovaStripeAsset(options: {
@@ -556,6 +1023,158 @@ export function createNovaLinearGradientAsset(options: {
 }
 
 /**
+ * Создает radial-gradient descriptor.
+ */
+export function createNovaRadialGradientAsset(options: {
+  inner: string
+  outer: string
+  centerX?: number
+  centerY?: number
+  radiusX?: number
+  radiusY?: number
+  stops?: ReadonlyArray<NovaGradientStop>
+  size?: number
+}): NovaRadialGradientAssetDescriptor {
+  return Object.freeze({
+    type: 'radial-gradient',
+    inner: options.inner,
+    outer: options.outer,
+    centerX: options.centerX ?? 0.5,
+    centerY: options.centerY ?? 0.5,
+    radiusX: options.radiusX ?? 0.5,
+    radiusY: options.radiusY ?? options.radiusX ?? 0.5,
+    stops: options.stops,
+    size: options.size,
+  })
+}
+
+/**
+ * Создает conic-gradient descriptor.
+ */
+export function createNovaConicGradientAsset(options: {
+  from: string
+  to: string
+  centerX?: number
+  centerY?: number
+  startAngle?: number
+  stops?: ReadonlyArray<NovaGradientStop>
+  size?: number
+}): NovaConicGradientAssetDescriptor {
+  return Object.freeze({
+    type: 'conic-gradient',
+    from: options.from,
+    to: options.to,
+    centerX: options.centerX ?? 0.5,
+    centerY: options.centerY ?? 0.5,
+    startAngle: options.startAngle ?? 0,
+    stops: options.stops,
+    size: options.size,
+  })
+}
+
+/**
+ * Создает noise descriptor.
+ */
+export function createNovaNoiseAsset(options: {
+  baseColor?: string
+  noiseColor?: string
+  opacity?: number
+  density?: number
+  seed?: number
+  size?: number
+} = {}): NovaNoiseAssetDescriptor {
+  return Object.freeze({
+    type: 'noise',
+    baseColor: options.baseColor ?? 'rgba(255,255,255,0)',
+    noiseColor: options.noiseColor ?? 'rgba(15,23,42,1)',
+    opacity: options.opacity ?? 0.18,
+    density: options.density ?? 1,
+    seed: options.seed ?? 1,
+    size: options.size,
+  })
+}
+
+/**
+ * Создает mesh-gradient descriptor.
+ */
+export function createNovaMeshGradientAsset(options: {
+  background?: string
+  points: ReadonlyArray<NovaMeshGradientPoint>
+  size?: number
+}): NovaMeshGradientAssetDescriptor {
+  return Object.freeze({
+    type: 'mesh-gradient',
+    background: options.background ?? 'transparent',
+    points: options.points,
+    size: options.size,
+  })
+}
+
+/**
+ * Создает nine-slice image descriptor.
+ */
+export function createNovaNineSliceImageAsset(
+  source: CanvasImageSource | string,
+  options: {
+    slice: number | Partial<NovaNineSliceInsets>
+    width?: number
+    height?: number
+    centerMode?: 'stretch' | 'repeat'
+  },
+): NovaNineSliceImageAssetDescriptor {
+  return Object.freeze({
+    type: 'nine-slice-image',
+    source,
+    slice: normalizeNineSliceInsets(options.slice),
+    width: options.width,
+    height: options.height,
+    centerMode: options.centerMode ?? 'stretch',
+  })
+}
+
+/**
+ * Создает font descriptor.
+ */
+export function createNovaFontAsset(options: {
+  family: string
+  src: string
+  weight?: string
+  style?: string
+  display?: NovaFontAssetDescriptor['display']
+}): NovaFontAssetDescriptor {
+  return Object.freeze({
+    type: 'font',
+    family: options.family,
+    src: options.src,
+    weight: options.weight,
+    style: options.style,
+    display: options.display,
+  })
+}
+
+/**
+ * Возвращает fill mode по descriptor.
+ */
+export function resolveNovaAssetFillMode(descriptor: NovaAssetDescriptor): NovaAssetFillMode {
+  switch (descriptor.type) {
+    case 'stripe':
+      return 'repeat'
+    case 'pattern':
+      return descriptor.repeat
+    case 'linear-gradient':
+    case 'radial-gradient':
+    case 'conic-gradient':
+    case 'noise':
+    case 'mesh-gradient':
+    case 'image':
+    case 'nine-slice-image':
+      return 'stretch'
+    default:
+      return 'repeat'
+  }
+}
+
+/**
  * Описывает публичный Nova assets facade.
  */
 export const NovaAssets = Object.freeze({
@@ -564,8 +1183,15 @@ export const NovaAssets = Object.freeze({
   svg: createNovaSvgAsset,
   image: createNovaImageAsset,
   canvas: createNovaCanvasAsset,
+  pattern: createNovaPatternAsset,
   stripe: createNovaStripeAsset,
   linearGradient: createNovaLinearGradientAsset,
+  radialGradient: createNovaRadialGradientAsset,
+  conicGradient: createNovaConicGradientAsset,
+  noise: createNovaNoiseAsset,
+  meshGradient: createNovaMeshGradientAsset,
+  nineSliceImage: createNovaNineSliceImageAsset,
+  font: createNovaFontAsset,
   /**
    * Выполняет действие ref в рамках ответственности текущего класса.
    */
@@ -573,3 +1199,159 @@ export const NovaAssets = Object.freeze({
     return createAssetRef(namespace, kind, name)
   },
 })
+
+/**
+ * Нормализует nine-slice insets.
+ */
+function normalizeNineSliceInsets(input: number | Partial<NovaNineSliceInsets>): NovaNineSliceInsets {
+  if (typeof input === 'number') {
+    return { top: input, right: input, bottom: input, left: input }
+  }
+
+  return {
+    top: input.top ?? 0,
+    right: input.right ?? input.left ?? 0,
+    bottom: input.bottom ?? input.top ?? 0,
+    left: input.left ?? input.right ?? 0,
+  }
+}
+
+/**
+ * Нормализует gradient stops.
+ */
+function normalizeGradientStops(stops: ReadonlyArray<NovaGradientStop> | undefined, from: string, to: string): Array<NovaGradientStop> {
+  const source = stops?.length
+    ? stops
+    : [
+        { offset: 0, color: from },
+        { offset: 1, color: to },
+      ]
+  return [...source]
+    .map(stop => ({ offset: clamp01(stop.offset), color: stop.color }))
+    .sort((left, right) => left.offset - right.offset)
+}
+
+/**
+ * Сэмплирует color из stops.
+ */
+function sampleGradientStops(stops: ReadonlyArray<NovaGradientStop>, offset: number): RgbaColor {
+  const safeOffset = clamp01(offset)
+  let left = stops[0]
+  let right = stops[stops.length - 1]
+
+  for (let index = 0; index < stops.length - 1; index += 1) {
+    const current = stops[index]
+    const next = stops[index + 1]
+    if (safeOffset >= current.offset && safeOffset <= next.offset) {
+      left = current
+      right = next
+      break
+    }
+  }
+
+  const span = Math.max(0.00001, right.offset - left.offset)
+  const t = clamp01((safeOffset - left.offset) / span)
+  const leftColor = parseAssetColor(left.color)
+  const rightColor = parseAssetColor(right.color)
+  return {
+    r: mixChannel(leftColor.r, rightColor.r, t),
+    g: mixChannel(leftColor.g, rightColor.g, t),
+    b: mixChannel(leftColor.b, rightColor.b, t),
+    a: mixChannel(leftColor.a, rightColor.a, t),
+  }
+}
+
+/**
+ * Парсит базовые CSS color формы для procedural fallback.
+ */
+function parseAssetColor(color: string): RgbaColor {
+  const input = color.trim()
+  if (input.startsWith('#')) {
+    const hex = input.slice(1)
+    const full = hex.length === 3
+      ? hex.split('').map(part => part + part).join('')
+      : hex.padEnd(6, '0').slice(0, 6)
+    return {
+      r: Number.parseInt(full.slice(0, 2), 16),
+      g: Number.parseInt(full.slice(2, 4), 16),
+      b: Number.parseInt(full.slice(4, 6), 16),
+      a: 255,
+    }
+  }
+
+  const rgba = input.match(/rgba?\(([^)]+)\)/)
+  if (rgba) {
+    const parts = rgba[1].split(',').map(part => part.trim())
+    return {
+      r: clampByte(Number(parts[0] ?? 0)),
+      g: clampByte(Number(parts[1] ?? 0)),
+      b: clampByte(Number(parts[2] ?? 0)),
+      a: clampByte((parts[3] === undefined ? 1 : Number(parts[3])) * 255),
+    }
+  }
+
+  return { r: 0, g: 0, b: 0, a: 255 }
+}
+
+/**
+ * Добавляет alpha в CSS color.
+ */
+function withAlpha(color: string, alpha: number): string {
+  const parsed = parseAssetColor(color)
+  return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${(parsed.a / 255) * clamp01(alpha)})`
+}
+
+/**
+ * Ограничивает число диапазоном 0..1.
+ */
+function clamp01(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(1, value))
+}
+
+/**
+ * Ограничивает число byte диапазоном.
+ */
+function clampByte(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(255, Math.round(value)))
+}
+
+/**
+ * Смешивает два byte channel.
+ */
+function mixChannel(from: number, to: number, mix: number): number {
+  return clampByte(from + (to - from) * clamp01(mix))
+}
+
+/**
+ * Возвращает positive modulo.
+ */
+function positiveModulo(value: number, modulo: number): number {
+  return ((value % modulo) + modulo) % modulo
+}
+
+/**
+ * Генерирует deterministic pseudo-random seed.
+ */
+function seededRandom(seed: number): number {
+  return (seed * 1103515245 + 12345) & 0x7fffffff
+}
+
+/**
+ * Возвращает width drawable source.
+ */
+function resolveAssetSourceWidth(source: CanvasImageSource): number {
+  if ('naturalWidth' in source) return Math.max(1, Number(source.naturalWidth) || 1)
+  if ('width' in source) return Math.max(1, Number(source.width) || 1)
+  return Math.max(1, Number(source.displayWidth) || 1)
+}
+
+/**
+ * Возвращает height drawable source.
+ */
+function resolveAssetSourceHeight(source: CanvasImageSource): number {
+  if ('naturalHeight' in source) return Math.max(1, Number(source.naturalHeight) || 1)
+  if ('height' in source) return Math.max(1, Number(source.height) || 1)
+  return Math.max(1, Number(source.displayHeight) || 1)
+}

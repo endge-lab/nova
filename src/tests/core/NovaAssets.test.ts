@@ -19,6 +19,12 @@ describe('Nova assets registry', () => {
     expect(isNovaAssetRef(bundle.icons.warning)).toBe(true)
     expect(bundle.icons.warning.id).toBe('test-assets/icons/warning')
     expect(bundle.fills.stripe.id).toBe('test-assets/fills/stripe')
+    const fontBundle = Nova.assets.define('font-assets', {
+      fonts: {
+        inter: Nova.assets.font({ family: 'Inter', src: '/fonts/inter.woff2' }),
+      },
+    })
+    expect(fontBundle.fonts.inter.id).toBe('font-assets/fonts/inter')
   })
 
   it('resolves child scope before global parent', () => {
@@ -119,5 +125,106 @@ describe('Nova assets registry', () => {
     expect(addColorStop).toHaveBeenCalledWith(1, 'rgba(255,255,255,0)')
     expect(onUpdate).not.toHaveBeenCalled()
     getContext.mockRestore()
+  })
+
+  it('materializes v2 procedural fills synchronously with fill modes', () => {
+    const onUpdate = vi.fn()
+    const registry = new NovaAssetRegistry(undefined, onUpdate)
+    const canvas = document.createElement('canvas')
+    canvas.width = 8
+    canvas.height = 8
+    const addColorStop = vi.fn()
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      createLinearGradient: vi.fn(() => ({ addColorStop })),
+      createRadialGradient: vi.fn(() => ({ addColorStop })),
+      createConicGradient: vi.fn(() => ({ addColorStop })),
+      createImageData: vi.fn((width: number, height: number) => ({ data: new Uint8ClampedArray(width * height * 4) })),
+      putImageData: vi.fn(),
+      drawImage: vi.fn(),
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      scale: vi.fn(),
+      fillStyle: '',
+    } as unknown as CanvasRenderingContext2D)
+    const bundle = Nova.assets.define('asset-v2-test', {
+      fills: {
+        radial: Nova.assets.radialGradient({ inner: '#fff', outer: '#000' }),
+        conic: Nova.assets.conicGradient({ from: '#fff', to: '#000' }),
+        pattern: Nova.assets.pattern(canvas, { repeat: 'repeat-x' }),
+        noise: Nova.assets.noise({ seed: 42, size: 4 }),
+        mesh: Nova.assets.meshGradient({
+          background: '#fff',
+          points: [{ x: 0.5, y: 0.5, color: '#2563eb' }],
+        }),
+      },
+      images: {
+        panel: Nova.assets.nineSliceImage(canvas, { slice: 2 }),
+      },
+    })
+
+    registry.use(bundle)
+
+    expect(registry.resolveDrawable(bundle.fills.radial)).toBeInstanceOf(HTMLCanvasElement)
+    expect(registry.resolveDrawable(bundle.fills.conic)).toBeInstanceOf(HTMLCanvasElement)
+    expect(registry.resolveDrawable(bundle.fills.pattern)).toBeInstanceOf(HTMLCanvasElement)
+    expect(registry.resolveDrawable(bundle.fills.noise)).toBeInstanceOf(HTMLCanvasElement)
+    expect(registry.resolveDrawable(bundle.fills.mesh)).toBeInstanceOf(HTMLCanvasElement)
+    expect(registry.resolveDrawable(bundle.images.panel)).toBe(canvas)
+    expect(registry.resolveDrawableFillMode(bundle.fills.radial)).toBe('stretch')
+    expect(registry.resolveDrawableFillMode(bundle.fills.pattern)).toBe('repeat-x')
+    expect(registry.resolveNineSlice(bundle.images.panel)?.slice.left).toBe(2)
+    expect(onUpdate).not.toHaveBeenCalled()
+    getContext.mockRestore()
+  })
+
+  it('loads and removes font assets through document fonts', async () => {
+    const onUpdate = vi.fn()
+    const load = vi.fn()
+    const add = vi.fn()
+    const remove = vi.fn()
+    class FontFaceStub {
+      /**
+       * Создает тестовый FontFaceStub.
+       */
+      constructor(
+        readonly family: string,
+        readonly source: string,
+        readonly descriptors: FontFaceDescriptors,
+      ) {}
+
+      /**
+       * Загружает тестовый font face.
+       */
+      load(): Promise<FontFace> {
+        load()
+        return Promise.resolve(this as unknown as FontFace)
+      }
+    }
+    vi.stubGlobal('FontFace', FontFaceStub)
+    Object.defineProperty(document, 'fonts', {
+      value: { add, delete: remove },
+      configurable: true,
+    })
+    const registry = new NovaAssetRegistry(undefined, onUpdate)
+    const bundle = Nova.assets.define('font-load-test', {
+      fonts: {
+        display: Nova.assets.font({ family: 'Display', src: '/display.woff2', weight: '700' }),
+      },
+    })
+
+    registry.use(bundle)
+    expect(registry.resolve(bundle.fonts.display)?.ready).toBe(false)
+    await Promise.resolve()
+
+    expect(load).toHaveBeenCalled()
+    expect(add).toHaveBeenCalled()
+    expect(onUpdate).toHaveBeenCalled()
+
+    registry.unuse(bundle)
+    expect(remove).toHaveBeenCalled()
+    vi.unstubAllGlobals()
   })
 })

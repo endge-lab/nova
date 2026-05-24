@@ -31,6 +31,7 @@ export function resolveSchemaItemBounds(item: NovaSchema<any>[number], registry?
     case 'border':
     case 'text':
     case 'icon':
+    case 'nine-slice-image':
       return setBounds(createEmptyBounds(), item.x, item.y, item.width, item.height)
     case 'circle':
       return setBounds(createEmptyBounds(), item.x - item.radius, item.y - item.radius, item.radius * 2, item.radius * 2)

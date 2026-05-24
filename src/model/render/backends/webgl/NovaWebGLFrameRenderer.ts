@@ -14,6 +14,7 @@ import type {
   NovaIcon,
   NovaIconBatch,
   NovaLine,
+  NovaNineSliceImage,
   NovaParticleBatch,
   NovaPolygon,
   NovaRect,
@@ -27,7 +28,7 @@ import type {
   NovaTextRenderRole,
   NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
-import type { NovaAssetDrawableInput, NovaAssetRegistry, NovaStripeAssetDescriptor } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaAssetDrawableInput, NovaAssetFillMode, NovaAssetRegistry, NovaNineSliceInsets, NovaStripeAssetDescriptor } from '@/model/runtime/assets/NovaAssetRegistry'
 import { isNovaAssetRef, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import type { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'
 import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
@@ -2022,6 +2023,9 @@ export class NovaWebGLFrameRenderer {
       case 'icon':
         this.drawIcon(item, transform, stats)
         break
+      case 'nine-slice-image':
+        this.drawNineSliceImage(item, transform, stats)
+        break
       default:
         break
     }
@@ -2037,6 +2041,7 @@ export class NovaWebGLFrameRenderer {
     if (background && typeof background !== 'string') {
       const source = this._assets.resolveDrawable(background)
       if (source) {
+        const fillMode = this._assets.resolveDrawableFillMode(background)
         this.drawTextureSource(
           this._assets.resolveDrawableKey('rect-bg', background, source => this.resolveSourceKey(source)),
           source,
@@ -2047,6 +2052,7 @@ export class NovaWebGLFrameRenderer {
           transform,
           rect.styles?.opacity ?? 1,
           stats,
+          fillMode,
         )
       }
     }
@@ -3418,6 +3424,44 @@ export class NovaWebGLFrameRenderer {
     const rect = resolveNovaIconRenderRect(icon, this._device.canvas.dpr)
     const opacity = resolveNovaIconRenderOpacity(icon, this._device.canvas.dpr)
     this.drawTextureSource(key, source, rect.x, rect.y, rect.width, rect.height, transform, opacity, stats)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию draw nine-slice image.
+   */
+  private drawNineSliceImage(image: NovaNineSliceImage, transform: mat3, stats: RenderStats): void {
+    const source = this._assets.resolveDrawable(image.image)
+    if (!source) return
+
+    const descriptor = this._assets.resolveNineSlice(image.image)
+    const sourceWidth = resolveWebGLSourceWidth(source, descriptor?.width)
+    const sourceHeight = resolveWebGLSourceHeight(source, descriptor?.height)
+    if (sourceWidth <= 0 || sourceHeight <= 0 || image.width <= 0 || image.height <= 0) return
+
+    const texture = this.resolveTextureEntry('nine-slice-image', image.image, stats)
+    if (!texture) return
+
+    const slice = normalizeWebGLNineSliceInput(image.slice ?? descriptor?.slice ?? 0)
+    const segments = resolveWebGLNineSliceSegments(sourceWidth, sourceHeight, image.x, image.y, image.width, image.height, slice)
+    const opacity = image.styles?.opacity ?? 1
+
+    for (const segment of segments) {
+      if (segment.dw <= 0 || segment.dh <= 0 || segment.sw <= 0 || segment.sh <= 0) continue
+      this.queueTextureQuad(
+        texture,
+        segment.dx,
+        segment.dy,
+        segment.dw,
+        segment.dh,
+        transform,
+        opacity,
+        stats,
+        segment.sx / sourceWidth,
+        segment.sy / sourceHeight,
+        (segment.sx + segment.sw) / sourceWidth,
+        (segment.sy + segment.sh) / sourceHeight,
+      )
+    }
   }
 
   /**
@@ -4849,11 +4893,15 @@ export class NovaWebGLFrameRenderer {
     transform: mat3,
     opacity: number,
     stats: RenderStats,
+    fillMode: NovaAssetFillMode = 'stretch',
   ): void {
     let texture = this._textures.get(key)
-    if (!texture) texture = this.createTextureFromSource(key, source, stats)
+    const repeated = fillMode === 'repeat' || fillMode === 'repeat-x' || fillMode === 'repeat-y'
+    if (!texture) texture = this.createTextureFromSource(key, source, stats, { repeat: repeated })
     texture.lastUsed = this._time
-    this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats)
+    const u1 = fillMode === 'repeat' || fillMode === 'repeat-x' ? width / Math.max(1, texture.width) : 1
+    const v1 = fillMode === 'repeat' || fillMode === 'repeat-y' ? height / Math.max(1, texture.height) : 1
+    this.queueTextureQuad(texture, x, y, width, height, transform, opacity, stats, 0, 0, u1, v1)
   }
 
   /**
@@ -6751,6 +6799,91 @@ function mergeFloatDirtyRanges(ranges: Array<FloatDirtyRange>): Array<FloatDirty
 
   merged.push(current)
   return merged
+}
+
+interface WebGLNineSliceSegment {
+  sx: number
+  sy: number
+  sw: number
+  sh: number
+  dx: number
+  dy: number
+  dw: number
+  dh: number
+}
+
+/**
+ * Нормализует nine-slice insets для WebGL renderer.
+ */
+function normalizeWebGLNineSliceInput(slice: number | Partial<NovaNineSliceInsets>): NovaNineSliceInsets {
+  if (typeof slice === 'number') {
+    const value = Math.max(0, slice)
+    return { top: value, right: value, bottom: value, left: value }
+  }
+  return {
+    top: Math.max(0, slice.top ?? 0),
+    right: Math.max(0, slice.right ?? 0),
+    bottom: Math.max(0, slice.bottom ?? 0),
+    left: Math.max(0, slice.left ?? 0),
+  }
+}
+
+/**
+ * Вычисляет девять source/destination сегментов для WebGL nine-slice.
+ */
+function resolveWebGLNineSliceSegments(
+  sourceWidth: number,
+  sourceHeight: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  slice: NovaNineSliceInsets,
+): Array<WebGLNineSliceSegment> {
+  const left = Math.min(slice.left, sourceWidth / 2, width / 2)
+  const right = Math.min(slice.right, sourceWidth - left, width - left)
+  const top = Math.min(slice.top, sourceHeight / 2, height / 2)
+  const bottom = Math.min(slice.bottom, sourceHeight - top, height - top)
+  const srcX = [0, left, sourceWidth - right]
+  const srcY = [0, top, sourceHeight - bottom]
+  const srcW = [left, Math.max(0, sourceWidth - left - right), right]
+  const srcH = [top, Math.max(0, sourceHeight - top - bottom), bottom]
+  const dstX = [x, x + left, x + width - right]
+  const dstY = [y, y + top, y + height - bottom]
+  const dstW = [left, Math.max(0, width - left - right), right]
+  const dstH = [top, Math.max(0, height - top - bottom), bottom]
+  const segments: Array<WebGLNineSliceSegment> = []
+
+  for (let row = 0; row < 3; row += 1) {
+    for (let column = 0; column < 3; column += 1) {
+      segments.push({
+        sx: srcX[column],
+        sy: srcY[row],
+        sw: srcW[column],
+        sh: srcH[row],
+        dx: dstX[column],
+        dy: dstY[row],
+        dw: dstW[column],
+        dh: dstH[row],
+      })
+    }
+  }
+
+  return segments
+}
+
+/**
+ * Вычисляет source width с учетом descriptor fallback.
+ */
+function resolveWebGLSourceWidth(source: CanvasImageSource, fallback?: number): number {
+  return fallback ?? resolveSourceWidth(source)
+}
+
+/**
+ * Вычисляет source height с учетом descriptor fallback.
+ */
+function resolveWebGLSourceHeight(source: CanvasImageSource, fallback?: number): number {
+  return fallback ?? resolveSourceHeight(source)
 }
 
 /**

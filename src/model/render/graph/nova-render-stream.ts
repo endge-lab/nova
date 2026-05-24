@@ -243,6 +243,7 @@ export function resolveNovaRenderStreamStride(kind: NovaRenderStreamKind): numbe
       return 8
     case 'texture-quad':
     case 'icon':
+    case 'nine-slice-image':
     case 'cached-group':
       return 10
     case 'text-run':
@@ -274,6 +275,7 @@ export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): Nova
       return 'border'
     case 'texture-quad':
     case 'icon':
+    case 'nine-slice-image':
     case 'cached-group':
     case 'particle-sprite':
       return 'texture'

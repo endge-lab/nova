@@ -357,6 +357,7 @@ export class NovaRenderBuilder implements NovaRenderer {
       case 'arc':
       case 'polygon':
       case 'icon':
+      case 'nine-slice-image':
         this._writer.drawSchemaItem(item)
         break
       default:

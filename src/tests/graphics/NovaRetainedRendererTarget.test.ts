@@ -6,6 +6,8 @@ import {
   NovaTextureAtlasManager,
   NovaTextAtlasManager,
   NovaGlyphAtlasManager,
+  NovaAssetRegistry,
+  NovaAssets,
   NovaRenderHitIndex,
   collectVisibleNovaRenderGroups,
   createNovaRenderGroup,
@@ -161,6 +163,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     ONE: 1,
     ONE_MINUS_SRC_ALPHA: 0x0303,
     RGBA: 0x1908,
+    REPEAT: 0x2901,
     SCISSOR_TEST: 0x0c11,
     SRC_ALPHA: 0x0302,
     STATIC_DRAW: 0x88e4,
@@ -219,7 +222,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     scissor: noop,
     shaderSource: vi.fn((_shader: WebGLShader, source: string) => shaderSources.push(source)),
     texImage2D: noop,
-    texParameteri: noop,
+    texParameteri: vi.fn(),
     uniform1f: noop,
     uniform1i: noop,
     uniform2f: noop,
@@ -326,6 +329,7 @@ function mockCanvas2D(): void {
     return {
       canvas: this,
       clearRect: vi.fn(),
+      drawImage: vi.fn(),
       fillText: vi.fn(),
       measureText: (text: string) => ({ width: text.length * 5 }),
       setTransform: vi.fn(),
@@ -685,6 +689,56 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     expect(plain.uploadBytes).toBeGreaterThan(0)
     expect(rounded.uploadBytes).toBeGreaterThan(plain.uploadBytes!)
+  })
+
+  it('renders repeated fills and nine-slice images through WebGL texture quads', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const registry = new NovaAssetRegistry()
+    const tile = document.createElement('canvas')
+    tile.width = 16
+    tile.height = 16
+    const panel = document.createElement('canvas')
+    panel.width = 64
+    panel.height = 64
+    const bundle = NovaAssets.define('webgl-assets-v2-test', {
+      fills: {
+        pattern: NovaAssets.pattern(tile, { repeat: 'repeat', width: 16, height: 16 }),
+      },
+      images: {
+        panel: NovaAssets.nineSliceImage(panel, { slice: 8, centerMode: 'stretch' }),
+      },
+    })
+
+    registry.use(bundle)
+
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry(), resolveNovaRendererConfig(), registry)
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, [
+      {
+        type: 'rect',
+        x: 0,
+        y: 0,
+        width: 48,
+        height: 32,
+        styles: { background: bundle.fills.pattern },
+      },
+      {
+        type: 'nine-slice-image',
+        x: 64,
+        y: 0,
+        width: 96,
+        height: 64,
+        image: bundle.images.panel,
+      },
+    ]))
+    const texParameterCalls = vi.mocked(gl.texParameteri).mock.calls
+
+    expect(metrics.instances).toBe(10)
+    expect(texParameterCalls.some(call => call[2] === gl.REPEAT)).toBe(true)
+    expect(texParameterCalls.some(call => call[2] === gl.CLAMP_TO_EDGE)).toBe(true)
+
+    registry.unuse(bundle)
   })
 
   it('merges GPU arena dirty byte ranges and detects full-upload thresholds', () => {
