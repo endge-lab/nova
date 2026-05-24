@@ -576,12 +576,13 @@ describe('Nova core behavior and performance smoke', () => {
     node.setRenderBoundsFromSchema([
       { type: 'line', x1: 10, y1: 12, x2: 70, y2: 12, styles: { width: 4 } },
       { type: 'circle', x: 120, y: 40, radius: 10 },
+      { type: 'arc', x: 250, y: 32, radius: 12, startAngle: 0, endAngle: Math.PI, styles: { width: 6 } },
       { type: 'text', text: 'label', x: 150, y: 8, width: 80, height: 18 },
     ])
     node.on('mousedown', vi.fn())
 
-    expect(node.getLocalRenderBounds()).toEqual({ x: 8, y: 8, width: 222, height: 42 })
-    expect(node.getRenderBounds()).toEqual({ x: 28, y: 38, width: 222, height: 42 })
+    expect(node.getLocalRenderBounds()).toEqual({ x: 8, y: 8, width: 257, height: 42 })
+    expect(node.getRenderBounds()).toEqual({ x: 28, y: 38, width: 257, height: 42 })
     expect(node.containsPoint(34, 42)).toBe(true)
     expect(node.containsPoint(23, 33)).toBe(false)
 

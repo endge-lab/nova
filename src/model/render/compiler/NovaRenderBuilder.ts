@@ -1,5 +1,6 @@
 import type { mat3 } from 'gl-matrix'
 import type {
+  NovaArc,
   NovaBorder,
   NovaCircle,
   NovaIcon,
@@ -38,6 +39,7 @@ export class NovaRenderBuilder implements NovaRenderer {
     border: true,
     line: true,
     circle: true,
+    arc: true,
     polygon: true,
     icon: true,
     text: true,
@@ -190,6 +192,13 @@ export class NovaRenderBuilder implements NovaRenderer {
   }
 
   /**
+   * Выполняет внутреннюю операцию arc.
+   */
+  arc(params: NovaArc): void {
+    this.schemaItem({ ...params, type: 'arc' })
+  }
+
+  /**
    * Выполняет внутреннюю операцию polygon.
    */
   polygon(params: NovaPolygon): void {
@@ -330,6 +339,7 @@ export class NovaRenderBuilder implements NovaRenderer {
       case 'border':
       case 'line':
       case 'circle':
+      case 'arc':
       case 'polygon':
       case 'icon':
         this._writer.drawSchemaItem(item)

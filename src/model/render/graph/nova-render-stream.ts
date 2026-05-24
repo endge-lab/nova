@@ -235,6 +235,7 @@ export function resolveNovaRenderStreamStride(kind: NovaRenderStreamKind): numbe
       return 18
     case 'border':
     case 'line':
+    case 'arc':
       return 8
     case 'circle':
       return 12
@@ -269,6 +270,7 @@ export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): Nova
       return 'background'
     case 'border':
     case 'line':
+    case 'arc':
       return 'border'
     case 'texture-quad':
     case 'icon':

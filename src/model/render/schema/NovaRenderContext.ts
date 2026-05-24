@@ -1,4 +1,5 @@
 import type {
+  NovaArc,
   NovaBorder,
   NovaBounds,
   NovaCircle,
@@ -71,6 +72,13 @@ export class NovaRenderContext {
   }
 
   /**
+   * Выполняет внутреннюю операцию arc.
+   */
+  arc(params: NovaArc): void {
+    this.schemaItem({ ...params, type: 'arc' })
+  }
+
+  /**
    * Выполняет внутреннюю операцию polygon.
    */
   polygon(params: NovaPolygon): void {
@@ -130,6 +138,7 @@ export class NovaRenderContext {
       case 'border':
       case 'line':
       case 'circle':
+      case 'arc':
       case 'polygon':
       case 'icon':
         this._writer.drawSchemaItem(item)

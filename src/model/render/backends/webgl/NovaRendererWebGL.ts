@@ -1,6 +1,7 @@
 import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
 import type {
+  NovaArc,
   NovaBorder,
   NovaCircle,
   NovaIcon,
@@ -47,6 +48,7 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
     border: true,
     line: true,
     circle: true,
+    arc: true,
     polygon: true,
     icon: true,
     text: true,
@@ -180,6 +182,13 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
    */
   circle(_params: NovaCircle): void {
     this.throwImmediateApiError('circle')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию arc.
+   */
+  arc(_params: NovaArc): void {
+    this.throwImmediateApiError('arc')
   }
 
   /**

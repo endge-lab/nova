@@ -8,6 +8,7 @@ import type {
   NovaRendererTextConfig,
 } from '@/domain/types/rendering/index'
 import type {
+  NovaArc,
   NovaBorder,
   NovaCircle,
   NovaIcon,
@@ -37,6 +38,7 @@ import {
 } from '@/model/render/policy/nova-render-policy'
 import { parseNovaColor, type NovaParsedColor } from '@/model/render/schema/nova-color-parser'
 import {
+  compileNovaArcStyle,
   compileNovaBorderStyle,
   compileNovaCircleStyle,
   compileNovaLineStyle,
@@ -1978,6 +1980,9 @@ export class NovaWebGLFrameRenderer {
       case 'circle':
         this.drawCircle(item, transform, stats)
         break
+      case 'arc':
+        this.drawArc(item, transform, stats)
+        break
       case 'polygon':
         this.drawPolygon(item, transform, stats)
         break
@@ -3145,6 +3150,41 @@ export class NovaWebGLFrameRenderer {
     const style = compileNovaCircleStyle(circle)
     const diameter = circle.radius * 2
     this.queueRoundedRect(circle.x - circle.radius, circle.y - circle.radius, diameter, diameter, circle.radius, style.fill, style.opacity, style.borderColor, style.borderWidth, transform, stats)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию draw arc.
+   */
+  private drawArc(arc: NovaArc, transform: mat3, stats: RenderStats): void {
+    if (arc.radius <= 0) return
+
+    const style = compileNovaArcStyle(arc)
+    if (style.width <= 0 || style.color.a <= 0) return
+
+    const fullCircle = Math.PI * 2
+    const direction = arc.counterClockwise ? -1 : 1
+    let delta = arc.endAngle - arc.startAngle
+    if (arc.counterClockwise && delta > 0) delta -= fullCircle
+    if (!arc.counterClockwise && delta < 0) delta += fullCircle
+    if (Math.abs(delta) <= 0.0001) return
+
+    const length = Math.abs(delta) * arc.radius
+    const segments = Math.max(4, Math.min(96, Math.ceil(length / 4)))
+    const step = Math.abs(delta) / segments * direction
+
+    let previousAngle = arc.startAngle
+    let previousX = arc.x + Math.cos(previousAngle) * arc.radius
+    let previousY = arc.y + Math.sin(previousAngle) * arc.radius
+
+    for (let index = 1; index <= segments; index += 1) {
+      const angle = index === segments ? arc.startAngle + delta : previousAngle + step
+      const x = arc.x + Math.cos(angle) * arc.radius
+      const y = arc.y + Math.sin(angle) * arc.radius
+      this.queueSolidLine(previousX, previousY, x, y, style.width, style.color, style.opacity, transform, stats)
+      previousAngle = angle
+      previousX = x
+      previousY = y
+    }
   }
 
   /**

@@ -54,6 +54,7 @@ export function resolveNovaRenderItemKind(item: NovaSchemaItem<any>): NovaRender
     case 'border':
     case 'line':
     case 'circle':
+    case 'arc':
     case 'polygon':
     case 'text':
     case 'icon':
@@ -98,6 +99,7 @@ export function resolveNovaRenderStreamKind(item: NovaSchemaItem<any>): NovaRend
   if (item.type === 'border') return 'border'
   if (item.type === 'line') return 'line'
   if (item.type === 'circle') return 'circle'
+  if (item.type === 'arc') return 'arc'
   if (item.type === 'polygon') return 'polygon'
   if (item.type === 'text') return 'text-run'
   if (item.type === 'icon') return 'icon'

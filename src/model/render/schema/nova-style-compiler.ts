@@ -1,4 +1,5 @@
 import type {
+  NovaArc,
   NovaBorder,
   NovaCircle,
   NovaLine,
@@ -35,6 +36,16 @@ export interface NovaCompiledTextStyle {
   verticalAlign: 'top' | 'middle' | 'bottom'
   overflowAlign: 'start' | 'preserve'
   ellipsis: boolean
+}
+
+/**
+ * Описывает контракт NovaCompiledArcStyle.
+ */
+export interface NovaCompiledArcStyle {
+  color: NovaParsedColor
+  width: number
+  opacity: number
+  lineCap: 'butt' | 'round' | 'square'
 }
 
 /**
@@ -88,6 +99,18 @@ export function compileNovaCircleStyle(circle: NovaCircle): NovaCompiledBoxStyle
     borderWidth: circle.styles?.border?.width ?? 0,
     borderRadius: circle.radius,
     dashPattern: circle.styles?.border?.dashPattern,
+  }
+}
+
+/**
+ * Компилирует nova arc style.
+ */
+export function compileNovaArcStyle(arc: NovaArc): NovaCompiledArcStyle {
+  return {
+    color: parseNovaColor(arc.styles?.color, 0x000000ff),
+    width: arc.styles?.width ?? 1,
+    opacity: arc.styles?.opacity ?? 1,
+    lineCap: arc.styles?.lineCap ?? 'butt',
   }
 }
 

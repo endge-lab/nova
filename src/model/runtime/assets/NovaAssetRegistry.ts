@@ -309,9 +309,9 @@ export class NovaAssetRegistry {
     const ctx = canvas.getContext('2d')
     canvas.width = Math.max(1, descriptor.width)
     canvas.height = Math.max(1, descriptor.height)
-    materialized.source = canvas
 
     if (!ctx) {
+      materialized.source = canvas
       materialized.ready = true
       materialized.loading = false
       return materialized
@@ -326,6 +326,7 @@ export class NovaAssetRegistry {
     image.onload = (): void => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+      materialized.source = canvas
       URL.revokeObjectURL(url)
       materialized.ready = true
       materialized.loading = false

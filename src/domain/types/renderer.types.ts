@@ -202,6 +202,24 @@ export interface NovaCircle extends NovaUIBase {
 }
 
 /**
+ * Описывает контракт NovaArc.
+ */
+export interface NovaArc extends NovaUIBase {
+  x: number
+  y: number
+  radius: number
+  startAngle: number
+  endAngle: number
+  counterClockwise?: boolean
+  styles?: {
+    color?: string
+    width?: number
+    lineCap?: 'butt' | 'round' | 'square'
+    opacity?: number
+  }
+}
+
+/**
  * Описывает контракт NovaTextChunk.
  */
 export interface NovaTextChunk {
@@ -407,6 +425,7 @@ export type NovaSchemaItem<TCustom extends { type: string } = never> =
   | ({ type: 'text' } & NovaText)
   | ({ type: 'line' } & NovaLine)
   | ({ type: 'circle' } & NovaCircle)
+  | ({ type: 'arc' } & NovaArc)
   | ({ type: 'icon' } & NovaIcon)
   | ({ type: 'polygon' } & NovaPolygon)
   | TCustom
@@ -446,6 +465,7 @@ export interface NovaRendererCapabilities {
   border: boolean
   line: boolean
   circle: boolean
+  arc: boolean
   polygon: boolean
   icon: boolean
   text: boolean
@@ -546,6 +566,7 @@ export interface NovaRenderer {
   border(params: NovaBorder): void
   line(params: NovaLine): void
   circle(params: NovaCircle): void
+  arc(params: NovaArc): void
   polygon(params: NovaPolygon): void
   icon(params: NovaIcon): void
   rects(batch: NovaRectBatch): void

@@ -34,6 +34,11 @@ export function resolveSchemaItemBounds(item: NovaSchema<any>[number], registry?
       return setBounds(createEmptyBounds(), item.x, item.y, item.width, item.height)
     case 'circle':
       return setBounds(createEmptyBounds(), item.x - item.radius, item.y - item.radius, item.radius * 2, item.radius * 2)
+    case 'arc': {
+      const lineWidth = item.styles?.width ?? 1
+      const size = item.radius * 2 + lineWidth
+      return setBounds(createEmptyBounds(), item.x - item.radius - lineWidth / 2, item.y - item.radius - lineWidth / 2, size, size)
+    }
     case 'line':
       return resolveLineBounds(item.x1, item.y1, item.x2, item.y2, item.styles?.width ?? 1)
     case 'polygon':

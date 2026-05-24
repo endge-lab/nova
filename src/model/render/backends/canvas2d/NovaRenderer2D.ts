@@ -2,6 +2,7 @@ import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type {
+  NovaArc,
   NovaBorder,
   NovaCircle,
   NovaIcon,
@@ -42,6 +43,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     border: true,
     line: true,
     circle: true,
+    arc: true,
     polygon: true,
     icon: true,
     text: true,
@@ -301,6 +303,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         case 'circle':
           this.circle(item as NovaCircle)
           break
+        case 'arc':
+          this.arc(item as NovaArc)
+          break
         case 'polygon':
           this.polygon(item as NovaPolygon)
           break
@@ -546,6 +551,26 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       ctx.lineWidth = p.styles.border.width
       ctx.stroke()
     }
+    ctx.restore()
+  }
+
+  /**
+   * Выполняет внутреннюю операцию arc.
+   */
+  arc(p: NovaArc): void {
+    const width = p.styles?.width ?? 1
+    const opacity = p.styles?.opacity ?? 1
+    if (p.radius <= 0 || width <= 0 || opacity <= 0) return
+
+    const ctx = this.ctx
+    ctx.save()
+    ctx.strokeStyle = p.styles?.color ?? '#000'
+    ctx.lineWidth = width
+    ctx.lineCap = p.styles?.lineCap ?? 'butt'
+    ctx.globalAlpha = opacity
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, p.radius, p.startAngle, p.endAngle, p.counterClockwise)
+    ctx.stroke()
     ctx.restore()
   }
 
