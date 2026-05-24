@@ -137,6 +137,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         this._events = new NovaEvents(this)
         this.sound = new NovaSoundEngine(this, options.sound)
         this.cursors = new NovaCursorManager(this)
+        this.metrics = new NovaMetrics(() => this.raph.UPS)
 
         //
         // Поднимаем app-level bus, debug и telemetry до запуска Raph-фаз.
@@ -162,11 +163,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             runtimeId: options.raph?.runtimeId,
             scheduler: options.scheduler?.type ?? RaphSchedulerType.AnimationFrame,
         })
-        this.theme = new NovaThemeService(this, options.theme)
-        this.metrics = new NovaMetrics(() => this.raph.UPS)
         this._diagnostics = new NovaDiagnostics_Module(this, {
             setRendererDiagnosticsEnabled: enabled => this.setRendererDiagnosticsEnabled(enabled),
         })
+        this.theme = new NovaThemeService(this, options.theme)
         this._diagnostics.configure(options.diagnostics)
         this.resize(options.size)
 

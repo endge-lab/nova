@@ -44,6 +44,26 @@ describe('Nova assets registry', () => {
     expect(child.resolveDrawable(childBundle.icons.same)).toBe(childCanvas)
   })
 
+  it('keeps shared scoped assets until the last unuse', () => {
+    const canvas = document.createElement('canvas')
+    const bundle = Nova.assets.define('shared-scope-test', {
+      icons: {
+        same: Nova.assets.canvas(canvas),
+      },
+    })
+    const registry = new NovaAssetRegistry()
+
+    registry.use(bundle)
+    registry.use(bundle)
+    registry.unuse(bundle)
+
+    expect(registry.resolveDrawable(bundle.icons.same)).toBe(canvas)
+
+    registry.unuse(bundle)
+
+    expect(registry.resolveDrawable(bundle.icons.same)).toBeUndefined()
+  })
+
   it('materializes stripe fills synchronously', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)

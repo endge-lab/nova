@@ -210,9 +210,6 @@ function createApp(
         preventDefault: 'handled',
       },
     },
-    renderer: {
-      main: RendererType.Web2D,
-    },
     scheduler: {
       type: RaphSchedulerType.Sync,
       loop: false,

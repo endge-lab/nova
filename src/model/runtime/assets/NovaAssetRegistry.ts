@@ -133,6 +133,7 @@ export function isNovaAssetRef(value: unknown): value is NovaAssetRef {
 export class NovaAssetRegistry {
   private readonly _records = new Map<string, NovaAssetRecord>()
   private readonly _materialized = new Map<string, AssetMaterialization>()
+  private readonly _recordUseCounts = new Map<string, number>()
 
   /**
    * Создает registry.
@@ -147,6 +148,7 @@ export class NovaAssetRegistry {
    */
   use(bundle: NovaAssetBundle): void {
     for (const [id, record] of bundle.records) {
+      this._recordUseCounts.set(id, (this._recordUseCounts.get(id) ?? 0) + 1)
       this._records.set(id, record)
     }
   }
@@ -156,6 +158,12 @@ export class NovaAssetRegistry {
    */
   unuse(bundle: NovaAssetBundle): void {
     for (const id of bundle.records.keys()) {
+      const nextCount = (this._recordUseCounts.get(id) ?? 0) - 1
+      if (nextCount > 0) {
+        this._recordUseCounts.set(id, nextCount)
+        continue
+      }
+      this._recordUseCounts.delete(id)
       this._records.delete(id)
       this._materialized.delete(id)
     }
