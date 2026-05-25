@@ -545,6 +545,24 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
+  it('focuses canvas on pointer input for focused keyboard scope', () => {
+    const app = createApp({ keyboardScope: 'focused' })
+    const node = createInteractiveNode(app)
+    const onKeyDown = vi.fn()
+    node.on('keydown', onKeyDown)
+
+    app.canvas.element.dispatchEvent(new MouseEvent('mousedown', { clientX: 10, clientY: 10, button: 0, bubbles: true }))
+
+    expect(document.activeElement).toBe(app.canvas.element)
+
+    const event = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true })
+    document.activeElement?.dispatchEvent(event)
+
+    expect(onKeyDown).toHaveBeenCalledTimes(1)
+
+    app.destroy()
+  })
+
   it('updates node interactive flag and allows zIndex zero', () => {
     const app = createApp()
     const surface: NovaSurface<TestEvents> = app.createSurface('test-surface')

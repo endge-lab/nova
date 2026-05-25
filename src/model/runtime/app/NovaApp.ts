@@ -812,6 +812,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
                 const handler = (e: Event) => {
                     if (domEvent === 'mousedown') {
                         this._keyboardActive = true
+                        this.focusCanvasKeyboardTarget()
                     }
 
                     if (domEvent === 'mousedown' || domEvent === 'mouseup') {
@@ -883,6 +884,14 @@ export class NovaApp<E extends EventList = Record<string, any>> {
             this._boundWindowEvents.mousedown = handler
             window.addEventListener('mousedown', handler)
         }
+    }
+
+    /**
+     * Переводит DOM focus на canvas для focused keyboard scope.
+     */
+    private focusCanvasKeyboardTarget(): void {
+        if (!this._inputOptions.keyboard.enabled || this._inputOptions.keyboard.scope !== 'focused') return
+        this._canvas.element.focus({ preventScroll: true })
     }
 
     /**
