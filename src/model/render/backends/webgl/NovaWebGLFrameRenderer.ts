@@ -4280,12 +4280,16 @@ export class NovaWebGLFrameRenderer {
     let cache: TextureRectStreamBatchCache | null = this._iconStreamBatchCache.get(batch) ?? null
     const revision = batch.revision ?? 0
     const staticRevision = batch.staticRevision ?? 0
+    const sourceStale = cache ? this.isSourceTextureStreamBatchCacheStale(cache) : false
 
-    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision || this.isSourceTextureStreamBatchCacheStale(cache)) {
-      cache = this.createIconStreamBatchCache(batch, stats)
-      if (!cache) return null
-      this._iconStreamBatchCache.set(batch, cache)
-      return cache
+    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision || sourceStale) {
+      const nextCache = this.createIconStreamBatchCache(batch, stats)
+      if (!nextCache) {
+        if (cache && !sourceStale && cache.count === batch.count && cache.staticRevision === staticRevision) return cache
+        return null
+      }
+      this._iconStreamBatchCache.set(batch, nextCache)
+      return nextCache
     }
 
 	    if (cache.revision !== revision) {
@@ -4307,7 +4311,7 @@ export class NovaWebGLFrameRenderer {
 
     for (let index = 0; index < batch.count; index += 1) {
       const texture = this.resolveTextureEntry('icon', batch.icons[index], stats)
-      if (!texture) continue
+      if (!texture) return null
 
       let group = groups.get(texture.key)
       if (!group) {
