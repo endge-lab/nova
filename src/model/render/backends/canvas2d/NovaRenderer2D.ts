@@ -917,8 +917,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         clip: clip === null ? undefined : clip ?? true,
         styles: {
           color: color ?? '#000',
-          font: batch.font,
-          align: batch.align,
+          font: resolveTextBatchItemValue(batch.font, index),
+          align: resolveTextBatchItemValue(batch.align, index),
           lineHeight: batch.lineHeight,
           padding: batch.padding,
           ellipsis: batch.ellipsis,
@@ -1272,6 +1272,10 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     return chunks
   }
+}
+
+function resolveTextBatchItemValue<T>(value: T | ReadonlyArray<T | undefined> | undefined, index: number): T | undefined {
+  return Array.isArray(value) ? value[index] : value as T | undefined
 }
 
 interface NineSliceSegment {

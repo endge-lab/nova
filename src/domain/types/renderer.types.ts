@@ -390,8 +390,8 @@ export interface NovaTextBatch extends NovaUIBase {
   clipWidth?: NovaRectNumberData
   clipHeight?: NovaRectNumberData
   color?: string | ReadonlyArray<string>
-  font?: NovaTextFont
-  align?: NovaTextAlign
+  font?: NovaTextFont | ReadonlyArray<NovaTextFont | undefined>
+  align?: NovaTextAlign | ReadonlyArray<NovaTextAlign | undefined>
   lineHeight?: number
   padding?: NovaStylePadding
   ellipsis?: boolean

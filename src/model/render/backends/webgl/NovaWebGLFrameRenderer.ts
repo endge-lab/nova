@@ -4203,6 +4203,8 @@ export class NovaWebGLFrameRenderer {
 	      styles: {
 	        ...styleBase,
 	        color: color ?? styleBase.color,
+	        font: resolveTextBatchItemValue(batch.font, index) ?? styleBase.font,
+	        align: resolveTextBatchItemValue(batch.align, index) ?? styleBase.align,
 	      },
 	      meta: batch.meta,
 	    }
@@ -4282,10 +4284,14 @@ export class NovaWebGLFrameRenderer {
     const staticRevision = batch.staticRevision ?? 0
     const sourceStale = cache ? this.isSourceTextureStreamBatchCacheStale(cache) : false
 
-    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision || sourceStale) {
+    if (!cache || cache.count !== batch.count || cache.staticRevision !== staticRevision || cache.incomplete || sourceStale) {
       const nextCache = this.createIconStreamBatchCache(batch, stats)
-      if (!nextCache) {
-        if (cache && !sourceStale && cache.count === batch.count && cache.staticRevision === staticRevision) return cache
+      if (!nextCache || nextCache.groups.length === 0) {
+        if (cache && !sourceStale && cache.count === batch.count) {
+          this.updateTextureRectStreamBatchCacheGeometry(cache, batch)
+          cache.revision = revision
+          return cache
+        }
         return null
       }
       this._iconStreamBatchCache.set(batch, nextCache)
@@ -4308,10 +4314,14 @@ export class NovaWebGLFrameRenderer {
    */
   private createIconStreamBatchCache(batch: NovaIconBatch, stats: RenderStats): TextureRectStreamBatchCache | null {
     const groups = new Map<string, { texture: TextureEntry; indices: Array<number> }>()
+    let incomplete = false
 
     for (let index = 0; index < batch.count; index += 1) {
       const texture = this.resolveTextureEntry('icon', batch.icons[index], stats)
-      if (!texture) return null
+      if (!texture) {
+        incomplete = true
+        continue
+      }
 
       let group = groups.get(texture.key)
       if (!group) {
@@ -4327,7 +4337,21 @@ export class NovaWebGLFrameRenderer {
       count: batch.count,
       revision,
       staticRevision,
+      incomplete,
       groups: [...groups.values()].map(group => this.createTextureRectStreamGroupCache(batch, group.texture, group.indices, 0, 0, 1, 1)),
+    }
+  }
+
+  /**
+   * Обновляет geometry старого retained texture batch cache без пересоздания static texture groups.
+   */
+  private updateTextureRectStreamBatchCacheGeometry(
+    cache: TextureRectStreamBatchCache,
+    batch: NovaIconBatch | NovaTextBatch,
+  ): void {
+    for (const group of cache.groups) {
+      this.writeTextureRectGeometry(batch, group.indices, group.geometryData, group.rectSource)
+      group.geometryUpload.lastData = undefined
     }
   }
 
@@ -4434,8 +4458,8 @@ export class NovaWebGLFrameRenderer {
   private createTextBatchStyleBase(batch: NovaTextBatch): NonNullable<NovaText['styles']> {
     return {
       color: typeof batch.color === 'string' ? batch.color : '#000',
-      font: batch.font,
-      align: batch.align,
+      font: resolveTextBatchSharedValue(batch.font),
+      align: resolveTextBatchSharedValue(batch.align),
       lineHeight: batch.lineHeight,
       padding: batch.padding,
       ellipsis: batch.ellipsis,
@@ -6758,6 +6782,14 @@ export class NovaWebGLFrameRenderer {
       || entry === this._textureBatch
       || entry === this._textureCachedBatch?.texture
   }
+}
+
+function resolveTextBatchItemValue<T>(value: T | ReadonlyArray<T | undefined> | undefined, index: number): T | undefined {
+  return Array.isArray(value) ? value[index] : value as T | undefined
+}
+
+function resolveTextBatchSharedValue<T>(value: T | ReadonlyArray<T | undefined> | undefined): T | undefined {
+  return Array.isArray(value) ? undefined : value as T | undefined
 }
 
 /**
