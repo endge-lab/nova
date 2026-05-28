@@ -855,6 +855,32 @@ describe('Nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
+  it('treats return false from pointer handlers as stop propagation', () => {
+    const log = createAuditLog()
+    const app = createApp({ input: true })
+    const surface = app.createSurface('scene', AuditSurface, log)
+    const order: Array<string> = []
+    const group = surface.createNode(AuditNode, 'group', log)
+    const child = new AuditNode(app, surface, 'child', log)
+
+    group.options({ x: 20, y: 20, width: 160, height: 120 })
+    child.options({ x: 20, y: 20, width: 60, height: 40 })
+    group.addChild(child)
+    group.onCapture('mousedown', () => order.push('capture-group'))
+    group.on('mousedown', () => order.push('bubble-group'))
+    child.on('mousedown', () => {
+      order.push('target-child')
+      return false
+    })
+    app.flush()
+
+    app.handleEvent('mousedown', new MouseEvent('mousedown', { clientX: 50, clientY: 50, button: 0 }))
+
+    expect(order).toEqual(['capture-group', 'target-child'])
+
+    app.destroy()
+  })
+
   it('keeps spatial hit-test target equal to linear hit-test target', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })

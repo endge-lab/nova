@@ -59,6 +59,7 @@ export function resolveNovaRenderItemKind(item: NovaSchemaItem<any>): NovaRender
     case 'text':
     case 'icon':
     case 'nine-slice-image':
+    case 'pattern-rect':
       return item.type
     default:
       return 'custom'
@@ -80,6 +81,7 @@ export function createNovaRenderItemBatchKey(item: NovaSchemaItem<any>): string 
   if (item.type === 'text') return `text:${item.styles?.font?.family ?? 'sans'}:${item.styles?.font?.size ?? 12}:${item.styles?.font?.weight ?? 'normal'}`
   if (item.type === 'icon') return `icon:${typeof item.icon === 'string' ? item.icon : 'source'}`
   if (item.type === 'nine-slice-image') return `nine-slice-image:${typeof item.image === 'string' ? item.image : item.image.id}:${item.styles?.opacity ?? 1}`
+  if (item.type === 'pattern-rect') return `pattern-rect:${item.pattern.type}:${item.pattern.shape ?? 'square'}:${item.pattern.color}:${item.styles?.opacity ?? 1}`
 
   return item.type
 }
@@ -106,5 +108,6 @@ export function resolveNovaRenderStreamKind(item: NovaSchemaItem<any>): NovaRend
   if (item.type === 'text') return 'text-run'
   if (item.type === 'icon') return 'icon'
   if (item.type === 'nine-slice-image') return 'nine-slice-image'
+  if (item.type === 'pattern-rect') return 'pattern-rect'
   return 'cached-group'
 }

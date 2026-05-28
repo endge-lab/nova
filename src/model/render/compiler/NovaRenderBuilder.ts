@@ -7,6 +7,7 @@ import type {
   NovaIconBatch,
   NovaLine,
   NovaParticleBatch,
+  NovaPatternRect,
   NovaPolygon,
   NovaRect,
   NovaRectBatch,
@@ -44,6 +45,7 @@ export class NovaRenderBuilder implements NovaRenderer {
     polygon: true,
     icon: true,
     text: true,
+    patternRects: true,
     particles: true,
     rectBatches: true,
     stripeBatches: true,
@@ -228,6 +230,13 @@ export class NovaRenderBuilder implements NovaRenderer {
   }
 
   /**
+   * Записывает процедурный pattern rect как один render item.
+   */
+  patternRect(params: NovaPatternRect): void {
+    this.schemaItem({ ...params, type: 'pattern-rect' })
+  }
+
+  /**
    * Записывает retained rect batch без разворачивания в schema items.
    */
   rects(batch: NovaRectBatch): void {
@@ -358,6 +367,7 @@ export class NovaRenderBuilder implements NovaRenderer {
       case 'polygon':
       case 'icon':
       case 'nine-slice-image':
+      case 'pattern-rect':
         this._writer.drawSchemaItem(item)
         break
       default:

@@ -741,6 +741,37 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     registry.unuse(bundle)
   })
 
+  it('renders procedural pattern rects as a single WebGL draw call', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, [{
+      type: 'pattern-rect',
+      x: 0,
+      y: 0,
+      width: 800,
+      height: 600,
+      pattern: {
+        type: 'dot-grid',
+        color: '#cbd5e1',
+        originX: 12,
+        originY: 12,
+        worldStep: 32,
+        scale: 0.18,
+        minScreenStep: 8,
+        size: 1,
+        shape: 'square',
+      },
+      semantic: false,
+    }]))
+
+    expect(metrics.drawCalls).toBe(1)
+    expect(metrics.instances).toBe(1)
+    expect(vi.mocked(gl.drawArrays)).toHaveBeenCalledTimes(1)
+
+    renderer.destroy()
+  })
+
   it('merges GPU arena dirty byte ranges and detects full-upload thresholds', () => {
     const arena = new NovaGpuBufferArena(0.5, 16)
 

@@ -515,7 +515,10 @@ export class NovaEvents<E extends EventList> {
    */
   private callHandler(handler: unknown, event: MouseEvent | WheelEvent | KeyboardEvent | Event): boolean {
     if (typeof handler !== 'function') return false
-    ;(handler as (e: typeof event) => void)(event)
+    const result = (handler as (e: typeof event) => unknown)(event)
+    if (result === false && typeof event.stopPropagation === 'function') {
+      event.stopPropagation()
+    }
     return true
   }
 

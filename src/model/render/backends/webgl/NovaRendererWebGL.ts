@@ -8,6 +8,7 @@ import type {
   NovaIconBatch,
   NovaLine,
   NovaParticleBatch,
+  NovaPatternRect,
   NovaPolygon,
   NovaRect,
   NovaRectBatch,
@@ -53,6 +54,7 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
     polygon: true,
     icon: true,
     text: true,
+    patternRects: true,
     particles: true,
     rectBatches: true,
     stripeBatches: true,
@@ -218,6 +220,13 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
    */
   icon(_params: NovaIcon): void {
     this.throwImmediateApiError('icon')
+  }
+
+  /**
+   * Выполняет внутреннюю операцию patternRect.
+   */
+  patternRect(_params: NovaPatternRect): void {
+    this.throwImmediateApiError('patternRect')
   }
 
   /**

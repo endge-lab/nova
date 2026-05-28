@@ -50,4 +50,21 @@ describe('Nova retained dirty lifecycle', () => {
     expect(node.renderCount).toBe(1)
     expect(surface.renderMetrics?.nodeRenderCalls).toBeGreaterThan(0)
   })
+
+  it('keeps layout-unready nodes out of render frames until layout is resolved', () => {
+    const app = createTestApp<TestEvents>()
+    const surface = app.createSurface('layout-ready')
+    const node = surface.createNode(RetainedAuditNode)
+
+    node.layoutReady = false
+    node.dirty({ render: true })
+    app.raph.run()
+
+    expect(node.renderCount).toBe(0)
+
+    node.layoutReady = true
+    app.raph.run()
+
+    expect(node.renderCount).toBe(1)
+  })
 })

@@ -180,6 +180,88 @@ describe('Nova assets registry', () => {
     getContext.mockRestore()
   })
 
+  it('returns an SVG canvas before async image materialization completes', () => {
+    const onUpdate = vi.fn()
+    const registry = new NovaAssetRegistry(undefined, onUpdate)
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      clearRect: vi.fn(),
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D)
+    const previousCreateObjectURL = URL.createObjectURL
+    const previousRevokeObjectURL = URL.revokeObjectURL
+    const createObjectURL = vi.fn(() => 'blob:nova-svg-test')
+    const revokeObjectURL = vi.fn()
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true })
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true })
+    const bundle = Nova.assets.define('svg-loading-test', {
+      icons: {
+        moon: Nova.assets.svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3"/></svg>', {
+          width: 24,
+          height: 24,
+          color: '#fff',
+        }),
+      },
+    })
+
+    registry.use(bundle)
+
+    const source = registry.resolveDrawable(bundle.icons.moon)
+    expect(source).toBeInstanceOf(HTMLCanvasElement)
+    expect(onUpdate).not.toHaveBeenCalled()
+    expect(createObjectURL).toHaveBeenCalled()
+    getContext.mockRestore()
+    restoreUrlObjectMethods(previousCreateObjectURL, previousRevokeObjectURL)
+  })
+
+  it('bumps drawable key when an async SVG asset becomes ready', () => {
+    const onUpdate = vi.fn()
+    const registry = new NovaAssetRegistry(undefined, onUpdate)
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      clearRect: vi.fn(),
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D)
+    const previousCreateObjectURL = URL.createObjectURL
+    const previousRevokeObjectURL = URL.revokeObjectURL
+    const createObjectURL = vi.fn(() => 'blob:nova-svg-version-test')
+    const revokeObjectURL = vi.fn()
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true })
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true })
+    const previousImage = globalThis.Image
+    let image: { onload?: () => void } | undefined
+    vi.stubGlobal('Image', class {
+      onload?: () => void
+      onerror?: () => void
+      set src(_value: string) {}
+      /**
+       * Создает тестовый Image stub.
+       */
+      constructor() {
+        image = this
+      }
+    })
+    const bundle = Nova.assets.define('svg-key-version-test', {
+      icons: {
+        moon: Nova.assets.svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3"/></svg>', {
+          width: 24,
+          height: 24,
+          color: '#fff',
+        }),
+      },
+    })
+
+    registry.use(bundle)
+
+    registry.resolveDrawable(bundle.icons.moon)
+    expect(registry.resolveDrawableKey('icon', bundle.icons.moon, () => 'inline')).toBe('icon:svg-key-version-test/icons/moon:v0')
+    image?.onload?.()
+    expect(registry.resolveDrawableKey('icon', bundle.icons.moon, () => 'inline')).toBe('icon:svg-key-version-test/icons/moon:v1')
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+
+    vi.stubGlobal('Image', previousImage)
+    getContext.mockRestore()
+    restoreUrlObjectMethods(previousCreateObjectURL, previousRevokeObjectURL)
+  })
+
   it('loads and removes font assets through document fonts', async () => {
     const onUpdate = vi.fn()
     const load = vi.fn()
@@ -228,3 +310,13 @@ describe('Nova assets registry', () => {
     vi.unstubAllGlobals()
   })
 })
+
+function restoreUrlObjectMethods(
+  createObjectURL: typeof URL.createObjectURL | undefined,
+  revokeObjectURL: typeof URL.revokeObjectURL | undefined,
+): void {
+  if (createObjectURL) Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true })
+  else delete (URL as Partial<typeof URL>).createObjectURL
+  if (revokeObjectURL) Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true })
+  else delete (URL as Partial<typeof URL>).revokeObjectURL
+}

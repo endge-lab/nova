@@ -244,6 +244,7 @@ export function resolveNovaRenderStreamStride(kind: NovaRenderStreamKind): numbe
     case 'texture-quad':
     case 'icon':
     case 'nine-slice-image':
+    case 'pattern-rect':
     case 'cached-group':
       return 10
     case 'text-run':
@@ -265,6 +266,7 @@ export function resolveNovaRenderSemanticLayer(kind: NovaRenderStreamKind): Nova
     case 'plain-rect':
     case 'rounded-rect':
     case 'motion-rect':
+    case 'pattern-rect':
     case 'circle':
     case 'particle-circle':
     case 'polygon':

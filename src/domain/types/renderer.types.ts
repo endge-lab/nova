@@ -282,6 +282,36 @@ export interface NovaNineSliceImage extends NovaUIBase {
 }
 
 /**
+ * Описывает процедурный dot-grid pattern для фоновых canvas-слоев.
+ */
+export interface NovaDotGridPattern {
+  type: 'dot-grid'
+  color: string
+  originX: number
+  originY: number
+  worldStep: number
+  scale: number
+  minScreenStep?: number
+  size?: number
+  shape?: 'square' | 'circle'
+  opacity?: number
+}
+
+/**
+ * Описывает прямоугольник с процедурным pattern-фоном.
+ */
+export interface NovaPatternRect extends NovaUIBase {
+  x: number
+  y: number
+  width: number
+  height: number
+  pattern: NovaDotGridPattern
+  styles?: {
+    opacity?: number
+  }
+}
+
+/**
  * Описывает контракт NovaPolygon.
  */
 export interface NovaPolygon extends NovaUIBase {
@@ -444,6 +474,7 @@ export type NovaSchemaItem<TCustom extends { type: string } = never> =
   | ({ type: 'arc' } & NovaArc)
   | ({ type: 'icon' } & NovaIcon)
   | ({ type: 'nine-slice-image' } & NovaNineSliceImage)
+  | ({ type: 'pattern-rect' } & NovaPatternRect)
   | ({ type: 'polygon' } & NovaPolygon)
   | TCustom
 
@@ -486,6 +517,7 @@ export interface NovaRendererCapabilities {
   polygon: boolean
   icon: boolean
   text: boolean
+  patternRects: boolean
   particles: boolean
   rectBatches: boolean
   stripeBatches: boolean
@@ -596,6 +628,7 @@ export interface NovaRenderer {
   arc(params: NovaArc): void
   polygon(params: NovaPolygon): void
   icon(params: NovaIcon): void
+  patternRect(params: NovaPatternRect): void
   rects(batch: NovaRectBatch): void
   timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void
   stripes(batch: NovaStripeRectBatch): void

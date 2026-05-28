@@ -5,6 +5,7 @@ import type {
   NovaCircle,
   NovaIcon,
   NovaLine,
+  NovaPatternRect,
   NovaPolygon,
   NovaRect,
   NovaRectBatch,
@@ -93,6 +94,13 @@ export class NovaRenderContext {
   }
 
   /**
+   * Выполняет внутреннюю операцию pattern rect.
+   */
+  patternRect(params: NovaPatternRect): void {
+    this.schemaItem({ ...params, type: 'pattern-rect' })
+  }
+
+  /**
    * Записывает retained rect batch.
    */
   rects(batch: NovaRectBatch): void {
@@ -142,6 +150,7 @@ export class NovaRenderContext {
       case 'polygon':
       case 'icon':
       case 'nine-slice-image':
+      case 'pattern-rect':
         this._writer.drawSchemaItem(item)
         break
       default:

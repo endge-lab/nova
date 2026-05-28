@@ -10,6 +10,7 @@ import type {
   NovaLine,
   NovaNineSliceImage,
   NovaParticleBatch,
+  NovaPatternRect,
   NovaPolygon,
   NovaRect,
   NovaRectBatch,
@@ -27,7 +28,7 @@ import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistr
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 import type { NovaAssetRegistry, NovaNineSliceInsets } from '@/model/runtime/assets/NovaAssetRegistry'
-import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import { isNovaAssetRef, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import { resolveNovaIconRenderOpacity, resolveNovaIconRenderRect } from '@/model/render/utils/nova-icon-rendering'
 
 /**
@@ -49,6 +50,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     polygon: true,
     icon: true,
     text: true,
+    patternRects: true,
     particles: true,
     rectBatches: true,
     stripeBatches: true,
@@ -326,6 +328,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           break
         case 'nine-slice-image':
           this.nineSliceImage(item as NovaNineSliceImage)
+          break
+        case 'pattern-rect':
+          this.patternRect(item as NovaPatternRect)
           break
         default:
           this._schemaRegistry.renderSchemaComponent(this, item, 'schema')
@@ -673,6 +678,10 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     const iconObject = this._assets.resolveDrawable(p.icon)
     if (!iconObject) {
+      if ((typeof p.icon === 'string' || isNovaAssetRef(p.icon)) && this._assets.resolveRecord(p.icon)) {
+        ctx.restore()
+        return
+      }
       console.warn(`Icon not found: ${p.icon}`)
       ctx.restore()
       return
@@ -680,6 +689,47 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     const rect = resolveNovaIconRenderRect(p, this.novaCanvas.dpr)
     ctx.drawImage(iconObject, rect.x, rect.y, rect.width, rect.height)
+    ctx.restore()
+  }
+
+  /**
+   * Рисует процедурный pattern rect через bounded Canvas2D fallback.
+   */
+  patternRect(p: NovaPatternRect): void {
+    if (p.width <= 0 || p.height <= 0 || p.pattern.type !== 'dot-grid') return
+
+    const ctx = this.ctx
+    const pattern = p.pattern
+    const scale = Math.max(0.001, pattern.scale)
+    const screenStep = Math.max(0.001, pattern.worldStep * scale)
+    const skip = Math.max(1, Math.ceil((pattern.minScreenStep ?? 8) / screenStep))
+    const effectiveStep = screenStep * skip
+    const size = Math.max(0.5, pattern.size ?? Math.min(2.5, Math.max(1, 2.4 * scale)))
+    const half = size / 2
+    let firstX = pattern.originX + Math.floor((p.x - pattern.originX) / effectiveStep) * effectiveStep
+    let firstY = pattern.originY + Math.floor((p.y - pattern.originY) / effectiveStep) * effectiveStep
+    if (firstX < p.x) firstX += effectiveStep
+    if (firstY < p.y) firstY += effectiveStep
+
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(p.x, p.y, p.width, p.height)
+    ctx.clip()
+    ctx.globalAlpha = (p.styles?.opacity ?? 1) * (pattern.opacity ?? 1)
+    ctx.fillStyle = pattern.color
+
+    for (let x = firstX; x <= p.x + p.width; x += effectiveStep) {
+      for (let y = firstY; y <= p.y + p.height; y += effectiveStep) {
+        if (pattern.shape === 'circle') {
+          ctx.beginPath()
+          ctx.arc(x, y, half, 0, Math.PI * 2)
+          ctx.fill()
+        } else {
+          ctx.fillRect(x - half, y - half, size, size)
+        }
+      }
+    }
+
     ctx.restore()
   }
 

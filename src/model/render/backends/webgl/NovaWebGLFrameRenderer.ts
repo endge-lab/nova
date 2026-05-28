@@ -16,6 +16,7 @@ import type {
   NovaLine,
   NovaNineSliceImage,
   NovaParticleBatch,
+  NovaPatternRect,
   NovaPolygon,
   NovaRect,
   NovaRectBatch,
@@ -118,6 +119,51 @@ void main() {
   float period = max(1.0, v_stripeWidth * 2.0);
   float band = step(mod(axis, period), v_stripeWidth);
   outColor = mix(v_bgColor, v_stripeColor, band);
+}
+`
+
+const PATTERN_RECT_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+uniform vec4 u_rect;
+out vec2 v_screen;
+void main() {
+  vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = u_rect.xy + unitUv * u_rect.zw;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_screen = world.xy;
+}
+`
+
+const PATTERN_RECT_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec2 v_screen;
+uniform vec2 u_origin;
+uniform float u_worldStep;
+uniform float u_scale;
+uniform float u_minScreenStep;
+uniform float u_dotSize;
+uniform float u_shape;
+uniform vec4 u_color;
+out vec4 outColor;
+void main() {
+  float screenStep = max(0.001, u_worldStep * max(0.001, u_scale));
+  float skip = max(1.0, ceil(u_minScreenStep / screenStep));
+  float effectiveStep = screenStep * skip;
+  vec2 cell = mod(v_screen - u_origin, effectiveStep);
+  vec2 dotDistance = min(cell, effectiveStep - cell);
+  float halfSize = max(0.25, u_dotSize * 0.5);
+  float alpha = (1.0 - step(halfSize, dotDistance.x)) * (1.0 - step(halfSize, dotDistance.y));
+  if (u_shape > 0.5) {
+    alpha = 1.0 - step(halfSize, length(dotDistance));
+  }
+  if (alpha <= 0.0) discard;
+  outColor = vec4(u_color.rgb, u_color.a * alpha);
 }
 `
 
@@ -707,6 +753,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _timeRangeSegmentProgram: NovaWebGLProgram
   private readonly _textureRectBatchProgram: NovaWebGLProgram
   private readonly _stripeBatchProgram: NovaWebGLProgram
+  private readonly _patternRectProgram: NovaWebGLProgram
   private readonly _roundedBuffer: WebGLBuffer
   private readonly _solidBuffer: WebGLBuffer
   private readonly _textureBuffer: WebGLBuffer
@@ -716,6 +763,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _solidVao: WebGLVertexArrayObject
   private readonly _textureVao: WebGLVertexArrayObject
   private readonly _distanceFieldVao: WebGLVertexArrayObject
+  private readonly _patternRectVao: WebGLVertexArrayObject
   private readonly _measureCanvas = document.createElement('canvas')
   private readonly _textRasterCanvas = document.createElement('canvas')
   private readonly _textures = new Map<string, TextureEntry>()
@@ -801,6 +849,7 @@ export class NovaWebGLFrameRenderer {
     this._timeRangeSegmentProgram = NovaWebGLProgram.create(this._gl, TIME_RANGE_SEGMENT_VERTEX_SHADER, TIME_RANGE_SEGMENT_FRAGMENT_SHADER)
     this._textureRectBatchProgram = NovaWebGLProgram.create(this._gl, TEXTURE_RECT_BATCH_VERTEX_SHADER, TEXTURE_RECT_BATCH_FRAGMENT_SHADER)
     this._stripeBatchProgram = NovaWebGLProgram.create(this._gl, EARLY_STRIPE_BATCH_VERTEX_SHADER, EARLY_STRIPE_BATCH_FRAGMENT_SHADER)
+    this._patternRectProgram = NovaWebGLProgram.create(this._gl, PATTERN_RECT_VERTEX_SHADER, PATTERN_RECT_FRAGMENT_SHADER)
     this._roundedBuffer = this.createBuffer()
     this._solidBuffer = this.createBuffer()
     this._textureBuffer = this.createBuffer()
@@ -811,6 +860,7 @@ export class NovaWebGLFrameRenderer {
     this._solidVao = this.createSolidVao()
     this._textureVao = this.createTextureVao()
     this._distanceFieldVao = this.createDistanceFieldVao()
+    this._patternRectVao = this.createPatternRectVao()
   }
 
   /**
@@ -1155,15 +1205,19 @@ export class NovaWebGLFrameRenderer {
     this._gl.deleteVertexArray(this._roundedVao)
     this._gl.deleteVertexArray(this._solidVao)
     this._gl.deleteVertexArray(this._textureVao)
+    this._gl.deleteVertexArray(this._distanceFieldVao)
+    this._gl.deleteVertexArray(this._patternRectVao)
     this._roundedProgram.destroy()
     this._solidProgram.destroy()
     this._textureProgram.destroy()
+    this._distanceFieldTextProgram.destroy()
     this._particleCircleProgram.destroy()
     this._particleSpriteProgram.destroy()
     this._rectBatchProgram.destroy()
     this._timeRangeSegmentProgram.destroy()
     this._textureRectBatchProgram.destroy()
     this._stripeBatchProgram.destroy()
+    this._patternRectProgram.destroy()
   }
 
   /**
@@ -2025,6 +2079,9 @@ export class NovaWebGLFrameRenderer {
         break
       case 'nine-slice-image':
         this.drawNineSliceImage(item, transform, stats)
+        break
+      case 'pattern-rect':
+        this.drawPatternRect(item, transform, stats)
         break
       default:
         break
@@ -3462,6 +3519,42 @@ export class NovaWebGLFrameRenderer {
         (segment.sy + segment.sh) / sourceHeight,
       )
     }
+  }
+
+  /**
+   * Рисует процедурный pattern rect одним fullscreen-quad shader проходом.
+   */
+  private drawPatternRect(rect: NovaPatternRect, transform: mat3, stats: RenderStats): void {
+    if (rect.width <= 0 || rect.height <= 0 || rect.pattern.type !== 'dot-grid') return
+
+    const pattern = rect.pattern
+    const color = parseNovaColor(pattern.color)
+    const opacity = (rect.styles?.opacity ?? 1) * (pattern.opacity ?? 1)
+    if (color.a <= 0 || opacity <= 0) return
+
+    this.flush(stats)
+
+    const gl = this._gl
+    const scale = Math.max(0.001, pattern.scale)
+    const dotSize = Math.max(0.5, pattern.size ?? Math.min(2.5, Math.max(1, 2.4 * scale)))
+    this._patternRectProgram.use()
+    gl.bindVertexArray(this._patternRectVao)
+    gl.uniform2f(this._patternRectProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
+    gl.uniformMatrix3fv(this._patternRectProgram.uniformLocation('u_transform'), false, transform)
+    gl.uniform4f(this._patternRectProgram.uniformLocation('u_rect'), rect.x, rect.y, rect.width, rect.height)
+    gl.uniform2f(this._patternRectProgram.uniformLocation('u_origin'), pattern.originX, pattern.originY)
+    gl.uniform1f(this._patternRectProgram.uniformLocation('u_worldStep'), Math.max(0.001, pattern.worldStep))
+    gl.uniform1f(this._patternRectProgram.uniformLocation('u_scale'), scale)
+    gl.uniform1f(this._patternRectProgram.uniformLocation('u_minScreenStep'), Math.max(1, pattern.minScreenStep ?? 8))
+    gl.uniform1f(this._patternRectProgram.uniformLocation('u_dotSize'), dotSize)
+    gl.uniform1f(this._patternRectProgram.uniformLocation('u_shape'), pattern.shape === 'circle' ? 1 : 0)
+    gl.uniform4f(this._patternRectProgram.uniformLocation('u_color'), color.r, color.g, color.b, color.a * opacity)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.bindVertexArray(null)
+
+    stats.drawCalls += 1
+    stats.batches += 1
+    stats.instances += 1
   }
 
   /**
@@ -6206,6 +6299,19 @@ export class NovaWebGLFrameRenderer {
     this.bindAttrib(this._distanceFieldTextProgram, 'a_uv', 2, stride, 2)
     this.bindAttrib(this._distanceFieldTextProgram, 'a_color', 4, stride, 4)
     this.bindAttrib(this._distanceFieldTextProgram, 'a_sdfParams', 2, stride, 8)
+    gl.bindVertexArray(null)
+    return vao
+  }
+
+  /**
+   * Создает VAO для процедурного pattern rect.
+   */
+  private createPatternRectVao(): WebGLVertexArrayObject {
+    const gl = this._gl
+    const vao = this.createVao()
+    gl.bindVertexArray(vao)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._particleQuadBuffer)
+    this.bindAttrib(this._patternRectProgram, 'a_unit', 2, 2 * FLOAT_BYTES, 0)
     gl.bindVertexArray(null)
     return vao
   }

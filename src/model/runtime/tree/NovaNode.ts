@@ -111,6 +111,7 @@ export class NovaNode<
   private _renderPolicy: NovaRenderPolicy = resolveNovaRenderPolicy()
   private readonly _renderDirtyFlags: NovaRenderDirtyFlags = createCleanRenderDirtyFlags()
   private readonly _renderVersions: NovaRenderVersions = createRenderVersions()
+  private _layoutReady = true
   private _provides?: Map<NovaContextToken<any>, any>
   private _injectCache?: Map<NovaContextToken<any>, NovaInjectCacheEntry<any>>
   private _providerVersion = 0
@@ -544,6 +545,7 @@ export class NovaNode<
   @RaphAfter({ phase: 'render' })
   doRender(): void {
     if (!this.visible) return
+    if (!this._layoutReady) return
 
     if (this._surface && this.surface.renderCullingMode === 'bounds') {
       this.surface.markRenderNodeTestedForCulling()
@@ -576,6 +578,23 @@ export class NovaNode<
     if (this.debugger.enabled) {
       this.debugger.info(`${this.__type} завершил render`, 'render')
     }
+  }
+
+  /**
+   * Возвращает готовность node к первому paint после layout.
+   */
+  get layoutReady(): boolean {
+    return this._layoutReady
+  }
+
+  /**
+   * Управляет участием node в render frame до завершения layout.
+   */
+  set layoutReady(value: boolean) {
+    if (this._layoutReady === value) return
+    this._layoutReady = value
+    this.markRenderFrameDirty(true)
+    if (value) this.dirty({ render: true })
   }
 
   //

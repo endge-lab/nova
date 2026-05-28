@@ -269,6 +269,8 @@ interface AssetMaterialization {
   source?: CanvasImageSource
   ready: boolean
   loading?: boolean
+  version?: number
+  loader?: HTMLImageElement
 }
 
 interface RgbaColor {
@@ -392,8 +394,12 @@ export class NovaAssetRegistry {
    * Возвращает стабильный drawable key.
    */
   resolveDrawableKey(prefix: string, input: NovaAssetDrawableInput, fallback: (source: CanvasImageSource) => string): string {
-    if (typeof input === 'string') return `${prefix}:${input}`
-    if (isNovaAssetRef(input)) return `${prefix}:${input.id}`
+    if (typeof input === 'string' || isNovaAssetRef(input)) {
+      const id = isNovaAssetRef(input) ? input.id : input
+      const record = this.resolveRecord(input)
+      if (!record) return `${prefix}:${id}`
+      return `${prefix}:${id}:v${this.resolveMaterializationVersion(record)}`
+    }
     if (input) return `${prefix}:${fallback(input)}`
     return `${prefix}:missing`
   }
@@ -473,6 +479,13 @@ export class NovaAssetRegistry {
 
     this._materialized.set(record.ref.id, materialized)
     return materialized
+  }
+
+  /**
+   * Возвращает версию materialized source для invalidation texture caches.
+   */
+  private resolveMaterializationVersion(record: NovaAssetRecord): number {
+    return this._materialized.get(record.ref.id)?.version ?? 0
   }
 
   /**
@@ -741,29 +754,53 @@ export class NovaAssetRegistry {
       return materialized
     }
 
-    const svg = descriptor.color
-      ? descriptor.source.split('currentColor').join(descriptor.color)
-      : descriptor.source
-    const blob = new Blob([svg], { type: 'image/svg+xml' })
-    const url = URL.createObjectURL(blob)
+    materialized.source = canvas
+    const source = this.createSvgImageSource(descriptor)
     const image = new Image()
+    materialized.loader = image
     image.onload = (): void => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
       materialized.source = canvas
-      URL.revokeObjectURL(url)
+      materialized.version = (materialized.version ?? 0) + 1
+      source.revoke?.()
       materialized.ready = true
       materialized.loading = false
+      materialized.loader = undefined
       this._onUpdate?.()
     }
     image.onerror = (): void => {
-      URL.revokeObjectURL(url)
+      source.revoke?.()
       materialized.loading = false
+      materialized.loader = undefined
       this._onUpdate?.()
     }
-    image.src = url
+    image.src = source.url
     this._materialized.set(record.ref.id, materialized)
     return materialized
+  }
+
+  /**
+   * Создает browser-loadable SVG image source из raw svg или data URL.
+   */
+  private createSvgImageSource(descriptor: NovaSvgAssetDescriptor): { url: string; revoke?: () => void } {
+    const svg = this.resolveSvgSource(descriptor)
+    const blob = new Blob([svg], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    return { url, revoke: () => URL.revokeObjectURL(url) }
+  }
+
+  /**
+   * Нормализует raw svg/data URL и применяет currentColor override.
+   */
+  private resolveSvgSource(descriptor: NovaSvgAssetDescriptor): string {
+    const source = descriptor.source.trim()
+    const svg = source.startsWith('data:image/svg+xml')
+      ? decodeSvgDataUrl(source)
+      : descriptor.source
+    return descriptor.color
+      ? svg.split('currentColor').join(descriptor.color)
+      : svg
   }
 
   /**
@@ -810,14 +847,18 @@ export class NovaAssetRegistry {
 
     const materialized: AssetMaterialization = { ready: false, loading: true }
     const image = new Image()
+    materialized.loader = image
     image.onload = (): void => {
       materialized.source = materialize(image)
+      materialized.version = (materialized.version ?? 0) + 1
       materialized.ready = true
       materialized.loading = false
+      materialized.loader = undefined
       this._onUpdate?.()
     }
     image.onerror = (): void => {
       materialized.loading = false
+      materialized.loader = undefined
       this._onUpdate?.()
     }
     image.src = source
@@ -1214,6 +1255,22 @@ function normalizeNineSliceInsets(input: number | Partial<NovaNineSliceInsets>):
     bottom: input.bottom ?? input.top ?? 0,
     left: input.left ?? input.right ?? 0,
   }
+}
+
+/**
+ * Декодирует data:image/svg+xml URL в SVG source.
+ */
+function decodeSvgDataUrl(source: string): string {
+  const commaIndex = source.indexOf(',')
+  if (commaIndex < 0) return source
+
+  const metadata = source.slice(0, commaIndex).toLowerCase()
+  const payload = source.slice(commaIndex + 1)
+  if (metadata.includes(';base64')) {
+    return atob(payload)
+  }
+
+  return decodeURIComponent(payload)
 }
 
 /**

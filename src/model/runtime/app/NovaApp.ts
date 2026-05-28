@@ -91,7 +91,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly bus: EventBus<E>
     readonly commands = new NovaCommandBus()
     readonly metrics: NovaMetrics
-    readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this.invalidate())
+    readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this.invalidateAssets())
     readonly sync: NovaSyncScope
     readonly semantics = new NovaSemanticService()
 
@@ -318,6 +318,16 @@ export class NovaApp<E extends EventList = Record<string, any>> {
      * Планирует выполнение Raph-фаз при наличии dirty nodes.
      */
     invalidate(): void {
+        this.raph.invalidate()
+    }
+
+    /**
+     * Помечает render surfaces dirty после async asset updates.
+     */
+    private invalidateAssets(): void {
+        for (const surface of this.surfaces) {
+            surface.dirty({ render: true })
+        }
         this.raph.invalidate()
     }
 
