@@ -586,7 +586,7 @@ export class NovaEvents<E extends EventList> {
       state.draggedNodes.add(target)
       this.syncPointerState(state)
       this.dispatchPointer('mousedown', event, target)
-      if (!event.cancelBubble && this.app.inputOptions.pointer.capture) this.setPointerCapture(target, event)
+      if (this.app.inputOptions.pointer.capture) this.setPointerCapture(target, event)
     } else {
       this.blur(undefined, event)
       this.clearSelection(event)

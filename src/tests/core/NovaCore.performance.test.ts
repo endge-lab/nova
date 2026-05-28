@@ -881,6 +881,37 @@ describe('Nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
+  it('keeps automatic pointer capture when handler stops bubbling with return false', async () => {
+    const log = createAuditLog()
+    const app = createApp({ input: true })
+    const surface = app.createSurface('scene', AuditSurface, log)
+    const events: Array<string> = []
+    const node = surface.createNode(AuditNode, 'capture-return-false', log)
+
+    node.options({ x: 10, y: 10, width: 30, height: 30 })
+    node.on('mousedown', () => {
+      events.push('down')
+      return false
+    })
+    node.on('gotpointercapture', () => events.push('capture'))
+    node.on('mousemove', () => {
+      events.push('move')
+      return false
+    })
+    node.on('lostpointercapture', () => events.push('release'))
+    app.flush()
+
+    dispatchMouse(app.canvas.element, 'mousedown', 20, 20)
+    dispatchMouse(app.canvas.element, 'mousemove', 140, 140)
+    await waitFrame()
+    dispatchMouse(app.canvas.element, 'mouseup', 140, 140)
+
+    expect(events).toEqual(['down', 'capture', 'move', 'release'])
+    expect(node.hasPointerCapture()).toBe(false)
+
+    app.destroy()
+  })
+
   it('keeps spatial hit-test target equal to linear hit-test target', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
