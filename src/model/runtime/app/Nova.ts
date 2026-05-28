@@ -34,6 +34,7 @@ import {
   type NovaThemeSelectorTarget,
 } from '@/model/theme/NovaGlobalThemeRegistry'
 import type { NovaThemeId, NovaThemeTokens } from '@/domain/types/theme.types'
+import { Prop } from '@/model/runtime/components/nova-component.decorator'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
 
@@ -65,6 +66,11 @@ export class Nova {
    * Глобальный facade для typed assets.
    */
   static readonly assets = NovaAssets
+
+  /**
+   * Глобальный facade для prop descriptors в Nova DSL.
+   */
+  static readonly Prop = Prop
 
   //
   // Глобальные schema-плагины, которые применяются к каждому новому NovaApp.

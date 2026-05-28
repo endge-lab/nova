@@ -1,6 +1,7 @@
 import type { EventList, OneOrMany } from '@endge/utils'
 import type {
   NovaComponentCreateContext,
+  NovaComponentDescriptor,
   NovaComponentSchema,
   NovaElementConstructor,
   NovaElementSlots,
@@ -9,6 +10,10 @@ import type {
 import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
+import {
+  createNovaDecoratedComponentDescriptor,
+  readNovaDecoratedComponent,
+} from '@/model/runtime/components/nova-component-metadata'
 
 const NOVA_DEFINED_COMPONENT_SYMBOL = Symbol('nova.defined-component')
 const NOVA_RUNTIME_COMPONENT_SYMBOL = Symbol('nova.runtime-component')
@@ -36,6 +41,7 @@ export interface NovaNormalizedDefinedComponent<E extends EventList = Record<str
   tag?: string
   name: string
   version: string
+  descriptor?: NovaComponentDescriptor<any, any, any, any>
   createNode?: (
     context: NovaComponentCreateContext<E>,
     schema: NovaComponentSchema<Record<string, any>>,
@@ -88,21 +94,25 @@ export function normalizeDefinedComponent<E extends EventList = Record<string, a
 ): NovaNormalizedDefinedComponent<E> {
   if (typeof input === 'function') {
     const metadata = readDefinedComponent(input)
+    const decorated = readNovaDecoratedComponent(input)
     return {
       component: input,
-      tag: metadata?.tag,
-      name: metadata?.name ?? (input.name || 'AnonymousComponent'),
-      version: metadata?.version ?? '0.1.0',
+      tag: decorated?.tag ?? metadata?.tag,
+      name: decorated?.name ?? metadata?.name ?? (input.name || 'AnonymousComponent'),
+      version: decorated?.version ?? metadata?.version ?? '0.1.0',
+      descriptor: decorated ? createNovaDecoratedComponentDescriptor(input) : undefined,
       createNode: metadata?.createNode,
     }
   }
 
   const metadata = readDefinedComponent(input.component)
+  const decorated = readNovaDecoratedComponent(input.component)
   return {
     component: input.component,
-    tag: input.tag ?? metadata?.tag,
-    name: input.name ?? metadata?.name ?? (input.component.name || 'AnonymousComponent'),
-    version: input.version ?? metadata?.version ?? '0.1.0',
+    tag: input.tag ?? decorated?.tag ?? metadata?.tag,
+    name: input.name ?? decorated?.name ?? metadata?.name ?? (input.component.name || 'AnonymousComponent'),
+    version: input.version ?? decorated?.version ?? metadata?.version ?? '0.1.0',
+    descriptor: decorated ? createNovaDecoratedComponentDescriptor(input.component) : undefined,
     createNode: input.createNode ?? metadata?.createNode,
   }
 }

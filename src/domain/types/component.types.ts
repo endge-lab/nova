@@ -1,6 +1,5 @@
 import type { EventList } from '@endge/utils'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
@@ -48,10 +47,59 @@ export type NovaElementType<E extends EventList = Record<string, any>> = string 
 /**
  * Описывает контракт NovaComponentDirtyPolicy.
  */
+export type NovaComponentDirtyPath<TProps extends Record<string, any> = Record<string, any>> = keyof TProps | string
+
+/**
+ * Описывает контракт NovaComponentDirtyPolicy.
+ */
 export interface NovaComponentDirtyPolicy<TProps extends Record<string, any> = Record<string, any>> {
-  update?: ReadonlyArray<keyof TProps>
-  render?: ReadonlyArray<keyof TProps>
-  matrix?: ReadonlyArray<keyof TProps>
+  update?: ReadonlyArray<NovaComponentDirtyPath<TProps>>
+  render?: ReadonlyArray<NovaComponentDirtyPath<TProps>>
+  matrix?: ReadonlyArray<NovaComponentDirtyPath<TProps>>
+}
+
+/**
+ * Описывает kind prop-декоратора.
+ */
+export type NovaComponentPropKind = 'model' | 'object' | 'options' | 'array' | 'string' | 'number' | 'boolean' | 'function'
+
+/**
+ * Описывает prop metadata class-компонента.
+ */
+export interface NovaComponentPropDefinition {
+  key: string
+  propertyKey?: string
+  kind: NovaComponentPropKind
+  required?: boolean
+  defaultValue?: unknown | (() => unknown)
+  mode?: 'plain' | 'versioned'
+  event?: boolean
+}
+
+/**
+ * Описывает watcher metadata class-компонента.
+ */
+export interface NovaComponentWatchDefinition {
+  path: string
+  methodName: string
+  phase: 'update' | 'render' | 'matrix'
+  immediate?: boolean
+}
+
+/**
+ * Описывает command metadata class-компонента.
+ */
+export interface NovaComponentCommandDefinition {
+  id: string
+  methodName: string
+  scope?: string
+}
+
+/**
+ * Описывает API metadata class-компонента.
+ */
+export interface NovaComponentApiDefinition {
+  methodName: string
 }
 
 /**
@@ -126,14 +174,19 @@ export interface NovaComponentDescriptor<
   version: string
   kind: NovaSchemaDescriptorKind
   dirtyPolicy?: NovaComponentDirtyPolicy<TProps>
+  propDefinitions?: ReadonlyArray<NovaComponentPropDefinition>
+  watchDefinitions?: ReadonlyArray<NovaComponentWatchDefinition>
+  commandDefinitions?: ReadonlyArray<NovaComponentCommandDefinition>
+  apiDefinitions?: ReadonlyArray<NovaComponentApiDefinition>
+  bounds?: 'size' | 'custom'
   fields?: unknown
-  api?: unknown
-  events?: unknown
+  api?: unknown | TApi
+  events?: unknown | TEvents
   normalize?: (schema: NovaComponentSchema<TSchema>) => TProps
   renderSchema?: (ctx: NovaSchemaRenderContext, schema: NovaComponentSchema<TSchema>) => NovaSchema<any> | void
   measureBounds?: (ctx: NovaSchemaBoundsContext, schema: NovaComponentSchema<TSchema>) => NovaBounds | null
   createNode?: <E extends EventList>(
     ctx: NovaComponentCreateContext<E>,
     schema: NovaComponentSchema<TSchema>,
-  ) => NovaComponentNode<TProps, TApi, TEvents, TSchema, E>
+  ) => NovaNode<E>
 }

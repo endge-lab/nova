@@ -61,14 +61,14 @@ export class NovaSchemaRegistry {
   ): void {
     const definition = normalizeDefinedComponent(input)
     const tag = definition.tag
-    if (!tag) {
+    if (!tag && !definition.descriptor?.type) {
       throw new Error(`[NovaSchemaRegistry] Defined component "${definition.name}" requires a global tag for registration`)
     }
-    if (this._reservedTags.has(tag) && !options.override) {
+    if (tag && this._reservedTags.has(tag) && !options.override) {
       throw new Error(`[NovaSchemaRegistry] Tag "${tag}" is reserved and cannot be registered`)
     }
 
-    const descriptor: NovaComponentDescriptor<Record<string, any>, unknown, Record<string, unknown>, Record<string, any>> = {
+    const descriptor: NovaComponentDescriptor<Record<string, any>, unknown, Record<string, unknown>, Record<string, any>> = definition.descriptor ?? {
       type: `nova.component:${tag}`,
       name: definition.name,
       version: definition.version,
@@ -81,6 +81,7 @@ export class NovaSchemaRegistry {
 
     this.register(descriptor, options)
 
+    if (!tag) return
     const existing = this._tagDescriptors.get(tag)
     if (existing && existing !== descriptor && !options.override) {
       throw new Error(`[NovaSchemaRegistry] Tag "${tag}" is already registered`)

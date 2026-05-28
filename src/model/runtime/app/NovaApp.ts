@@ -41,6 +41,7 @@ import { createNovaRenderBackend } from '@/model/render/backends/nova-render-bac
 import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
 import { NovaAssetRegistry, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 import { NovaSemanticService } from '@/model/semantic/NovaSemanticService'
+import { NovaCommandBus } from '@/model/runtime/commands/NovaCommandBus'
 
 /**
  * Описывает backend diagnostics switch.
@@ -88,6 +89,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     readonly theme: NovaThemeService<E>
     readonly cursors: NovaCursorManager<E>
     readonly bus: EventBus<E>
+    readonly commands = new NovaCommandBus()
     readonly metrics: NovaMetrics
     readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this.invalidate())
     readonly sync: NovaSyncScope
