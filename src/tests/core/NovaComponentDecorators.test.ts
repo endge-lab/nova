@@ -23,6 +23,12 @@ interface DecoratedApi {
   readLabel: () => string
 }
 
+interface DecoratedContainerProps {
+  width: number
+  height: number
+  marker: string
+}
+
 @NovaComponent({
   type: 'test.decorated-counter',
   dirtyPolicy: {
@@ -80,6 +86,37 @@ class DecoratedCounterNode extends NovaComponentNode<DecoratedProps, DecoratedAp
   }
 }
 
+@NovaComponent({
+  type: 'test.decorated-container',
+})
+class DecoratedContainerNode extends NovaComponentNode<DecoratedContainerProps> {
+  @Prop.number({ default: 10 })
+  override get width(): number {
+    return this.getProps().width
+  }
+
+  override set width(value: number) {
+    this.setProps({ width: value })
+  }
+
+  @Prop.number({ default: 10 })
+  override get height(): number {
+    return this.getProps().height
+  }
+
+  override set height(value: number) {
+    this.setProps({ height: value })
+  }
+
+  static normalizeProps(props: Partial<DecoratedContainerProps>): DecoratedContainerProps {
+    return {
+      width: props.width ?? 160,
+      height: props.height ?? 90,
+      marker: props.marker ?? 'custom-normalized',
+    }
+  }
+}
+
 function createDecoratedFixture(): {
   app: NovaApp
   surface: NovaSurface
@@ -120,6 +157,28 @@ describe('Nova component decorators', () => {
       type: 'test.decorated-counter',
       props: { model: { version: 2 }, width: 240, height: 80 },
     })).toEqual({ x: 0, y: 0, width: 240, height: 80 })
+  })
+
+  it('uses static normalizeProps and attaches children for decorated node components', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('decorated-container')
+    Nova.registerComponents(app.schema, [DecoratedCounterNode, DecoratedContainerNode] as never)
+    const node = app.schema.createNode(surface, {
+      type: 'test.decorated-container',
+      id: 'container',
+      props: { width: 240 },
+      children: [
+        {
+          type: 'test.decorated-counter',
+          id: 'container-counter',
+          props: { model: { version: 1, label: 'Child' } },
+        },
+      ],
+    }) as DecoratedContainerNode
+
+    expect(node.getProps()).toMatchObject({ width: 240, height: 90, marker: 'custom-normalized' })
+    expect(node.children).toHaveLength(1)
+    expect(app.components.requireApi<DecoratedApi>('container-counter').readLabel()).toBe('Child')
   })
 
   it('runs immediate and phase watchers for versioned paths', () => {

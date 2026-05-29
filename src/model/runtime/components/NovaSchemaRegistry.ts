@@ -90,6 +90,16 @@ export class NovaSchemaRegistry {
   }
 
   /**
+   * Регистрирует decorated class-component напрямую без ручного descriptor/registry glue.
+   */
+  registerDecorated<E extends EventList = Record<string, any>>(
+    input: NovaElementConstructor<E> | NovaDefinedComponentInput<E>,
+    options: { override?: boolean } = {},
+  ): void {
+    this.registerDefinedComponent(input, options)
+  }
+
+  /**
    * Помечает tag как занятый builtin-слоем или compiler semantics.
    */
   reserveTag(tag: string): void {

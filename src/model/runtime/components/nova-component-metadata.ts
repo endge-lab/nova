@@ -43,6 +43,10 @@ export interface NovaDecoratedComponentOptions {
   bounds?: 'size' | 'custom'
 }
 
+type NovaDecoratedComponentStaticNormalizer = {
+  normalizeProps?: (props: Record<string, any>) => Record<string, any>
+}
+
 /**
  * Описывает options декоратора Prop.
  */
@@ -184,6 +188,11 @@ export function createNovaDecoratedComponentDescriptor<
 ): NovaComponentDescriptor<TProps, TApi, TEvents, TSchema> {
   const metadata = collectMetadata(component)
   const type = metadata.type ?? (metadata.tag ? `nova.component:${metadata.tag}` : component.name)
+  const normalize = (schema: NovaComponentSchema<TSchema>): TProps => {
+    const customNormalize = (component as unknown as NovaDecoratedComponentStaticNormalizer).normalizeProps
+    if (typeof customNormalize === 'function') return customNormalize(schema.props ?? {}) as TProps
+    return normalizeDecoratedProps(schema as NovaComponentSchema<Record<string, any>>, metadata) as TProps
+  }
   const descriptor: NovaComponentDescriptor<TProps, TApi, TEvents, TSchema> = {
     type,
     name: metadata.name ?? component.name,
@@ -196,10 +205,10 @@ export function createNovaDecoratedComponentDescriptor<
     apiDefinitions: metadata.apis,
     bounds: resolveBounds(metadata),
     fields: createFields(metadata.props),
-    normalize: schema => normalizeDecoratedProps(schema, metadata) as TProps,
+    normalize,
     measureBounds: (_ctx, schema) => {
       if (resolveBounds(metadata) !== 'size') return null
-      const props = normalizeDecoratedProps(schema, metadata)
+      const props = normalize(schema)
       return {
         x: 0,
         y: 0,
@@ -207,7 +216,8 @@ export function createNovaDecoratedComponentDescriptor<
         height: Number(props.height ?? 0),
       }
     },
-    createNode: (context, schema) => createDecoratedNode(component, descriptor, context, schema),
+    createNode: <E extends EventList>(context: Parameters<NonNullable<NovaComponentDescriptor<TProps, TApi, TEvents, TSchema>['createNode']>>[0], schema: NovaComponentSchema<TSchema>) =>
+      createDecoratedNode(component as NovaElementConstructor<E>, descriptor, context as never, schema as never) as NovaNode<E>,
   }
   return descriptor
 }
@@ -349,15 +359,17 @@ function createFields(props: Array<NovaComponentPropDefinition>): Record<string,
 function createDecoratedNode<E extends EventList>(
   component: NovaElementConstructor<E>,
   descriptor: NovaComponentDescriptor<any, any, any, any>,
-  context: { app: any; surface: any },
+  context: { app: any; surface: any; registry: { createChild: (parent: NovaNode<E>, schema: any) => NovaNode<E> } },
   schema: NovaComponentSchema<Record<string, any>>,
 ): NovaNode<E> {
   const props = descriptor.normalize?.(schema) ?? schema.props ?? {}
-  if (component.prototype instanceof NovaComponentNode) {
-    return new (component as any)(context.app, context.surface, descriptor, props, { componentId: schema.id })
+  const node = component.prototype instanceof NovaComponentNode
+    ? new (component as any)(context.app, context.surface, descriptor, props, { componentId: schema.id })
+    : new component(context.app, context.surface, props)
+  if (!(component.prototype instanceof NovaComponentNode)) attachPlainDecoratedRuntime(node, props, schema.id)
+  for (const child of (schema as typeof schema & { children?: Array<any> }).children ?? []) {
+    context.registry.createChild(node, child)
   }
-  const node = new component(context.app, context.surface, props)
-  attachPlainDecoratedRuntime(node, props, schema.id)
   return node
 }
 
