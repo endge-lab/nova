@@ -1,4 +1,4 @@
-import { createNovaContextToken } from '@/model/runtime/context/nova-context'
+import { Nova } from '@/model/runtime/app/Nova'
 import type { NovaSyncScope } from '@/model/runtime/sync/NovaSyncScope'
 
-export const NovaSyncScopeToken = createNovaContextToken<NovaSyncScope>('Nova.SyncScope')
+export const NovaSyncScopeToken = Nova.createContextToken<NovaSyncScope>('Nova.SyncScope')

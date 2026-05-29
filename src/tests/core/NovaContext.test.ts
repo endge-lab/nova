@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  createNovaContextToken,
+  Nova,
   NovaComponentNode,
   NovaNode,
   type NovaComponentCreateContext,
@@ -63,8 +63,8 @@ describe('Nova context provide/inject', () => {
   })
 
   it('creates unique tokens even when descriptions match', () => {
-    const first = createNovaContextToken<{ value: number }>('Duplicate')
-    const second = createNovaContextToken<{ value: number }>('Duplicate')
+    const first = Nova.createContextToken<{ value: number }>('Duplicate')
+    const second = Nova.createContextToken<{ value: number }>('Duplicate')
 
     expect(first).not.toBe(second)
     expect(first.description).toBe('Duplicate')
@@ -72,7 +72,7 @@ describe('Nova context provide/inject', () => {
 
   it('injects the nearest ancestor provider', () => {
     const { app, surface } = createSurface()
-    const token = createNovaContextToken<string>('nearest')
+    const token = Nova.createContextToken<string>('nearest')
     const root = createNode(surface)
     const parent = new TestNode(app, surface)
     const child = new TestNode(app, surface)
@@ -89,7 +89,7 @@ describe('Nova context provide/inject', () => {
 
   it('returns fallback for optional inject and throws for required inject', () => {
     const { app, surface } = createSurface()
-    const token = createNovaContextToken<string>('missing')
+    const token = Nova.createContextToken<string>('missing')
     const node = createNode(surface)
 
     expect(node.injectOptional(token, 'fallback')).toBe('fallback')
@@ -100,7 +100,7 @@ describe('Nova context provide/inject', () => {
 
   it('uses cache for repeated inject and invalidates it when provider changes', () => {
     const { app, surface } = createSurface()
-    const token = createNovaContextToken<string>('cached')
+    const token = Nova.createContextToken<string>('cached')
     const parent = createNode(surface)
     const child = new TestNode(app, surface)
 
@@ -121,7 +121,7 @@ describe('Nova context provide/inject', () => {
 
   it('clears inject cache on reparent and resolves the new scope', () => {
     const { app, surface } = createSurface()
-    const token = createNovaContextToken<string>('reparent')
+    const token = Nova.createContextToken<string>('reparent')
     const firstParent = createNode(surface)
     const secondParent = new TestNode(app, surface)
     const child = new TestNode(app, surface)
@@ -142,7 +142,7 @@ describe('Nova context provide/inject', () => {
 
   it('keeps sibling scopes isolated', () => {
     const { app, surface } = createSurface()
-    const token = createNovaContextToken<string>('sibling')
+    const token = Nova.createContextToken<string>('sibling')
     const firstParent = createNode(surface)
     const secondParent = new TestNode(app, surface)
     const firstChild = new TestNode(app, surface)

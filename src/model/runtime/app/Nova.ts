@@ -35,6 +35,8 @@ import {
 } from '@/model/theme/NovaGlobalThemeRegistry'
 import type { NovaThemeId, NovaThemeTokens } from '@/domain/types/theme.types'
 import { Prop } from '@/model/runtime/components/nova-component.decorator'
+import type { NovaContextToken } from '@/domain/types/context.types'
+import { createNovaContextToken } from '@/model/runtime/context/nova-context'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
 
@@ -177,6 +179,13 @@ export class Nova {
    */
   static refMap<T extends object>(): NovaRefMap<T> {
     return createNovaRefMap<T>()
+  }
+
+  /**
+   * Создает типизированный token для scoped dependency в Nova tree.
+   */
+  static createContextToken<T>(name: string): NovaContextToken<T> {
+    return createNovaContextToken<T>(name)
   }
 
   /**

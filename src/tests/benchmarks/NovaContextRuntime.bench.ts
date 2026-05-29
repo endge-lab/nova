@@ -1,7 +1,7 @@
 import { bench, describe, vi } from 'vitest'
 import { RaphKernel } from '@endge/raph'
 import {
-  createNovaContextToken,
+  Nova,
   NovaNode,
   NovaPhase,
   type NovaApp,
@@ -110,7 +110,7 @@ function createBenchNode(
 function createInjectFixture(count: number) {
   const app = createTestApp()
   const surface = app.createSurface('inject')
-  const token = createNovaContextToken<{ id: number }>('bench.inject')
+  const token = Nova.createContextToken<{ id: number }>('bench.inject')
   const provider = createBenchNode(app, surface)
   const nodes: Array<BenchNode> = []
 
@@ -135,7 +135,7 @@ function createInjectFixture(count: number) {
 function createReparentFixture(count: number) {
   const app = createTestApp()
   const surface = app.createSurface('reparent')
-  const token = createNovaContextToken<{ id: number }>('bench.reparent')
+  const token = Nova.createContextToken<{ id: number }>('bench.reparent')
   const sourceParent = createBenchNode(app, surface)
   const targetParent = new BenchNode(app, surface)
   const subtreeRoot = new BenchNode(app, surface)
