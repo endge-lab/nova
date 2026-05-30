@@ -11,16 +11,16 @@ import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarne
 @Store()
 class BenchViewportStore {
   @Reactive({ phase: 'render' })
-  accessor scale = 1
+  scale = 1
 
   @Reactive({ phase: 'render' })
-  accessor x = 0
+  x = 0
 }
 
 @Store()
 class BenchStore {
   @Reactive()
-  accessor viewport = new BenchViewportStore()
+  viewport = new BenchViewportStore()
 }
 
 const BENCH_STORE = Nova.createContextToken<BenchStore>('BenchStore')

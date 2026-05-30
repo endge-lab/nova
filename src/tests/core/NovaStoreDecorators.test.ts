@@ -11,16 +11,16 @@ import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarne
 @Store()
 class TestViewportStore {
   @Reactive({ phase: 'render' })
-  accessor scale = 1
+  scale = 1
 
   @Reactive({ phase: 'render' })
-  accessor x = 0
+  x = 0
 }
 
 @Store()
 class TestSelectionStore {
   @Reactive({ phase: 'render' })
-  accessor ids: Array<string> = []
+  ids: Array<string> = []
 }
 
 @Store()
@@ -28,25 +28,25 @@ class TestAdvancedStore {
   itemId = 'a'
 
   @Reactive({ path: 'legacy.zoom', phase: 'render' })
-  accessor legacyScale = 1
+  legacyScale = 1
 
   @Reactive({ path: self => `items.${self.itemId}.label`, phase: 'render' })
-  accessor label = 'Initial'
+  label = 'Initial'
 
   @Reactive({ phase: ['update', 'render'] })
-  accessor collapsed = false
+  collapsed = false
 
   @Reactive({ phase: 'render' })
-  accessor mode: 'scale' | 'selection' = 'scale'
+  mode: 'scale' | 'selection' = 'scale'
 }
 
 @Store()
 class TestStore {
   @Reactive()
-  accessor viewport = new TestViewportStore()
+  viewport = new TestViewportStore()
 
   @Reactive()
-  accessor selection = new TestSelectionStore()
+  selection = new TestSelectionStore()
 }
 
 const TEST_STORE = Nova.createContextToken<TestStore>('TestStore')
