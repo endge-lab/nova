@@ -227,6 +227,7 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
   }
 
   reorderManagedChildren(parent, previousNodes, nextNodes)
+  syncNovaTemplateMatrices(nextNodes)
   parent.dirty({ render: true })
 
   return {
@@ -369,6 +370,23 @@ function createTemplateChild<E extends EventList>(
   })
   NODE_TEMPLATE_KEY.set(node, key)
   return node
+}
+
+function syncNovaTemplateMatrices(nodes: ReadonlyArray<NovaNode<any>>): void {
+  for (const node of nodes) {
+    syncNovaTemplateNodeMatrix(node)
+  }
+}
+
+function syncNovaTemplateNodeMatrix(node: NovaNode<any>): void {
+  const matrixProperty = node.raph.getLocalProperty('matrix' as never) as
+    | { computeOn: (target: NovaNode<any>) => void }
+    | undefined
+  matrixProperty?.computeOn(node)
+
+  for (const child of node.children) {
+    syncNovaTemplateNodeMatrix(child as NovaNode<any>)
+  }
 }
 
 function syncNovaTemplateRef<E extends EventList>(

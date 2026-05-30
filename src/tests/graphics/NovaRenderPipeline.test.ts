@@ -1,16 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mat3 } from 'gl-matrix'
 import {
+  Nova,
   NovaGlyphAtlasManager,
+  NovaNode,
   NovaSchemaRegistry,
+  RaphSchedulerType,
   NovaTextAtlasManager,
   RendererType,
   resolveNovaRendererConfig,
   resolveNovaTextRasterBucket,
   resolveNovaTextRasterScale,
   type NovaCanvas,
+  type NovaApp,
   type NovaRendererConfig,
   type NovaSchema,
+  type NovaSurface,
 } from '@/index'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
@@ -18,6 +23,7 @@ import { NovaRenderCompiler } from '@/model/render/compiler/NovaRenderCompiler'
 import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
 import { NovaWebGLBatcher } from '@/model/render/backends/webgl/NovaWebGLBatcher'
 import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
+import { NovaTemplateRuntime } from '@/model/runtime/template/NovaTemplateRuntime'
 
 function noop(): void {}
 
@@ -157,6 +163,54 @@ function createFrameBuilder(): NovaRenderFrameBuilder {
     height: 100,
     dpr: 1,
   })
+}
+
+class RetainedRectNode extends NovaNode<Record<string, any>> {
+  /**
+   * Создает node и применяет geometry из template props.
+   */
+  constructor(
+    app: NovaApp<Record<string, any>>,
+    surface: NovaSurface<Record<string, any>>,
+    props: { x?: number; y?: number; width?: number; height?: number } = {},
+  ) {
+    super(app, surface)
+    this.options(props)
+  }
+
+  /**
+   * Рисует одиночный primitive, который WebGL replay берет из frame.items.
+   */
+  render(): void {
+    this.renderer.rect({
+      x: 0,
+      y: 0,
+      width: this.width,
+      height: this.height,
+      styles: { background: '#ffffff' },
+    })
+  }
+}
+
+class TemplateReconcileHostNode extends NovaNode<Record<string, any>> {
+  private readonly runtime = new NovaTemplateRuntime(this)
+
+  /**
+   * Создает child прямо во время render, как это делает slot reconcile.
+   */
+  render(): void {
+    this.runtime.reconcile([{
+      type: RetainedRectNode,
+      id: 'template-retained-child',
+      props: { x: 4, y: 5, width: 20, height: 10 },
+    }])
+  }
+}
+
+function findNodeItemTransform(surface: NovaSurface<Record<string, any>>, node: NovaNode<Record<string, any>>): mat3 {
+  const item = surface.compileRenderFrame().items.find(candidate => candidate.nodeId === node.renderNodeId)
+  expect(item?.transform).toBeTruthy()
+  return item!.transform!
 }
 
 describe('Nova render pipeline contracts', () => {
@@ -368,6 +422,96 @@ describe('Nova render pipeline contracts', () => {
     expect(metrics.items).toBe(1)
     expect(renderer.diagnostics.lastFrame?.items).toHaveLength(1)
     expect(gl.drawArrays).toHaveBeenCalled()
+  })
+
+  it('syncs template-created child matrices before retained frame item recording', () => {
+    const gl = createWebGLContextStub()
+    const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
+      if (type === RendererType.Web2D) return create2DContextStub()
+      if (type === RendererType.WebGL || type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') return gl
+      return null
+    })
+    const canvas = document.createElement('canvas')
+    document.body.appendChild(canvas)
+    const app = Nova.createApp<Record<string, any>>({
+      target: canvas,
+      size: { width: 200, height: 100, dpr: 1 },
+      renderer: { main: RendererType.WebGL },
+      scheduler: {
+        type: RaphSchedulerType.Sync,
+        loop: false,
+      },
+    })
+    const surface = app.createSurface('template-retained-transform')
+    const host = surface.createNode(TemplateReconcileHostNode)
+    host.options({ x: 70, y: 30, width: 120, height: 80 })
+
+    app.raph.run()
+    app.raph.run()
+    surface.compileRenderFrame()
+
+    const child = host.children.find(node => node instanceof RetainedRectNode) as RetainedRectNode | undefined
+    expect(child).toBeTruthy()
+    const childTransform = findNodeItemTransform(surface, child!)
+
+    expect(Math.round(child!.matrix[6])).toBe(74)
+    expect(Math.round(child!.matrix[7])).toBe(35)
+    expect(Math.round(childTransform[6])).toBe(74)
+    expect(Math.round(childTransform[7])).toBe(35)
+
+    app.destroy()
+    getContextSpy.mockRestore()
+  })
+
+  it('patches retained item transforms for dirty transform subtrees', () => {
+    const gl = createWebGLContextStub()
+    const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
+      if (type === RendererType.Web2D) return create2DContextStub()
+      if (type === RendererType.WebGL || type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') return gl
+      return null
+    })
+    const canvas = document.createElement('canvas')
+    document.body.appendChild(canvas)
+    const app = Nova.createApp<Record<string, any>>({
+      target: canvas,
+      size: { width: 200, height: 100, dpr: 1 },
+      renderer: { main: RendererType.WebGL },
+      scheduler: {
+        type: RaphSchedulerType.Sync,
+        loop: false,
+      },
+    })
+    const surface = app.createSurface('retained-transform-subtree')
+    const parent = surface.createNode()
+    const child = surface.createNode(RetainedRectNode)
+
+    parent.options({ x: 0, y: 0, width: 120, height: 80 })
+    child.options({ x: 4, y: 5, width: 20, height: 10 })
+    parent.addChild(child)
+    app.raph.run()
+    app.raph.run()
+
+    const firstFrame = surface.compileRenderFrame()
+    const firstTransform = findNodeItemTransform(surface, child)
+    expect(Math.round(firstTransform[6])).toBe(4)
+    expect(Math.round(firstTransform[7])).toBe(5)
+
+    parent.options({ x: 70, y: 30 })
+    parent.dirty({ matrix: true })
+    app.raph.run()
+    app.raph.run()
+
+    const secondFrame = surface.compileRenderFrame()
+    const secondTransform = findNodeItemTransform(surface, child)
+
+    expect(secondFrame).toBe(firstFrame)
+    expect(Math.round(child.matrix[6])).toBe(74)
+    expect(Math.round(child.matrix[7])).toBe(35)
+    expect(Math.round(secondTransform[6])).toBe(74)
+    expect(Math.round(secondTransform[7])).toBe(35)
+
+    app.destroy()
+    getContextSpy.mockRestore()
   })
 
   it('keeps compiler construction explicit for surface-level orchestration', () => {

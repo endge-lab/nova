@@ -137,6 +137,16 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       updated += 1
     }
 
+    for (const item of frame.items) {
+      if (!item.nodeId) continue
+
+      const matrix = matrices.get(item.nodeId)
+      if (!matrix) continue
+
+      item.transform = matrix
+      updated += 1
+    }
+
     graph.clearDirtyQueues()
     return updated
   }
@@ -144,14 +154,21 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
   /**
    * Выполняет внутреннюю операцию collect dirty node matrices.
    */
-  private collectDirtyNodeMatrices(node: NovaNode<any>, dirtyNodeIds: Set<string>, matrices: Map<string, mat3>): void {
-    if (dirtyNodeIds.has(node.renderNodeId)) {
+  private collectDirtyNodeMatrices(
+    node: NovaNode<any>,
+    dirtyNodeIds: Set<string>,
+    matrices: Map<string, mat3>,
+    ancestorDirty = false,
+  ): void {
+    const transformDirty = ancestorDirty || dirtyNodeIds.has(node.renderNodeId)
+
+    if (transformDirty) {
       matrices.set(node.renderNodeId, mat3.clone(node.matrix))
     }
 
     for (const child of node.children) {
       if (child instanceof NovaNode) {
-        this.collectDirtyNodeMatrices(child, dirtyNodeIds, matrices)
+        this.collectDirtyNodeMatrices(child, dirtyNodeIds, matrices, transformDirty)
       }
     }
   }
