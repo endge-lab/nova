@@ -37,6 +37,11 @@ import type { NovaThemeId, NovaThemeTokens } from '@/domain/types/theme.types'
 import { Prop } from '@/model/runtime/components/nova-component.decorator'
 import type { NovaContextToken } from '@/domain/types/context.types'
 import { createNovaContextToken } from '@/model/runtime/context/nova-context'
+import {
+  batchNovaStore,
+  createNovaStore,
+  type NovaCreateStoreOptions,
+} from '@/model/runtime/state/nova-store-runtime'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
 
@@ -186,6 +191,34 @@ export class Nova {
    */
   static createContextToken<T>(name: string): NovaContextToken<T> {
     return createNovaContextToken<T>(name)
+  }
+
+  /**
+   * DSL intrinsic для inject. В class-компонентах используйте this.inject(token).
+   */
+  static inject<T>(_token: NovaContextToken<T>): T {
+    throw new Error('[Nova.inject] is a Nova DSL intrinsic. Use this.inject(token) inside class components.')
+  }
+
+  /**
+   * DSL intrinsic для optional inject. В class-компонентах используйте this.injectOptional(token).
+   */
+  static injectOptional<T>(_token: NovaContextToken<T>, _fallback?: T): T | undefined {
+    throw new Error('[Nova.injectOptional] is a Nova DSL intrinsic. Use this.injectOptional(token) inside class components.')
+  }
+
+  /**
+   * Создает reactive business store поверх Raph data graph.
+   */
+  static createStore<T extends object>(instance: T, options: NovaCreateStoreOptions = {}): T {
+    return createNovaStore(instance, options)
+  }
+
+  /**
+   * Выполняет несколько store mutations в одной Raph transaction.
+   */
+  static batchStore<T>(store: object, callback: () => T): T {
+    return batchNovaStore(store, callback)
   }
 
   /**

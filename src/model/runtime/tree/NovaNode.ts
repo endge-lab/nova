@@ -37,6 +37,12 @@ import type {
   NovaContextToken,
   NovaObserveDataOptions,
 } from '@/domain/types/context.types'
+import {
+  beginNovaStoreTracking,
+  endNovaStoreTracking,
+  type NovaStoreReadMap,
+  type NovaStoreTrackingPhase,
+} from '@/model/runtime/state/nova-store-tracking'
 
 /**
  * Описывает контракт NovaRenderNodeAwareRenderer.
@@ -115,6 +121,7 @@ export class NovaNode<
   private _provides?: Map<NovaContextToken<any>, any>
   private _injectCache?: Map<NovaContextToken<any>, NovaInjectCacheEntry<any>>
   private _providerVersion = 0
+  private _reactiveStoreObservers?: Map<NovaStoreTrackingPhase, Map<string, () => void>>
   private _nodeContext?: unknown
   private _hasNodeContext = false
   private _semanticId?: string
@@ -238,6 +245,51 @@ export class NovaNode<
       dispose()
       disposeFlush()
     })
+  }
+
+  /**
+   * Синхронизирует автоматические подписки ноды на reactive store reads.
+   */
+  syncReactiveStoreReads(
+    reads: NovaStoreReadMap,
+    touchedPhases: Set<NovaStoreTrackingPhase>,
+  ): void {
+    if (!this._reactiveStoreObservers) this._reactiveStoreObservers = new Map()
+
+    for (const phase of touchedPhases) {
+      const nextPaths = reads.get(phase) ?? new Set<string>()
+      let phaseObservers = this._reactiveStoreObservers.get(phase)
+      if (!phaseObservers) {
+        phaseObservers = new Map()
+        this._reactiveStoreObservers.set(phase, phaseObservers)
+      }
+
+      for (const [path, dispose] of [...phaseObservers.entries()]) {
+        if (!nextPaths.has(path)) {
+          dispose()
+          phaseObservers.delete(path)
+        }
+      }
+
+      for (const path of nextPaths) {
+        if (phaseObservers.has(path)) continue
+        phaseObservers.set(path, this.createReactiveStoreObserver(path, phase))
+      }
+    }
+  }
+
+  /**
+   * Создает data observer для автоматически прочитанного store path.
+   */
+  private createReactiveStoreObserver(path: string, phase: NovaStoreTrackingPhase): () => void {
+    const dispose = this.raph.observeData(this, path, { phase })
+    if (phase !== NovaPhase.Render) return dispose
+
+    const disposeFlush = this.raph.observeData(this.surface, path, { phase: NovaPhase.Flush })
+    return () => {
+      dispose()
+      disposeFlush()
+    }
   }
 
   //
@@ -523,7 +575,12 @@ export class NovaNode<
     if (!this.active) return
 
     this.debugger.startTimer('update')
-    this.update()
+    beginNovaStoreTracking(this, 'update')
+    try {
+      this.update()
+    } finally {
+      endNovaStoreTracking()
+    }
     if (this.debugger.enabled) {
       this.debugger.info(`${this.__type} завершил update`, 'update')
     }
@@ -563,11 +620,13 @@ export class NovaNode<
     nodeAwareRenderer?.beginNode(this)
     this.renderer.save()
     const renderStateMark = this.renderer.markState()
+    beginNovaStoreTracking(this, 'render')
     try {
       this.renderer.setTransform(matrix)
       this.render()
       this.renderChildren()
     } finally {
+      endNovaStoreTracking()
       this.renderer.restoreState(renderStateMark)
       this.renderer.restore()
       nodeAwareRenderer?.endNode(this)
@@ -1385,6 +1444,20 @@ export class NovaNode<
   }
 
   /**
+   * Снимает автоматические reactive store observers.
+   */
+  private disposeReactiveStoreObservers(): void {
+    if (!this._reactiveStoreObservers) return
+    for (const phaseObservers of this._reactiveStoreObservers.values()) {
+      for (const dispose of phaseObservers.values()) {
+        dispose()
+      }
+      phaseObservers.clear()
+    }
+    this._reactiveStoreObservers.clear()
+  }
+
+  /**
    * Выполняет внутреннюю операцию dispose.
    */
   override dispose(): void {
@@ -1395,6 +1468,7 @@ export class NovaNode<
     this.nova.motion.cancel(this)
     this.stopSoundHandles()
     this.unmountSubtree()
+    this.disposeReactiveStoreObservers()
     this.runDisposers()
     super.dispose()
     this.offAll()
