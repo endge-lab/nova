@@ -629,6 +629,20 @@ describe('NovaApp', () => {
     app.destroy()
   })
 
+  it('removes a logical surface from the app graph', () => {
+    const app = createApp()
+    const surface = app.createSurface('removable')
+
+    expect(app.surfaces).toContain(surface)
+
+    app.removeSurface(surface)
+
+    expect(app.surfaces).not.toContain(surface)
+    expect(surface.parent).toBeNull()
+
+    app.destroy()
+  })
+
   it('stores active theme in Raph kernel and resolves tokens through Nova theme service', () => {
     const app = createApp()
 

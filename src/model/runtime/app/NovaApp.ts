@@ -591,6 +591,17 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     }
 
     /**
+     * Удаляет logical surface из app-level render graph и retained frame cache.
+     */
+    removeSurface(surface: NovaSurface<E>): void {
+        this._dirtySurfaces.delete(surface)
+        this._surfaceOrder.delete(surface)
+        this._orchestrator.deleteSurface(surface)
+        surface.remove()
+        this.invalidate()
+    }
+
+    /**
      * Возвращает surfaces в порядке compositing.
      */
     private getOrderedSurfaces(): Array<NovaSurface<E>> {

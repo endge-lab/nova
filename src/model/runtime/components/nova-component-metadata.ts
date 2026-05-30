@@ -367,10 +367,24 @@ function createDecoratedNode<E extends EventList>(
     ? new (component as any)(context.app, context.surface, descriptor, props, { componentId: schema.id })
     : new component(context.app, context.surface, props)
   if (!(component.prototype instanceof NovaComponentNode)) attachPlainDecoratedRuntime(node, props, schema.id)
+  applyDecoratedNodeSlots(node, schema.slots)
   for (const child of (schema as typeof schema & { children?: Array<any> }).children ?? []) {
     context.registry.createChild(node, child)
   }
   return node
+}
+
+function applyDecoratedNodeSlots(node: NovaNode<any>, slots: NovaComponentSchema<Record<string, any>>['slots']): void {
+  if (!slots) return
+  const target = node as unknown as { setSlots?: (slots: NonNullable<typeof slots>) => void; getApi?: () => unknown }
+  if (typeof target.setSlots === 'function') {
+    target.setSlots(slots)
+    return
+  }
+  const api = typeof target.getApi === 'function'
+    ? target.getApi() as { setSlots?: (slots: NonNullable<typeof slots>) => void }
+    : null
+  api?.setSlots?.(slots)
 }
 
 /**
