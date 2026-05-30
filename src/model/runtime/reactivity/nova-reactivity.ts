@@ -16,6 +16,10 @@ interface NovaTrackingFrame {
   subscriber: NovaReactiveSubscriber
 }
 
+export interface NovaTrackNodeOptions {
+  mode?: 'replace' | 'append'
+}
+
 export interface NovaReadableSignal<T> {
   readonly value: T
 }
@@ -47,8 +51,10 @@ export function createNovaComputed<T>(compute: () => T): NovaComputed<T> {
 /**
  * Tracks signal reads performed by a NovaNode update/template pass.
  */
-export function trackNovaNode<T>(node: NovaNode<any>, callback: () => T): T {
-  cleanupNodeDependencies(node)
+export function trackNovaNode<T>(node: NovaNode<any>, callback: () => T, options: NovaTrackNodeOptions = {}): T {
+  if (options.mode !== 'append') {
+    cleanupNodeDependencies(node)
+  }
   if (!trackedNodes.has(node)) {
     trackedNodes.add(node)
     node.addDisposer(() => cleanupNodeDependencies(node))

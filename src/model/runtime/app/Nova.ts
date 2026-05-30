@@ -24,6 +24,7 @@ import {
   trackNovaNode,
   type NovaComputed,
   type NovaSignal,
+  type NovaTrackNodeOptions,
 } from '@/model/runtime/reactivity/nova-reactivity'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
@@ -238,8 +239,8 @@ export class Nova {
   /**
    * Выполняет callback с привязкой signal reads к NovaNode.
    */
-  static trackNode<T>(node: NovaNode<any>, callback: () => T): T {
-    return trackNovaNode(node, callback)
+  static trackNode<T>(node: NovaNode<any>, callback: () => T, options?: NovaTrackNodeOptions): T {
+    return trackNovaNode(node, callback, options)
   }
 
   /**
