@@ -383,6 +383,8 @@ function syncNovaTemplateNodeMatrix(node: NovaNode<any>): void {
     | { computeOn: (target: NovaNode<any>) => void }
     | undefined
   matrixProperty?.computeOn(node)
+  node.nova.events.markSpatialDirty(node)
+  node.nova.cursors.markSpatialDirty(node)
 
   for (const child of node.children) {
     syncNovaTemplateNodeMatrix(child as NovaNode<any>)
