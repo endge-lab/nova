@@ -53,10 +53,28 @@ export interface NovaTextInputControllerOptions {
 export interface NovaTextMeasureOptions {
   fontSize?: number
   lineHeight?: number
+  fontFamily?: string
+  fontWeight?: string
+  fontStyle?: string
   charWidth?: number
   tabSize?: number
   padding?: number | { top?: number; right?: number; bottom?: number; left?: number; horizontal?: number; vertical?: number }
+  measureText?: NovaTextMeasureFn
 }
+
+export type NovaTextInputAlign = 'left' | 'center' | 'right'
+
+export interface NovaTextMeasureContext {
+  fontSize: number
+  lineHeight: number
+  fontFamily: string
+  fontWeight: string
+  fontStyle: string
+  charWidth: number
+  tabSize: number
+}
+
+export type NovaTextMeasureFn = (text: string, context: NovaTextMeasureContext) => number
 
 export interface NovaTextInputLayoutOptions extends NovaTextMeasureOptions {
   text: string
@@ -64,6 +82,7 @@ export interface NovaTextInputLayoutOptions extends NovaTextMeasureOptions {
   height: number
   multiline?: boolean
   wrap?: boolean
+  align?: NovaTextInputAlign
   scrollX?: number
   scrollY?: number
 }

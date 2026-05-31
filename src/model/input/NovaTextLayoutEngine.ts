@@ -2,6 +2,8 @@ import type {
   NovaRectLike,
   NovaTextInputLayoutOptions,
   NovaTextInputLayoutResult,
+  NovaTextInputAlign,
+  NovaTextMeasureContext,
   NovaTextLayoutGlyph,
   NovaTextLayoutLine,
 } from '@/model/input/nova-input.types'
@@ -51,6 +53,9 @@ export function layoutNovaTextInput(options: NovaTextInputLayoutOptions): NovaTe
   const fontSize = finite(options.fontSize, 13)
   const lineHeight = finite(options.lineHeight, Math.round(fontSize * 1.45))
   const charWidth = finite(options.charWidth, fontSize * 0.58)
+  const fontFamily = options.fontFamily ?? 'sans-serif'
+  const fontWeight = options.fontWeight ?? 'normal'
+  const fontStyle = options.fontStyle ?? 'normal'
   const tabSize = Math.max(1, Math.floor(finite(options.tabSize, 4)))
   const width = Math.max(0, finite(options.width, 0))
   const height = Math.max(0, finite(options.height, 0))
@@ -60,8 +65,18 @@ export function layoutNovaTextInput(options: NovaTextInputLayoutOptions): NovaTe
   const contentHeight = Math.max(0, height - padding.top - padding.bottom)
   const multiline = options.multiline ?? false
   const wrap = multiline ? options.wrap ?? true : false
+  const align = normalizeAlign(options.align)
   const scrollX = Math.max(0, finite(options.scrollX, 0))
   const scrollY = Math.max(0, finite(options.scrollY, 0))
+  const measureContext: NovaTextMeasureContext = {
+    fontSize,
+    lineHeight,
+    fontFamily,
+    fontWeight,
+    fontStyle,
+    charWidth,
+    tabSize,
+  }
   const glyphs: Array<NovaTextLayoutGlyph> = []
   const lines: Array<NovaTextLayoutLine> = []
   const text = String(options.text ?? '')
@@ -76,11 +91,18 @@ export function layoutNovaTextInput(options: NovaTextInputLayoutOptions): NovaTe
   let y = contentY - scrollY
 
   const flushLine = (end: number) => {
+    const lineX = contentX + resolveAlignOffset(align, lineWidth, contentWidth, scrollX) - scrollX
+    const dx = lineX - (contentX - scrollX)
+    if (dx !== 0) {
+      for (const glyph of glyphs) {
+        if (glyph.line === lineIndex) glyph.x += dx
+      }
+    }
     lines.push({
       index: lineIndex,
       start: lineStart,
       end,
-      x: contentX - scrollX,
+      x: lineX,
       y,
       width: lineWidth,
       height: lineHeight,
@@ -95,12 +117,12 @@ export function layoutNovaTextInput(options: NovaTextInputLayoutOptions): NovaTe
   }
 
   for (const segment of segments) {
-    const rawWidth = segment.value === '\t' ? charWidth * tabSize : Math.max(charWidth, segment.value.length * charWidth)
     if (segment.value === '\n' && multiline) {
-      flushLine(segment.end)
+      flushLine(segment.index)
       lineStart = segment.end
       continue
     }
+    const rawWidth = measureSegmentWidth(segment.value, measureContext, options.measureText)
     if (wrap && lineWidth > 0 && lineWidth + rawWidth > maxLineWidth) {
       flushLine(segment.index)
       lineStart = segment.index
@@ -167,6 +189,15 @@ export function novaCaretRectAtIndex(layout: NovaTextInputLayoutResult, index: n
       height: Math.max(1, glyph.height - 4),
     }
   }
+  const exactLine = layout.lines.find(line => clamped === line.start && line.start === line.end)
+  if (exactLine) {
+    return {
+      x: exactLine.x,
+      y: exactLine.y + 2,
+      width: 1,
+      height: Math.max(1, exactLine.height - 4),
+    }
+  }
   const previous = [...layout.glyphs].reverse().find(candidate => candidate.end <= clamped)
   if (previous) {
     return {
@@ -178,7 +209,7 @@ export function novaCaretRectAtIndex(layout: NovaTextInputLayoutResult, index: n
   }
   const firstLine = layout.lines[0]
   return {
-    x: layout.contentX - layout.scrollX,
+    x: firstLine?.x ?? layout.contentX - layout.scrollX,
     y: (firstLine?.y ?? layout.contentY) + 2,
     width: 1,
     height: Math.max(1, layout.lineHeight - 4),
@@ -236,6 +267,35 @@ function nearestLine(layout: NovaTextInputLayoutResult, y: number): NovaTextLayo
   if (layout.lines.length === 0) return undefined
   if (y <= layout.lines[0].y) return layout.lines[0]
   return layout.lines[layout.lines.length - 1]
+}
+
+function measureSegmentWidth(
+  value: string,
+  context: NovaTextMeasureContext,
+  measureText?: NovaTextInputLayoutOptions['measureText'],
+): number {
+  if (value === '\t') return context.charWidth * context.tabSize
+  const fallback = Math.max(0, value.length * context.charWidth)
+  if (!measureText) return fallback
+  return Math.max(0, finite(measureText(value, context), fallback))
+}
+
+function resolveAlignOffset(
+  align: NovaTextInputAlign,
+  lineWidth: number,
+  contentWidth: number,
+  scrollX: number,
+): number {
+  if (scrollX > 0) return 0
+  if (lineWidth > contentWidth) return 0
+  if (align === 'center') return (contentWidth - lineWidth) / 2
+  if (align === 'right') return contentWidth - lineWidth
+  return 0
+}
+
+function normalizeAlign(value: unknown): NovaTextInputAlign {
+  if (value === 'center' || value === 'right') return value
+  return 'left'
 }
 
 function normalizePadding(value: NovaTextInputLayoutOptions['padding']): PaddingBox {

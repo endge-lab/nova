@@ -2,8 +2,10 @@ import { bench, describe } from 'vitest'
 import {
   NovaTextInputController,
   layoutNovaTextInput,
+  novaCaretRectAtIndex,
   novaSelectionRects,
   novaTextIndexAtPoint,
+  splitGraphemes,
 } from '@/index'
 
 describe('Nova input core benchmarks', () => {
@@ -31,6 +33,22 @@ describe('Nova input core benchmarks', () => {
         fontSize: 13,
         lineHeight: 18,
         padding: 10,
+      })
+    }
+  })
+
+  bench('layout 1k measured proportional centered inputs', () => {
+    const measureText = createMeasuredText({ W: 12, i: 3, '.': 4, m: 11, ' ': 4 })
+    for (let index = 0; index < 1_000; index += 1) {
+      layoutNovaTextInput({
+        text: `Wi. mixed ${index}`,
+        width: 260,
+        height: 36,
+        align: 'center',
+        fontSize: 13,
+        lineHeight: 18,
+        padding: 10,
+        measureText,
       })
     }
   })
@@ -65,4 +83,28 @@ describe('Nova input core benchmarks', () => {
       novaTextIndexAtPoint(layout, index % 420, index % 80)
     }
   })
+
+  bench('100k measured caret/index roundtrips', () => {
+    const layout = layoutNovaTextInput({
+      text: 'Wide iii narrow ... emoji 🙂 text '.repeat(20),
+      width: 420,
+      height: 160,
+      multiline: true,
+      wrap: true,
+      align: 'center',
+      fontSize: 13,
+      lineHeight: 18,
+      padding: 10,
+      measureText: createMeasuredText({ W: 12, i: 3, '.': 4, ' ': 4, '🙂': 14 }),
+    })
+    for (let index = 0; index < 100_000; index += 1) {
+      const caret = novaCaretRectAtIndex(layout, index % layout.text.length)
+      novaTextIndexAtPoint(layout, caret.x, caret.y + 2)
+    }
+  })
 })
+
+function createMeasuredText(widths: Record<string, number>) {
+  return (text: string): number => splitGraphemes(text)
+    .reduce((sum, segment) => sum + (widths[segment.value] ?? segment.value.length * 7), 0)
+}

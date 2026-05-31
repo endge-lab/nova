@@ -11,6 +11,7 @@ import {
   novaCaretRectAtIndex,
   novaSelectionRects,
   novaTextIndexAtPoint,
+  splitGraphemes,
   type NovaInputValidationResult,
 } from '@/index'
 
@@ -78,6 +79,94 @@ describe('Nova input core', () => {
     expect(novaTextIndexAtPoint(layout, 5, 5)).toBe(0)
     expect(novaCaretRectAtIndex(layout, 4).height).toBeGreaterThan(0)
     expect(novaSelectionRects(layout, 0, layout.text.length).length).toBeGreaterThan(1)
+  })
+
+  it('aligns caret and hit-test geometry to measured proportional glyphs', () => {
+    const measureText = createMeasuredText({ W: 12, i: 3, '.': 4 })
+    const layout = layoutNovaTextInput({
+      text: 'Wi.',
+      width: 120,
+      height: 34,
+      fontSize: 12,
+      lineHeight: 18,
+      padding: { left: 10, right: 10, top: 8, bottom: 8 },
+      align: 'center',
+      measureText,
+    })
+
+    expect(layout.lines[0]?.width).toBe(19)
+    expect(layout.lines[0]?.x).toBe(50.5)
+    expect(layout.glyphs.map(glyph => glyph.width)).toEqual([12, 3, 4])
+    expect(novaCaretRectAtIndex(layout, 0).x).toBeCloseTo(50.5)
+    expect(novaCaretRectAtIndex(layout, 1).x).toBeCloseTo(62.5)
+    expect(novaCaretRectAtIndex(layout, 2).x).toBeCloseTo(65.5)
+    expect(novaTextIndexAtPoint(layout, 65.6, 17)).toBe(2)
+    expect(novaTextIndexAtPoint(layout, 69.5, 17)).toBe(3)
+  })
+
+  it('keeps right aligned and empty-line caret positions inside the visual text line', () => {
+    const measureText = createMeasuredText({ a: 5, b: 5 })
+    const rightAligned = layoutNovaTextInput({
+      text: 'ab',
+      width: 80,
+      height: 24,
+      fontSize: 12,
+      lineHeight: 16,
+      padding: { left: 4, right: 6, top: 4, bottom: 4 },
+      align: 'right',
+      measureText,
+    })
+
+    expect(rightAligned.lines[0]?.x).toBe(64)
+    expect(novaCaretRectAtIndex(rightAligned, 0).x).toBe(64)
+    expect(novaCaretRectAtIndex(rightAligned, 2).x).toBe(74)
+
+    const trailingEmptyLine = layoutNovaTextInput({
+      text: 'ab\n',
+      width: 80,
+      height: 60,
+      multiline: true,
+      wrap: true,
+      fontSize: 12,
+      lineHeight: 16,
+      padding: 4,
+      align: 'center',
+      measureText,
+    })
+
+    expect(trailingEmptyLine.lines).toHaveLength(2)
+    expect(trailingEmptyLine.lines[0]).toMatchObject({ start: 0, end: 2, text: 'ab' })
+    expect(trailingEmptyLine.lines[1]).toMatchObject({ start: 3, end: 3, text: '' })
+    expect(novaCaretRectAtIndex(trailingEmptyLine, 3)).toMatchObject({
+      x: 40,
+      y: 22,
+    })
+  })
+
+  it('roundtrips caret indexes through wrapped lines and grapheme widths', () => {
+    const measureText = createMeasuredText({ A: 8, '🙂': 14, B: 8, C: 8 })
+    const layout = layoutNovaTextInput({
+      text: 'A🙂BC',
+      width: 34,
+      height: 80,
+      multiline: true,
+      wrap: true,
+      fontSize: 12,
+      lineHeight: 16,
+      padding: 4,
+      measureText,
+    })
+
+    expect(layout.lines.map(line => ({ start: line.start, end: line.end, text: line.text }))).toEqual([
+      { start: 0, end: 3, text: 'A🙂' },
+      { start: 3, end: 5, text: 'BC' },
+    ])
+    expect(novaCaretRectAtIndex(layout, 3)).toMatchObject({ x: 4, y: 22 })
+
+    for (const index of [0, 1, 3, 4, 5]) {
+      const caret = novaCaretRectAtIndex(layout, index)
+      expect(novaTextIndexAtPoint(layout, caret.x, caret.y + 2)).toBe(index)
+    }
   })
 
   it('wraps textarea text to the available content width', () => {
@@ -165,3 +254,8 @@ describe('Nova input core', () => {
     vi.useRealTimers()
   })
 })
+
+function createMeasuredText(widths: Record<string, number>) {
+  return (text: string): number => splitGraphemes(text)
+    .reduce((sum, segment) => sum + (widths[segment.value] ?? segment.value.length * 6), 0)
+}
