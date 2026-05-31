@@ -95,6 +95,18 @@ class CursorBoxNode extends NovaNode<TestEvents> {
   }
 }
 
+/**
+ * Описывает node, который имитирует legacy render cursor writer.
+ */
+class CursorResetRenderNode extends NovaNode<TestEvents> {
+  /**
+   * Выполняет отрисовку CursorResetRenderNode.
+   */
+  override render(): void {
+    this.renderer.cursor('default')
+  }
+}
+
 function create2DContextStub(): CanvasRenderingContext2D {
   const state: Record<PropertyKey, any> = {
     measureText: vi.fn((text: string) => ({ width: text.length * 8 })),
@@ -296,6 +308,64 @@ describe('Nova cursor system', () => {
     app.cursors.syncPointer({ x: 24, y: 24, target: null })
     expect(app.cursors.lastSource).toBe(bottom)
     expect(app.canvas.element.style.cursor).toBe('crosshair')
+
+    app.destroy()
+  })
+
+  it('reapplies hover cursor when an external writer resets the canvas style', () => {
+    const app = createApp()
+    const surface = app.createSurface('cursor')
+    const node = surface.createNode(CursorBoxNode)
+    node.options({ x: 20, y: 20, width: 120, height: 80, cursor: 'pointer', interactive: true })
+
+    app.cursors.syncPointer({ x: 40, y: 40, target: node })
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    app.canvas.element.style.cursor = 'default'
+    app.cursors.syncPointer({ x: 44, y: 44, target: node })
+
+    expect(app.cursors.lastDomCursor).toBe('pointer')
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    app.destroy()
+  })
+
+  it('keeps cursor manager value authoritative after render flush cursor commands', () => {
+    const app = createApp()
+    const surface = app.createSurface('cursor')
+    const reset = surface.createNode(CursorResetRenderNode)
+    const node = surface.createNode(CursorBoxNode)
+    reset.options({ x: 0, y: 0, width: 10, height: 10 })
+    node.options({ x: 20, y: 20, width: 120, height: 80, cursor: 'pointer', interactive: true })
+
+    app.raph.run()
+    app.cursors.syncPointer({ x: 40, y: 40, target: node })
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    reset.dirty({ render: true })
+    app.raph.run()
+
+    expect(app.cursors.lastDomCursor).toBe('pointer')
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    app.destroy()
+  })
+
+  it('keeps previous cursor source while a dirty cursor index temporarily misses it', () => {
+    const app = createApp()
+    const surface = app.createSurface('cursor')
+    const node = surface.createNode(CursorBoxNode)
+    node.options({ x: 20, y: 20, width: 120, height: 80, cursor: 'pointer', interactive: true })
+
+    app.cursors.syncPointer({ x: 40, y: 40, target: node })
+    expect(app.cursors.lastSource).toBe(node)
+
+    vi.spyOn(node, 'getRenderBounds').mockReturnValue({ x: 800, y: 800, width: 10, height: 10 })
+    app.cursors.markSpatialDirty(node)
+    app.cursors.syncPointer({ x: 44, y: 44, target: null })
+
+    expect(app.cursors.lastSource).toBe(node)
+    expect(app.canvas.element.style.cursor).toBe('pointer')
 
     app.destroy()
   })

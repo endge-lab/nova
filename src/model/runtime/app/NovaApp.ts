@@ -272,6 +272,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
         const surfaces = this.getOrderedSurfaces()
         this._orchestrator.render(surfaces, this._dirtySurfaces)
+        this.cursors.reapplyNativeCursor()
         const shouldContinueTextRaster = surfaces.some(surface => this.shouldContinueTextRaster(surface))
         this._dirtySurfaces.clear()
 
@@ -308,6 +309,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     @RaphLocalPhase({ name: NovaPhase.After, priority: 10, always: true })
     after(): void {
         this._diagnostics.phaseStart('after')
+        this.cursors.reapplyNativeCursor()
         this._debugger.frameEnd()
         this.metrics.markFrameEnd()
         this._diagnostics.phaseEnd()

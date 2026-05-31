@@ -194,6 +194,16 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
   }
 
   /**
+   * Восстанавливает DOM cursor после render/backend writers, если они перезаписали canvas style.
+   */
+  reapplyNativeCursor(): void {
+    if (!this._lastDomCursor) return
+    if (this.app.canvas.element.style.cursor === this._lastDomCursor) return
+
+    this.app.canvas.element.style.cursor = this._lastDomCursor
+  }
+
+  /**
    * Возвращает фактическую policy cursor hit-test индекса.
    */
   get hitTestIndexPolicy(): 'rbush' {
@@ -214,7 +224,22 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
   private resolveCursorSource(target: NovaNode<E> | null, x: number, y: number): NovaNode<E> | null {
     const fromTarget = target ? this.findCursorAncestor(target) : null
     if (fromTarget) return fromTarget
-    return this.cursorHitTest(x, y)
+
+    const fromIndex = this.cursorHitTest(x, y)
+    if (fromIndex) return fromIndex
+
+    const previous = this._lastSource
+    if (
+      previous
+      && this.cursorNodes.has(previous)
+      && previous.active
+      && previous.visible
+      && previous.containsPoint(x, y)
+    ) {
+      return previous
+    }
+
+    return null
   }
 
   /**
@@ -396,7 +421,7 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Применяет подготовленное состояние NovaCursorManager.
    */
   private applyNativeCursor(value: string): void {
-    if (this._lastDomCursor === value) return
+    if (this._lastDomCursor === value && this.app.canvas.element.style.cursor === value) return
 
     this.app.canvas.element.style.cursor = value
     this._lastDomCursor = value

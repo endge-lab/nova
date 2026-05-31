@@ -289,7 +289,18 @@ export function canPatchTemplateNode(node: NovaNode<any>, schema: NovaTemplateCh
   if (typeof schema.type === 'function') return node.constructor === schema.type
 
   const component = node as NovaComponentNode<any>
-  return !!component.descriptor && component.descriptor.type === schema.type
+  if (!component.descriptor) return false
+  if (component.descriptor.type === schema.type) return true
+
+  const descriptor = node.nova.schema.resolve(schema.type)
+  if (!descriptor) return false
+  if (descriptor.type === component.descriptor.type) return true
+
+  return descriptor.kind === component.descriptor.kind
+    && descriptor.name === component.descriptor.name
+    && descriptor.version === component.descriptor.version
+    && descriptor.createNode !== undefined
+    && descriptor.createNode === component.descriptor.createNode
 }
 
 function patchNovaTemplateEvents<E extends EventList>(

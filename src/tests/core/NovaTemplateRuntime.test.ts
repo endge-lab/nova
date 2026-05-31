@@ -253,6 +253,35 @@ describe('Nova template runtime', () => {
     app.destroy()
   })
 
+  it('reuses registry alias nodes when createNode returns a canonical descriptor', () => {
+    const app = createTestApp()
+    const descriptor = createDescriptor()
+    app.schema.register(descriptor)
+    app.schema.register({ ...descriptor, type: 'Alias.TemplateTest' })
+    const surface = app.createSurface('template-alias')
+    const parent = surface.createNode()
+    const runtime = new NovaTemplateRuntime(parent)
+
+    runtime.reconcile([
+      { type: 'Alias.TemplateTest', props: { label: 'first' } },
+    ])
+    const node = parent.children[0] as TemplateTestNode
+    const dispose = vi.spyOn(node, 'dispose')
+
+    const stats = runtime.reconcile([
+      { type: 'Alias.TemplateTest', props: { label: 'second' } },
+    ])
+
+    expect(stats.created).toBe(0)
+    expect(stats.reused).toBe(1)
+    expect(stats.removed).toBe(0)
+    expect(parent.children[0]).toBe(node)
+    expect(node.getProps().label).toBe('second')
+    expect(dispose).not.toHaveBeenCalled()
+
+    app.destroy()
+  })
+
   it('forwards explicit context while reconciling children', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
