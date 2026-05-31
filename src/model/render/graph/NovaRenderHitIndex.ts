@@ -1,5 +1,5 @@
 import type { NovaBounds } from '@/domain/types/renderer.types'
-import { novaBoundsIntersects } from '@/model/render/graph/nova-render-culling'
+import { NovaHitIndex } from '@/model/runtime/interaction/NovaHitIndex'
 
 /**
  * Описывает тип NovaRenderHitIndexPolicy.
@@ -21,11 +21,21 @@ export interface NovaRenderHitEntry<T = unknown> {
  */
 export class NovaRenderHitIndex<T = unknown> {
   private readonly _entries = new Map<string, NovaRenderHitEntry<T>>()
+  private readonly _index = new NovaHitIndex<NovaRenderHitEntry<T>>({
+    getBounds: entry => entry.bounds,
+  })
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
    */
   constructor(readonly policy: NovaRenderHitIndexPolicy = 'grid') {}
+
+  /**
+   * Возвращает фактическую policy индекса.
+   */
+  get effectivePolicy(): 'rbush' {
+    return 'rbush'
+  }
 
   /**
    * Возвращает size.
@@ -38,13 +48,20 @@ export class NovaRenderHitIndex<T = unknown> {
    * Выполняет внутреннюю операцию set.
    */
   set(entry: NovaRenderHitEntry<T>): void {
+    const previous = this._entries.get(entry.id)
+    if (previous) this._index.remove(previous)
     this._entries.set(entry.id, entry)
+    this._index.update(entry)
   }
 
   /**
    * Выполняет внутреннюю операцию delete.
    */
   delete(id: string): boolean {
+    const entry = this._entries.get(id)
+    if (!entry) return false
+
+    this._index.remove(entry)
     return this._entries.delete(id)
   }
 
@@ -53,16 +70,7 @@ export class NovaRenderHitIndex<T = unknown> {
    */
   queryPoint(x: number, y: number): NovaRenderHitEntry<T> | undefined {
     let top: NovaRenderHitEntry<T> | undefined
-    for (const entry of this._entries.values()) {
-      if (
-        x < entry.bounds.x
-        || y < entry.bounds.y
-        || x > entry.bounds.x + entry.bounds.width
-        || y > entry.bounds.y + entry.bounds.height
-      ) {
-        continue
-      }
-
+    for (const entry of this._index.queryPoint(x, y)) {
       if (!top || entry.order >= top.order) top = entry
     }
 
@@ -73,11 +81,7 @@ export class NovaRenderHitIndex<T = unknown> {
    * Выполняет query bounds.
    */
   queryBounds(bounds: NovaBounds): Array<NovaRenderHitEntry<T>> {
-    const result: Array<NovaRenderHitEntry<T>> = []
-    for (const entry of this._entries.values()) {
-      if (novaBoundsIntersects(entry.bounds, bounds)) result.push(entry)
-    }
-    return result.sort((a, b) => a.order - b.order)
+    return this._index.queryBounds(bounds).sort((a, b) => a.order - b.order)
   }
 
   /**
@@ -85,5 +89,6 @@ export class NovaRenderHitIndex<T = unknown> {
    */
   clear(): void {
     this._entries.clear()
+    this._index.clear()
   }
 }

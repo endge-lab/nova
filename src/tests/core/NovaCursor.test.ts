@@ -272,6 +272,34 @@ describe('Nova cursor system', () => {
     app.destroy()
   })
 
+  it('respects shape-level hit-test for cursor source resolution', () => {
+    const app = createApp()
+    const surface = app.createSurface('cursor')
+    const bottom = surface.createNode(CursorBoxNode)
+    const top = surface.createNode(CursorBoxNode)
+
+    bottom.options({ x: 20, y: 20, width: 120, height: 80, cursor: 'crosshair', zIndex: 0 })
+    top.options({
+      x: 20,
+      y: 20,
+      width: 120,
+      height: 80,
+      cursor: 'pointer',
+      zIndex: 10,
+      hitTest: ({ localX, localY }) => localX >= 40 && localX <= 80 && localY >= 20 && localY <= 60,
+    })
+
+    app.cursors.syncPointer({ x: 80, y: 60, target: null })
+    expect(app.cursors.lastSource).toBe(top)
+    expect(app.canvas.element.style.cursor).toBe('pointer')
+
+    app.cursors.syncPointer({ x: 24, y: 24, target: null })
+    expect(app.cursors.lastSource).toBe(bottom)
+    expect(app.canvas.element.style.cursor).toBe('crosshair')
+
+    app.destroy()
+  })
+
   it('reuses component cursor nodes per effective component signature', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')

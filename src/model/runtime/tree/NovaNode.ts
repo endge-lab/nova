@@ -4,6 +4,7 @@ import type { DataPathDef , RaphApp } from '@endge/raph'
 import type { OneOrMany , EventList } from '@endge/utils'
 import type { NovaNodeProperties } from '@/domain/types/base.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
+import type { NovaHitTestHandler } from '@/domain/types/hit-test.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
@@ -87,6 +88,7 @@ function hasSpatialOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number
     || opts.opacity !== undefined
     || opts.interactive !== undefined
     || opts.cursor !== undefined
+    || opts.hitTest !== undefined
     || opts.zIndex !== undefined
   )
 }
@@ -126,6 +128,7 @@ export class NovaNode<
   private _hasNodeContext = false
   private _semanticId?: string
   private _schemaSemanticSourceKey?: string
+  private _hitTest: NovaHitTestHandler | null = null
   private readonly _disposers: Array<() => void> = []
   private readonly _soundHandles = new Set<NovaSoundHandle>()
   private readonly _soundUserHandlers = new Map<keyof NovaNodeEventHandlers, unknown>()
@@ -320,6 +323,7 @@ export class NovaNode<
 
     this.setLocal('localActive', v)
     this.nova.events.markSpatialDirty(this, true)
+    this.nova.cursors.markSpatialDirty(this, true)
     this.raph.dirty('update', this)
   }
 
@@ -347,6 +351,7 @@ export class NovaNode<
 
     this.setLocal('localVisible', v)
     this.nova.events.markSpatialDirty(this, true)
+    this.nova.cursors.markSpatialDirty(this, true)
     this.dirty({ render: true })
   }
 
@@ -514,6 +519,7 @@ export class NovaNode<
   set interactive(v: boolean) {
     if (this.interactive === v) return
     this.nova.events.markSpatialDirty(this)
+    this.nova.cursors.markSpatialDirty(this)
     this.set('interactive', v)
   }
 
@@ -666,23 +672,26 @@ export class NovaNode<
   override options(
     opts: Partial<NovaNodeProperties> & { zIndex?: number },
   ): this {
-    const { zIndex, ...rest } = opts
+    const { zIndex, hitTest, ...rest } = opts
     const spatialDirty = hasSpatialOptions(opts)
     const hasCursorOption = Object.prototype.hasOwnProperty.call(opts, 'cursor')
     const hasCursorContextOption = Object.prototype.hasOwnProperty.call(opts, 'cursorContext')
+    const hasHitTestOption = Object.prototype.hasOwnProperty.call(opts, 'hitTest')
 
     if (zIndex !== undefined) {
       super.options({
         ...rest,
         weight: zIndex,
       })
+      if (hasHitTestOption) this.setHitTest(hitTest ?? null)
       if (hasCursorOption) this.syncCursorRegistration()
       if (hasCursorContextOption) this.nova.cursors.markSpatialDirty(this)
       if (spatialDirty) this.markSpatialDirtyForOptions(opts)
       return this
     }
 
-    super.options(opts)
+    super.options(rest)
+    if (hasHitTestOption) this.setHitTest(hitTest ?? null)
     if (hasCursorOption) this.syncCursorRegistration()
     if (hasCursorContextOption) this.nova.cursors.markSpatialDirty(this)
     if (spatialDirty) this.markSpatialDirtyForOptions(opts)
@@ -716,6 +725,7 @@ export class NovaNode<
       this.surface.renderGraph?.markVisibilityDirty(this.renderNodeId)
       if (!this.surface.renderGraph) this.markRenderFrameDirty(true)
       this.nova.events.markSpatialDirty(this, true)
+      this.nova.cursors.markSpatialDirty(this, true)
       this.raph.dirty('matrix', this)
       this.raph.dirty('render', this.surface)
       this.raph.dirty('flush', this.surface)
@@ -726,6 +736,7 @@ export class NovaNode<
       this.surface.renderGraph?.markResourceDirty(this.renderNodeId)
       this.markRenderFrameDirty(true)
       this.nova.events.markSpatialDirty(this)
+      this.nova.cursors.markSpatialDirty(this)
       this.raph.dirty('render', this.surface) // отрисовка всегда от корня слоя
       this.raph.dirty('flush', this.surface)
     }
@@ -744,6 +755,7 @@ export class NovaNode<
       this.markRenderFrameDirty(true)
     }
     this.nova.events.markSpatialDirty(this)
+    this.nova.cursors.markSpatialDirty(this)
     this.raph.dirty('render', this.surface)
     this.raph.dirty('flush', this.surface)
   }
@@ -863,12 +875,35 @@ export class NovaNode<
 
     const bounds = this.getLocalRenderBounds()
 
-    return (
+    const inBounds = (
       localX >= bounds.x &&
       localY >= bounds.y &&
       localX <= bounds.x + bounds.width &&
       localY <= bounds.y + bounds.height
     )
+    if (!inBounds) return false
+    if (!this._hitTest) return true
+
+    return this._hitTest({
+      node: this,
+      worldX: x,
+      worldY: y,
+      localX,
+      localY,
+      bounds,
+    }) === true
+  }
+
+  /**
+   * Обновляет shape-level hit-test handler.
+   */
+  setHitTest(handler: NovaHitTestHandler | null): this {
+    if (this._hitTest === handler) return this
+
+    this._hitTest = handler
+    this.nova.events.markSpatialDirty(this)
+    this.nova.cursors.markSpatialDirty(this)
+    return this
   }
 
   /**
@@ -1643,6 +1678,8 @@ export class NovaNode<
       if (this._lifecycleState === 'paused') {
         node.pause()
       }
+      this.nova.events.markSpatialDirty(node, true)
+      this.nova.cursors.markSpatialDirty(node, true)
       node.markRenderFrameDirty(true)
     }
 

@@ -144,7 +144,11 @@ export interface NovaDiagnosticsBrowserSnapshot {
  */
 export interface NovaDiagnosticsInputSnapshot {
   hitTestMode: string
+  hitTestIndexPolicy?: string
   lastHitTestCandidates: number
+  cursorLastHitTestCandidates?: number
+  hitTestIndexedNodes?: number
+  cursorIndexedNodes?: number
 }
 
 /**

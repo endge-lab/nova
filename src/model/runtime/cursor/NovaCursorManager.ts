@@ -31,6 +31,7 @@ export interface NovaCursorPointerSync<E extends EventList> {
  */
 export class NovaCursorManager<E extends EventList = Record<string, any>> {
   readonly cursorNodes = new Set<NovaNode<E>>()
+  lastHitTestCandidates = 0
 
   private readonly _spatialIndex = new NovaSpatialIndex<E>(32)
   private readonly _spatialDirtyNodes = new Set<NovaNode<E>>()
@@ -96,7 +97,10 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Синхронизирует cursor с текущим pointer state.
    */
   syncPointer(input: NovaCursorPointerSync<E>): void {
-    if (this.cursorNodes.size === 0) return
+    if (this.cursorNodes.size === 0) {
+      this.lastHitTestCandidates = 0
+      return
+    }
 
     const source = this.resolveCursorSource(input.target, input.x, input.y)
     if (!source) {
@@ -133,6 +137,7 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     this._lastCursorKey = ''
     this._lastSource = null
     this._lastState = null
+    this.lastHitTestCandidates = 0
   }
 
   /**
@@ -157,6 +162,7 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     this.cursorNodes.clear()
     this._spatialIndex.clear()
     this._spatialDirtyNodes.clear()
+    this.lastHitTestCandidates = 0
   }
 
   /**
@@ -185,6 +191,21 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    */
   get lastState(): NovaCursorRuntimeState<E> | null {
     return this._lastState
+  }
+
+  /**
+   * Возвращает фактическую policy cursor hit-test индекса.
+   */
+  get hitTestIndexPolicy(): 'rbush' {
+    return 'rbush'
+  }
+
+  /**
+   * Возвращает количество node в cursor hit-test индексе.
+   */
+  get hitTestIndexedNodeCount(): number {
+    this.syncSpatialIndex()
+    return this._spatialIndex.indexedNodeCount
   }
 
   /**
@@ -227,23 +248,35 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Возвращает значение состояния NovaCursorManager.
    */
   private getCursorCandidates(x: number, y: number): Array<NovaNode<E>> {
+    this.syncSpatialIndex()
+
+    const candidates = this._spatialIndex.queryPoint(x, y)
+      .filter(node => this.cursorNodes.has(node))
+    this.lastHitTestCandidates = this._spatialIndex.lastQueryCandidateCount
+    return candidates
+  }
+
+  /**
+   * Синхронизирует dirty nodes с cursor spatial index.
+   */
+  private syncSpatialIndex(): void {
     if (this._spatialFullDirty) {
       this._spatialIndex.rebuild(this.cursorNodes)
       this._spatialDirtyNodes.clear()
       this._spatialFullDirty = false
-    } else if (this._spatialDirtyNodes.size > 0) {
-      for (const node of this._spatialDirtyNodes) {
-        if (this.cursorNodes.has(node)) {
-          this._spatialIndex.update(node)
-        } else {
-          this._spatialIndex.remove(node)
-        }
-      }
-      this._spatialDirtyNodes.clear()
+      return
     }
 
-    return this._spatialIndex.queryPoint(x, y)
-      .filter(node => this.cursorNodes.has(node))
+    if (this._spatialDirtyNodes.size === 0) return
+
+    for (const node of this._spatialDirtyNodes) {
+      if (this.cursorNodes.has(node)) {
+        this._spatialIndex.update(node)
+      } else {
+        this._spatialIndex.remove(node)
+      }
+    }
+    this._spatialDirtyNodes.clear()
   }
 
   /**

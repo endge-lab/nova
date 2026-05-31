@@ -1976,7 +1976,27 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     })
 
     expect(hitIndex.queryPoint(16, 16)?.id).toBe('cell:2')
+    expect(hitIndex.effectivePolicy).toBe('rbush')
     expect(hitIndex.size).toBe(2)
+  })
+
+  it('keeps render hit index policy aliases backed by rbush queries', () => {
+    for (const policy of ['grid', 'rbush', 'row-interval'] as const) {
+      const hitIndex = new NovaRenderHitIndex(policy)
+
+      hitIndex.set({ id: `${policy}:low`, order: 1, bounds: { x: -20, y: -20, width: 40, height: 40 } })
+      hitIndex.set({ id: `${policy}:high`, order: 2, bounds: { x: -10, y: -10, width: 40, height: 40 } })
+      hitIndex.set({ id: `${policy}:zero`, order: 3, bounds: { x: 0, y: 0, width: 0, height: 40 } })
+
+      expect(hitIndex.effectivePolicy).toBe('rbush')
+      expect(hitIndex.queryPoint(0, 0)?.id).toBe(`${policy}:high`)
+      expect(hitIndex.queryBounds({ x: -25, y: -25, width: 30, height: 30 }).map(item => item.id)).toEqual([
+        `${policy}:low`,
+        `${policy}:high`,
+      ])
+      expect(hitIndex.delete(`${policy}:high`)).toBe(true)
+      expect(hitIndex.queryPoint(0, 0)?.id).toBe(`${policy}:low`)
+    }
   })
 
   for (const contractCase of RETAINED_CONTRACT_CASES.filter(testCase => !ACTIVE_RETAINED_CONTRACT_CASE_IDS.has(testCase.id))) {

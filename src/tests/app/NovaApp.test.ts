@@ -320,6 +320,11 @@ describe('NovaApp', () => {
     expect(snapshot.frame.index).toBeGreaterThan(0)
     expect(snapshot.availability.frame).toBe('exact')
     expect(snapshot.availability.resources).toBe('estimated')
+    expect(snapshot.input.hitTestIndexPolicy).toBe('rbush')
+    expect(snapshot.input.lastHitTestCandidates).toBeGreaterThanOrEqual(0)
+    expect(snapshot.input.cursorLastHitTestCandidates).toBeGreaterThanOrEqual(0)
+    expect(snapshot.input.hitTestIndexedNodes).toBeGreaterThanOrEqual(0)
+    expect(snapshot.input.cursorIndexedNodes).toBeGreaterThanOrEqual(0)
 
     app.destroy()
     vi.unstubAllGlobals()

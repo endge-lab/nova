@@ -7,6 +7,7 @@ import type { NovaDiagnosticsOptions } from '@/domain/types/diagnostics.types'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSoundOptions } from '@/domain/types/sound.types'
 import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
+import type { NovaHitTestHandler } from '@/domain/types/hit-test.types'
 import type { NovaThemeCreateOptions } from '@/domain/types/theme.types'
 import type { NovaSyncScope } from '@/model/runtime/sync/NovaSyncScope'
 
@@ -23,6 +24,7 @@ export interface NovaNodeProperties extends RaphProperties {
   propagateUpdate: boolean
   cursor: NovaCursorDeclaration | null
   cursorContext: NovaCursorContext | null
+  hitTest: NovaHitTestHandler | null
 
   // Фаза - update. Вычисляется из localActive и active родителя.
   active: boolean

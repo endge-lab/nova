@@ -2,6 +2,7 @@ import type { EventList } from '@endge/utils'
 import type {
   NovaComponentApiDefinition,
   NovaComponentCommandDefinition,
+  NovaComponentCreateContext,
   NovaComponentDescriptor,
   NovaComponentDirtyPolicy,
   NovaComponentPropDefinition,
@@ -9,6 +10,7 @@ import type {
   NovaComponentSchema,
   NovaComponentWatchDefinition,
   NovaElementConstructor,
+  NovaElementSlots,
 } from '@/domain/types/component.types'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
@@ -216,7 +218,7 @@ export function createNovaDecoratedComponentDescriptor<
         height: Number(props.height ?? 0),
       }
     },
-    createNode: <E extends EventList>(context: Parameters<NonNullable<NovaComponentDescriptor<TProps, TApi, TEvents, TSchema>['createNode']>>[0], schema: NovaComponentSchema<TSchema>) =>
+    createNode: <E extends EventList>(context: NovaComponentCreateContext<E>, schema: NovaComponentSchema<TSchema>) =>
       createDecoratedNode(component as NovaElementConstructor<E>, descriptor, context as never, schema as never) as NovaNode<E>,
   }
   return descriptor
@@ -374,15 +376,15 @@ function createDecoratedNode<E extends EventList>(
   return node
 }
 
-function applyDecoratedNodeSlots(node: NovaNode<any>, slots: NovaComponentSchema<Record<string, any>>['slots']): void {
+function applyDecoratedNodeSlots(node: NovaNode<any>, slots: NovaElementSlots | undefined): void {
   if (!slots) return
-  const target = node as unknown as { setSlots?: (slots: NonNullable<typeof slots>) => void; getApi?: () => unknown }
+  const target = node as unknown as { setSlots?: (slots: NovaElementSlots) => void; getApi?: () => unknown }
   if (typeof target.setSlots === 'function') {
     target.setSlots(slots)
     return
   }
   const api = typeof target.getApi === 'function'
-    ? target.getApi() as { setSlots?: (slots: NonNullable<typeof slots>) => void }
+    ? target.getApi() as { setSlots?: (slots: NovaElementSlots) => void }
     : null
   api?.setSlots?.(slots)
 }

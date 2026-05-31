@@ -1,4 +1,3 @@
-import type { EventList } from '@endge/utils'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type {
   NovaSyncEndpointInput,
@@ -36,7 +35,7 @@ export class NovaSyncScope {
   readonly scheduler: NovaSyncSchedule
 
   private readonly ports = new Map<string, NovaSyncRegisteredPort>()
-  private readonly nodeEndpoints = new WeakMap<NovaNode<EventList>, Set<string>>()
+  private readonly nodeEndpoints = new WeakMap<NovaNode<any>, Set<string>>()
   private readonly links = new Map<string, InternalLink>()
   private readonly microtaskQueue = new Map<string, QueuedWrite>()
   private readonly frameQueue = new Map<string, QueuedWrite>()
@@ -55,7 +54,7 @@ export class NovaSyncScope {
   /**
    * Регистрирует сущность в runtime-слое NovaSyncScope.
    */
-  registerNode(node: NovaNode<EventList>, ports: NovaSyncPortMap): () => void {
+  registerNode(node: NovaNode<any>, ports: NovaSyncPortMap): () => void {
     const endpoints = new Set<string>()
     for (const [name, port] of Object.entries(ports)) {
       const endpoint = this.endpointFor(node, name)
@@ -75,7 +74,7 @@ export class NovaSyncScope {
   /**
    * Удаляет регистрацию сущности из runtime-слоя NovaSyncScope.
    */
-  unregisterNode(node: NovaNode<EventList>): void {
+  unregisterNode(node: NovaNode<any>): void {
     const endpoints = this.nodeEndpoints.get(node)
     if (!endpoints) return
 
@@ -148,7 +147,7 @@ export class NovaSyncScope {
   /**
    * Выполняет действие notifyPortChanged в рамках ответственности NovaSyncScope.
    */
-  notifyPortChanged(node: NovaNode<EventList>, name: string, value?: unknown): void {
+  notifyPortChanged(node: NovaNode<any>, name: string, value?: unknown): void {
     const endpoint = this.endpointFor(node, name)
     if (!this.ports.has(endpoint)) return
     if (arguments.length >= 3) this.notify(endpoint, value)
@@ -312,7 +311,7 @@ export class NovaSyncScope {
   /**
    * Выполняет внутренний шаг endpointFor для NovaSyncScope.
    */
-  private endpointFor(node: NovaNode<EventList>, name: string): string {
+  private endpointFor(node: NovaNode<any>, name: string): string {
     const componentId = (node as unknown as { componentId?: string }).componentId
     if (!componentId) {
       throw new Error('[NovaSyncScope] Only component nodes with componentId can register sync ports')

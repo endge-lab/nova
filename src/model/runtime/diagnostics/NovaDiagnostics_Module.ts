@@ -455,7 +455,11 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   private collectInput(): NovaDiagnosticsInputSnapshot {
     return {
       hitTestMode: this._app.events.hitTestMode,
+      hitTestIndexPolicy: this._app.events.hitTestIndexPolicy,
       lastHitTestCandidates: this._app.events.lastHitTestCandidates,
+      cursorLastHitTestCandidates: this._app.cursors.lastHitTestCandidates,
+      hitTestIndexedNodes: this._app.events.hitTestIndexedNodeCount,
+      cursorIndexedNodes: this._app.cursors.hitTestIndexedNodeCount,
     }
   }
 

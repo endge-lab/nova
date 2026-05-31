@@ -163,6 +163,21 @@ export class NovaEvents<E extends EventList> {
   }
 
   /**
+   * Возвращает фактическую policy spatial hit-test индекса.
+   */
+  get hitTestIndexPolicy(): 'rbush' {
+    return 'rbush'
+  }
+
+  /**
+   * Возвращает количество node в spatial hit-test индексе.
+   */
+  get hitTestIndexedNodeCount(): number {
+    if (this.hitTestMode === 'spatial') this.syncSpatialIndex()
+    return this._spatialIndex.indexedNodeCount
+  }
+
+  /**
    * Выполняет внутреннюю операцию handle.
    */
   handle(type: keyof NovaNodeEventHandlers, event: Event): boolean {
@@ -379,20 +394,7 @@ export class NovaEvents<E extends EventList> {
     this.lastHitTestMode = this.hitTestMode
 
     if (this.hitTestMode === 'spatial') {
-      if (this._spatialFullDirty) {
-        this._spatialIndex.rebuild(this.interactiveNodes)
-        this._spatialFullDirty = false
-        this._spatialDirtyNodes.clear()
-      } else if (this._spatialDirtyNodes.size > 0) {
-        for (const node of this._spatialDirtyNodes) {
-          if (this.interactiveNodes.has(node)) {
-            this._spatialIndex.update(node)
-          } else {
-            this._spatialIndex.remove(node)
-          }
-        }
-        this._spatialDirtyNodes.clear()
-      }
+      this.syncSpatialIndex()
       const candidates = this._spatialIndex.queryPoint(x, y)
       this.lastHitTestCandidates = candidates.length
       return candidates
@@ -401,6 +403,29 @@ export class NovaEvents<E extends EventList> {
     const candidates = [...this.interactiveNodes]
     this.lastHitTestCandidates = candidates.length
     return candidates
+  }
+
+  /**
+   * Синхронизирует dirty nodes с spatial hit-test индексом.
+   */
+  private syncSpatialIndex(): void {
+    if (this._spatialFullDirty) {
+      this._spatialIndex.rebuild(this.interactiveNodes)
+      this._spatialFullDirty = false
+      this._spatialDirtyNodes.clear()
+      return
+    }
+
+    if (this._spatialDirtyNodes.size === 0) return
+
+    for (const node of this._spatialDirtyNodes) {
+      if (this.interactiveNodes.has(node)) {
+        this._spatialIndex.update(node)
+      } else {
+        this._spatialIndex.remove(node)
+      }
+    }
+    this._spatialDirtyNodes.clear()
   }
 
   /**

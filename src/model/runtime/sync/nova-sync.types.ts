@@ -1,4 +1,3 @@
-import type { EventList } from '@endge/utils'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 export type NovaSyncSchedule = 'immediate' | 'microtask' | 'frame'
@@ -13,7 +12,7 @@ export interface NovaSyncTransaction {
 
 export interface NovaSyncPort<T = unknown> {
   id?: string
-  owner?: NovaNode<EventList>
+  owner?: NovaNode<any>
   type?: string
   writable?: boolean
   schedule?: NovaSyncSchedule
@@ -46,7 +45,7 @@ export interface NovaSyncLink {
 export interface NovaSyncRegisteredPort {
   endpoint: string
   name: string
-  node: NovaNode<EventList>
+  node: NovaNode<any>
   port: NovaSyncPort<any>
 }
 

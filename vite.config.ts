@@ -8,6 +8,7 @@ const externalPackages = [
   '@endge/utils',
   'class-transformer',
   'gl-matrix',
+  'rbush',
 ]
 
 function isExternal(id: string): boolean {

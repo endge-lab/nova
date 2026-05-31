@@ -3,6 +3,7 @@ import type { EventList } from '@endge/utils'
 import {
   Nova,
   NovaContainer,
+  NovaHitIndex,
   NovaNode,
   NovaScene,
   NovaSpatialIndex,
@@ -611,6 +612,46 @@ describe('Nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
+  it('refines bounds hit-test with custom shape handlers', () => {
+    const log = createAuditLog()
+    const app = createApp({ input: true })
+    const surface = app.createSurface('scene', AuditSurface, log)
+    const bottom = surface.createNode(AuditNode, 'bottom', log)
+    const top = surface.createNode(AuditNode, 'top', log)
+
+    bottom.options({ x: 10, y: 10, width: 80, height: 80, zIndex: 1 })
+    top.options({
+      x: 10,
+      y: 10,
+      width: 80,
+      height: 80,
+      zIndex: 2,
+      hitTest: ({ localX, localY }) => {
+        const dx = localX - 40
+        const dy = localY - 40
+        return dx * dx + dy * dy <= 20 * 20
+      },
+    })
+    bottom.on('mousedown', vi.fn())
+    top.on('mousedown', vi.fn())
+
+    expect(top.containsPoint(50, 50)).toBe(true)
+    expect(top.containsPoint(15, 15)).toBe(false)
+
+    app.events.hitTestMode = 'linear'
+    expect(app.events.hitTest(50, 50)).toBe(top)
+    expect(app.events.hitTest(15, 15)).toBe(bottom)
+
+    app.events.hitTestMode = 'spatial'
+    expect(app.events.hitTest(50, 50)).toBe(top)
+    expect(app.events.hitTest(15, 15)).toBe(bottom)
+
+    top.setHitTest(({ localX, localY }) => localX >= 0 && localY >= 0 && localX <= 80 && localY <= 80)
+    expect(app.events.hitTest(15, 15)).toBe(top)
+
+    app.destroy()
+  })
+
   it('culls nodes outside surface bounds when bounds culling is enabled', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
@@ -945,6 +986,41 @@ describe('Nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
+  it('keeps spatial indexes in sync across reparent, visibility and transform changes', () => {
+    const log = createAuditLog()
+    const app = createApp({ input: true })
+    const surface = app.createSurface('scene', AuditSurface, log)
+    const leftGroup = surface.createNode(NovaContainer<TestEvents>)
+    const rightGroup = surface.createNode(NovaContainer<TestEvents>)
+    const child = new AuditNode(app, surface, 'child', log)
+
+    leftGroup.options({ x: 0, y: 0 })
+    rightGroup.options({ x: 200, y: 0 })
+    child.options({ x: 10, y: 10, width: 40, height: 40 })
+    child.on('mousedown', vi.fn())
+    leftGroup.addChild(child)
+    app.flush()
+    app.events.hitTestMode = 'spatial'
+
+    expect(app.events.hitTest(20, 20)).toBe(child)
+
+    rightGroup.addChild(child)
+    app.flush()
+    expect(app.events.hitTest(20, 20)).toBeNull()
+    expect(app.events.hitTest(220, 20)).toBe(child)
+
+    child.visible = false
+    app.flush()
+    expect(app.events.hitTest(220, 20)).toBeNull()
+
+    child.visible = true
+    child.options({ x: 30, y: 30, scaleX: 2, scaleY: 2 })
+    app.flush()
+    expect(app.events.hitTest(260, 70)).toBe(child)
+
+    app.destroy()
+  })
+
   it('unregisters interactive nodes when handlers are removed', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
@@ -1222,6 +1298,40 @@ describe('Nova core behavior and performance smoke', () => {
     expect(queryElapsedMs).toBeLessThan(80)
   })
 
+  it('queries rbush-backed hit index with negative, zero and large bounds', () => {
+    const items = [
+      { id: 'negative', bounds: { x: -50, y: -50, width: 40, height: 40 }, active: true },
+      { id: 'zero', bounds: { x: 0, y: 0, width: 0, height: 40 }, active: true },
+      { id: 'large', bounds: { x: 100, y: 100, width: 10_000, height: 10_000 }, active: true },
+      { id: 'inactive', bounds: { x: 100, y: 100, width: 20, height: 20 }, active: false },
+    ]
+    const index = new NovaHitIndex<typeof items[number]>({
+      getBounds: item => item.bounds,
+      isIndexable: item => item.active,
+    })
+
+    index.rebuild(items)
+
+    expect(index.indexedNodeCount).toBe(2)
+    expect(index.queryPoint(-25, -25).map(item => item.id)).toEqual(['negative'])
+    expect(index.lastQueryCandidateCount).toBe(1)
+    expect(index.queryPoint(0, 20).map(item => item.id)).toEqual([])
+    expect(index.lastQueryCandidateCount).toBe(0)
+    expect(index.queryPoint(120, 120).map(item => item.id)).toEqual(['large'])
+    expect(index.lastQueryCandidateCount).toBe(1)
+
+    items[0].bounds.x = 200
+    items[0].bounds.y = 200
+    index.update(items[0])
+
+    expect(index.queryPoint(-25, -25).map(item => item.id)).toEqual([])
+    expect(new Set(index.queryBounds({ x: 190, y: 190, width: 40, height: 40 }).map(item => item.id))).toEqual(new Set(['negative', 'large']))
+
+    items[2].active = false
+    index.update(items[2])
+    expect(index.queryPoint(120, 120)).toEqual([])
+  })
+
   it('queries spatial-indexed nodes by bounds without duplicates', () => {
     const nodes = Array.from({ length: 4 }, (_, index) => ({
       active: true,
@@ -1274,6 +1384,57 @@ describe('Nova core behavior and performance smoke', () => {
     expect(spatialIndex.indexedNodeCount).toBe(10_000)
     expect(spatialIndex.queryPoint(30, 30).length).toBeLessThan(300)
     expect(updateElapsedMs).toBeLessThan(80)
+  })
+
+  it('keeps rbush hit-test within large and clustered scene budgets', () => {
+    const items = Array.from({ length: 50_000 }, (_, index) => ({
+      id: index,
+      active: true,
+      bounds: {
+        x: (index % 500) * 12,
+        y: Math.floor(index / 500) * 12,
+        width: 8,
+        height: 8,
+      },
+    }))
+    const index = new NovaHitIndex<typeof items[number]>({
+      getBounds: item => item.bounds,
+      isIndexable: item => item.active,
+    })
+    const rebuildElapsedMs = measure('hit index rbush rebuild / 50000 nodes', () => {
+      index.rebuild(items)
+    })
+    const queryElapsedMs = measure('hit index rbush query / 50000 nodes / 10000 queries', () => {
+      for (let step = 0; step < 10_000; step += 1) {
+        index.queryPoint((step % 500) * 12 + 2, Math.floor(step / 500) * 12 + 2)
+      }
+    })
+    const clustered = items.map((item, itemIndex) => ({
+      ...item,
+      bounds: {
+        x: itemIndex % 64,
+        y: Math.floor(itemIndex % 64),
+        width: 96,
+        height: 96,
+      },
+    }))
+    const clusteredIndex = new NovaHitIndex<typeof clustered[number]>({
+      getBounds: item => item.bounds,
+      isIndexable: item => item.active,
+    })
+    clusteredIndex.rebuild(clustered)
+    const clusteredElapsedMs = measure('hit index rbush clustered query / 50000 nodes / 1000 queries', () => {
+      for (let step = 0; step < 1_000; step += 1) {
+        clusteredIndex.queryPoint(step % 64, step % 64)
+      }
+    })
+
+    expect(index.indexedNodeCount).toBe(50_000)
+    expect(index.queryPoint(2, 2)).toHaveLength(1)
+    expect(clusteredIndex.queryPoint(4, 4).length).toBeGreaterThan(1)
+    expect(rebuildElapsedMs).toBeLessThan(250)
+    expect(queryElapsedMs).toBeLessThan(120)
+    expect(clusteredElapsedMs).toBeLessThan(800)
   })
 
   it('culls 1000 offscreen nodes inside a mock frame budget', () => {
