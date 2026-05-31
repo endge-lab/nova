@@ -1,3 +1,7 @@
+import type { NovaTextFont } from '@/domain/types/renderer.types'
+
+type NovaResolvedTextFont = NonNullable<NovaTextFont>
+
 export type NovaInputEngine = 'canvas' | 'proxy' | 'auto'
 export type NovaInputState = 'idle' | 'hovered' | 'focused' | 'disabled' | 'invalid' | 'readonly'
 export type NovaInputValidationResult = true | string | { message: string; code?: string }
@@ -54,8 +58,8 @@ export interface NovaTextMeasureOptions {
   fontSize?: number
   lineHeight?: number
   fontFamily?: string
-  fontWeight?: string
-  fontStyle?: string
+  fontWeight?: NovaResolvedTextFont['weight']
+  fontStyle?: NovaResolvedTextFont['style']
   charWidth?: number
   tabSize?: number
   padding?: number | { top?: number; right?: number; bottom?: number; left?: number; horizontal?: number; vertical?: number }
@@ -68,8 +72,8 @@ export interface NovaTextMeasureContext {
   fontSize: number
   lineHeight: number
   fontFamily: string
-  fontWeight: string
-  fontStyle: string
+  fontWeight: NovaResolvedTextFont['weight']
+  fontStyle: NovaResolvedTextFont['style']
   charWidth: number
   tabSize: number
 }
