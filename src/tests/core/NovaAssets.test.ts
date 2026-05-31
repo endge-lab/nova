@@ -213,6 +213,75 @@ describe('Nova assets registry', () => {
     restoreUrlObjectMethods(previousCreateObjectURL, previousRevokeObjectURL)
   })
 
+  it('uses auto DPR for SVG canvas materialization and caps it at 2', () => {
+    const previousDpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio')
+    Object.defineProperty(window, 'devicePixelRatio', { value: 3, configurable: true })
+    const onUpdate = vi.fn()
+    const registry = new NovaAssetRegistry(undefined, onUpdate)
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      clearRect: vi.fn(),
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D)
+    const previousCreateObjectURL = URL.createObjectURL
+    const previousRevokeObjectURL = URL.revokeObjectURL
+    Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:nova-svg-dpr-test'), configurable: true })
+    Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true })
+    const bundle = Nova.assets.define('svg-auto-dpr-test', {
+      icons: {
+        moon: Nova.assets.svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3"/></svg>', {
+          width: 24,
+          height: 24,
+          color: '#fff',
+        }),
+      },
+    })
+
+    registry.use(bundle)
+
+    const source = registry.resolveDrawable(bundle.icons.moon) as HTMLCanvasElement
+    expect(source.width).toBe(48)
+    expect(source.height).toBe(48)
+    expect(onUpdate).not.toHaveBeenCalled()
+
+    getContext.mockRestore()
+    restoreUrlObjectMethods(previousCreateObjectURL, previousRevokeObjectURL)
+    restoreWindowDevicePixelRatio(previousDpr)
+  })
+
+  it('allows explicit SVG pixel ratio override', () => {
+    const previousDpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio')
+    Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true })
+    const registry = new NovaAssetRegistry()
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+      clearRect: vi.fn(),
+      drawImage: vi.fn(),
+    } as unknown as CanvasRenderingContext2D)
+    const previousCreateObjectURL = URL.createObjectURL
+    const previousRevokeObjectURL = URL.revokeObjectURL
+    Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:nova-svg-explicit-dpr-test'), configurable: true })
+    Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true })
+    const bundle = Nova.assets.define('svg-explicit-dpr-test', {
+      icons: {
+        moon: Nova.assets.svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3"/></svg>', {
+          width: 24,
+          height: 24,
+          color: '#fff',
+          pixelRatio: 1,
+        }),
+      },
+    })
+
+    registry.use(bundle)
+
+    const source = registry.resolveDrawable(bundle.icons.moon) as HTMLCanvasElement
+    expect(source.width).toBe(24)
+    expect(source.height).toBe(24)
+
+    getContext.mockRestore()
+    restoreUrlObjectMethods(previousCreateObjectURL, previousRevokeObjectURL)
+    restoreWindowDevicePixelRatio(previousDpr)
+  })
+
   it('bumps drawable key when an async SVG asset becomes ready', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)
@@ -319,4 +388,9 @@ function restoreUrlObjectMethods(
   else delete (URL as Partial<typeof URL>).createObjectURL
   if (revokeObjectURL) Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true })
   else delete (URL as Partial<typeof URL>).revokeObjectURL
+}
+
+function restoreWindowDevicePixelRatio(descriptor: PropertyDescriptor | undefined): void {
+  if (descriptor) Object.defineProperty(window, 'devicePixelRatio', descriptor)
+  else delete (window as Partial<Window>).devicePixelRatio
 }

@@ -38,7 +38,10 @@ export interface NovaSvgAssetDescriptor {
   readonly width: number
   readonly height: number
   readonly color?: string
+  readonly pixelRatio?: NovaSvgAssetPixelRatio
 }
+
+export type NovaSvgAssetPixelRatio = number | 'auto'
 
 /**
  * Описывает image asset descriptor.
@@ -744,8 +747,9 @@ export class NovaAssetRegistry {
     const materialized: AssetMaterialization = { ready: false, loading: true }
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
-    canvas.width = Math.max(1, descriptor.width)
-    canvas.height = Math.max(1, descriptor.height)
+    const pixelRatio = resolveSvgAssetPixelRatio(descriptor.pixelRatio)
+    canvas.width = Math.max(1, Math.ceil(descriptor.width * pixelRatio))
+    canvas.height = Math.max(1, Math.ceil(descriptor.height * pixelRatio))
 
     if (!ctx) {
       materialized.source = canvas
@@ -956,7 +960,7 @@ export function defineNovaAssets<
  */
 export function createNovaSvgAsset(
   source: string,
-  options: { width: number; height: number; color?: string },
+  options: { width: number; height: number; color?: string; pixelRatio?: NovaSvgAssetPixelRatio },
 ): NovaSvgAssetDescriptor {
   return Object.freeze({
     type: 'svg',
@@ -964,7 +968,19 @@ export function createNovaSvgAsset(
     width: options.width,
     height: options.height,
     color: options.color,
+    pixelRatio: options.pixelRatio ?? 'auto',
   })
+}
+
+/**
+ * Вычисляет внутренний pixel ratio для SVG rasterization.
+ */
+function resolveSvgAssetPixelRatio(pixelRatio: NovaSvgAssetPixelRatio | undefined): number {
+  if (pixelRatio === undefined || pixelRatio === 'auto') {
+    const raw = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1
+    return Math.max(1, Math.min(raw, 2))
+  }
+  return Math.max(0.01, pixelRatio)
 }
 
 /**
