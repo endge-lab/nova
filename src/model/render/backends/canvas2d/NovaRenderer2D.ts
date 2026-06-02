@@ -878,12 +878,17 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       if (alpha <= 0) continue
 
       ctx.fillStyle = `rgba(${Math.round((batch.colors[colorOffset] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 1] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 2] ?? 0) * 255)}, ${alpha})`
-      ctx.fillRect(
-        batch.x[index] ?? 0,
-        batch.y[index] ?? 0,
-        batch.width[index] ?? 0,
-        batch.height[index] ?? 0,
-      )
+      const x = batch.x[index] ?? 0
+      const y = batch.y[index] ?? 0
+      const width = batch.width[index] ?? 0
+      const height = batch.height[index] ?? 0
+      const radius = batch.radii?.[index] ?? 0
+      if (radius > 0) {
+        this._drawRoundedRect(x, y, width, height, radius)
+        ctx.fill()
+      } else {
+        ctx.fillRect(x, y, width, height)
+      }
     }
 
     ctx.restore()

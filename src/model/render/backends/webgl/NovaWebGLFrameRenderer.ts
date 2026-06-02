@@ -60,7 +60,7 @@ const PARTICLE_POSITION_STRIDE = 2
 const PARTICLE_CIRCLE_STATIC_STRIDE = 10
 const PARTICLE_SPRITE_STATIC_STRIDE = 2
 const RECT_BATCH_GEOMETRY_STRIDE = 4
-const RECT_BATCH_STATIC_STRIDE = 5
+const RECT_BATCH_STATIC_STRIDE = 6
 const TIME_RANGE_SEGMENT_GEOMETRY_STRIDE = 4
 const TIME_RANGE_SEGMENT_STATIC_STRIDE = 8
 const TEXTURE_RECT_BATCH_GEOMETRY_STRIDE = 4
@@ -5138,6 +5138,7 @@ export class NovaWebGLFrameRenderer {
       target[targetOffset + 2] = batch.colors[colorOffset + 2] ?? 0
       target[targetOffset + 3] = (batch.colors[colorOffset + 3] ?? 1) * opacity
       target[targetOffset + 4] = batch.states?.[index] ?? 0
+      target[targetOffset + 5] = batch.radii?.[index] ?? 0
     }
   }
 
@@ -6383,6 +6384,7 @@ export class NovaWebGLFrameRenderer {
     const stride = RECT_BATCH_STATIC_STRIDE * FLOAT_BYTES
     this.bindAttribDivisor(this._rectBatchProgram, 'a_color', 4, stride, 0, 1)
     this.bindAttribDivisor(this._rectBatchProgram, 'a_state', 1, stride, 4, 1)
+    this.bindAttribDivisor(this._rectBatchProgram, 'a_radius', 1, stride, 5, 1)
 
     gl.bindVertexArray(null)
     return vao
@@ -7349,9 +7351,13 @@ in vec2 a_unit;
 in vec4 a_rect;
 in vec4 a_color;
 in float a_state;
+in float a_radius;
 uniform vec2 u_resolution;
 uniform mat3 u_transform;
 out vec4 v_color;
+out vec2 v_local;
+out vec2 v_size;
+flat out float v_radius;
 flat out float v_state;
 void main() {
   vec2 uv = (a_unit + vec2(1.0)) * 0.5;
@@ -7361,6 +7367,9 @@ void main() {
   vec2 clipSpace = zeroToOne * 2.0 - 1.0;
   gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
   v_color = a_color;
+  v_local = uv * a_rect.zw;
+  v_size = a_rect.zw;
+  v_radius = a_radius;
   v_state = a_state;
 }
 `
@@ -7368,12 +7377,25 @@ void main() {
 const RECT_BATCH_FRAGMENT_SHADER = `#version 300 es
 precision mediump float;
 in vec4 v_color;
+in vec2 v_local;
+in vec2 v_size;
+flat in float v_radius;
 flat in float v_state;
 out vec4 outColor;
+float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p - halfSize) - (halfSize - vec2(radius));
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
 void main() {
   vec4 color = v_color;
   if (v_state > 0.5) {
     color.rgb = min(color.rgb * 1.08 + vec3(0.03), vec3(1.0));
+  }
+  float radius = min(v_radius, min(v_size.x, v_size.y) * 0.5);
+  if (radius > 0.0) {
+    float dist = sdRoundRect(v_local, v_size * 0.5, radius);
+    float aa = max(fwidth(dist), 0.001);
+    color.a *= 1.0 - smoothstep(-aa, aa, dist);
   }
   outColor = color;
 }

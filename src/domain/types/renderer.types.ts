@@ -350,6 +350,7 @@ export interface NovaRectBatch extends NovaUIBase {
   width: NovaRectNumberData
   height: NovaRectNumberData
   colors: NovaRectNumberData
+  radii?: NovaRectNumberData
   states?: NovaRectNumberData
   opacity?: number
   revision?: number
