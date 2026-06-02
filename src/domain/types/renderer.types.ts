@@ -118,6 +118,7 @@ export interface NovaText extends NovaUIBase {
   y: number
   width: number
   height: number
+  rotation?: number
   parser?: 'string' | 'markdown'
   styles?: {
     color?: string

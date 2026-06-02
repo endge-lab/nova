@@ -491,6 +491,14 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   text(p: NovaText): void {
     //
     //
+    const rotation = normalizeTextRotation(p.rotation)
+    const ctx = this.ctx
+    if (rotation !== 0) {
+      ctx.save()
+      ctx.translate(p.x + p.width / 2, p.y + p.height / 2)
+      ctx.rotate(rotation)
+      ctx.translate(-(p.x + p.width / 2), -(p.y + p.height / 2))
+    }
     const padding = this._resolvePadding(p.styles?.padding)
     const hasPadding: boolean = padding.left !== 0 || padding.right !== 0 || padding.top !== 0 || padding.bottom !== 0
 
@@ -519,6 +527,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     if (shouldClipToInner) {
       this.clearClip()
     }
+    if (rotation !== 0) ctx.restore()
   }
 
   /**
@@ -1326,6 +1335,10 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
 function resolveTextBatchItemValue<T>(value: T | ReadonlyArray<T | undefined> | undefined, index: number): T | undefined {
   return Array.isArray(value) ? value[index] : value as T | undefined
+}
+
+function normalizeTextRotation(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
 interface NineSliceSegment {

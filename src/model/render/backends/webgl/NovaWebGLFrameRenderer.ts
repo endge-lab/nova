@@ -2175,17 +2175,18 @@ export class NovaWebGLFrameRenderer {
    * Выполняет внутреннюю операцию draw text.
    */
 	  private drawText(text: NovaText, transform: mat3, stats: RenderStats): void {
+	    const textTransform = createRotatedTextTransform(text, transform)
 	    const mode = this.resolveTextRenderMode(text)
 
-	    if (!this.shouldDrawTextRun(transform, text.x, text.y, text.width, text.height, mode, stats, text.meta)) return
+	    if (!this.shouldDrawTextRun(textTransform, text.x, text.y, text.width, text.height, mode, stats, text.meta)) return
 
     const style = compileNovaTextStyle(text)
     if (mode === 'glyph-atlas' || mode === 'msdf') {
-      if (this.drawGlyphText(text, style, mode, transform, stats)) return
+      if (this.drawGlyphText(text, style, mode, textTransform, stats)) return
       stats.textModeFallbacks += 1
     }
 
-	    const scale = this.resolveTextRasterScale(transform, stats, this.resolveTextRasterScope(text.meta, mode))
+	    const scale = this.resolveTextRasterScale(textTransform, stats, this.resolveTextRasterScope(text.meta, mode))
 	    const atlasItem = this.resolveTextAtlasItem(text, style, scale, stats, mode)
     if (!atlasItem) return
     const quad = this.resolveTextAtlasQuad(text, atlasItem)
@@ -2197,7 +2198,7 @@ export class NovaWebGLFrameRenderer {
       quad.y,
       quad.width,
       quad.height,
-      transform,
+      textTransform,
       style.opacity,
       stats,
       quad.u0,
@@ -6896,6 +6897,22 @@ function resolveTextBatchItemValue<T>(value: T | ReadonlyArray<T | undefined> | 
 
 function resolveTextBatchSharedValue<T>(value: T | ReadonlyArray<T | undefined> | undefined): T | undefined {
   return Array.isArray(value) ? undefined : value as T | undefined
+}
+
+function createRotatedTextTransform(text: NovaText, transform: mat3): mat3 {
+  const rotation = normalizeTextRotation(text.rotation)
+  if (rotation === 0) return transform
+  const next = mat3.clone(transform)
+  const cx = text.x + text.width / 2
+  const cy = text.y + text.height / 2
+  mat3.translate(next, next, [cx, cy])
+  mat3.rotate(next, next, rotation)
+  mat3.translate(next, next, [-cx, -cy])
+  return next
+}
+
+function normalizeTextRotation(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
 /**
