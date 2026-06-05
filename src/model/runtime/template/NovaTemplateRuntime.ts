@@ -65,6 +65,12 @@ export interface NovaTemplateReconcileResult<E extends EventList = Record<string
   patched: number
 }
 
+export type NovaTemplateParentRenderDirtyMode = 'always' | 'structural' | 'never'
+
+export interface NovaTemplateRuntimeOptions {
+  parentRenderDirty?: NovaTemplateParentRenderDirtyMode
+}
+
 interface NovaTemplateEventState {
   events: Map<string, (...args: Array<any>) => void>
 }
@@ -109,6 +115,7 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
   constructor(
     private readonly parent: NovaNode<E>,
     private scope: NovaScope = { refs: {} },
+    private readonly options: NovaTemplateRuntimeOptions = {},
   ) {
     NODE_TEMPLATE_SCOPE.set(parent, scope)
   }
@@ -131,7 +138,9 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
 
     this.reconciling = true
     try {
-      this.stats = reconcileNovaTemplateChildren(this.parent, this.managedChildren, children, this.scope)
+      this.stats = reconcileNovaTemplateChildren(this.parent, this.managedChildren, children, this.scope, {
+        parentRenderDirty: this.options.parentRenderDirty ?? 'always',
+      })
       this.managedChildren = this.stats.nodes
     } finally {
       this.reconciling = false
@@ -175,6 +184,7 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
   previousNodes: ReadonlyArray<NovaNode<E>>,
   nextSchemas: ReadonlyArray<NovaTemplateChildSchema>,
   scope?: NovaScope,
+  options: NovaTemplateRuntimeOptions = {},
 ): NovaTemplateReconcileResult<E> {
   const activeScope = scope ?? NODE_TEMPLATE_SCOPE.get(parent) ?? { refs: {} }
   const available = new Map<string, NovaNode<E>>()
@@ -226,9 +236,20 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
     removed += 1
   }
 
+  const structuralDirty = created > 0
+    || removed > 0
+    || previousNodes.length !== nextNodes.length
+    || previousNodes.some((node, index) => node !== nextNodes[index])
+
   reorderManagedChildren(parent, previousNodes, nextNodes)
   syncNovaTemplateMatrices(nextNodes)
-  parent.dirty({ render: true })
+  const parentRenderDirty = options.parentRenderDirty ?? 'always'
+  if (
+    parentRenderDirty === 'always'
+    || (parentRenderDirty === 'structural' && structuralDirty)
+  ) {
+    parent.dirty({ render: true })
+  }
 
   return {
     nodes: nextNodes,
