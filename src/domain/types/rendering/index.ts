@@ -598,6 +598,9 @@ export interface NovaRenderMetrics {
   uploadBytes?: number
   bufferDataCalls?: number
   bufferSubDataCalls?: number
+  schemaResidentBatchHits?: number
+  schemaResidentBatchMisses?: number
+  schemaResidentBatchUploads?: number
   fullUploads?: number
   dirtyRangeCount?: number
   gpuBufferCapacityBytes?: number

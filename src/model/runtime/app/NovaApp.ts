@@ -78,6 +78,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     private readonly _orderedSurfaces: Array<NovaSurface<E>> = []
     private readonly _dirtySurfaces = new Set<NovaSurface<E>>()
     private _surfaceOrderCounter = 0
+    private _textRasterContinuationPending = false
 
     //
     // Общие runtime-сервисы приложения.
@@ -286,11 +287,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         this._diagnostics.phaseEnd()
         this._debugger.phaseEnd()
 
-        if (shouldContinueTextRaster) {
-            for (const surface of surfaces) {
-                this.raph.dirty('flush', surface)
-            }
-        }
+        if (shouldContinueTextRaster) this.scheduleTextRasterContinuation(surfaces)
     }
 
     /**
@@ -301,6 +298,21 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         if (!metrics) return false
 
         return (metrics.textRasterDeferred ?? 0) > 0
+    }
+
+    /**
+     * Планирует continuation repaint вне текущего flush stack.
+     */
+    private scheduleTextRasterContinuation(surfaces: Array<NovaSurface<E>>): void {
+        if (this._textRasterContinuationPending) return
+        this._textRasterContinuationPending = true
+        const deferredSurfaces = [...surfaces]
+        queueMicrotask(() => {
+            this._textRasterContinuationPending = false
+            for (const surface of deferredSurfaces) {
+                this.raph.dirty('flush', surface)
+            }
+        })
     }
 
     /**

@@ -41,10 +41,10 @@ function createMetrics(partial: Partial<NovaRenderMetrics> = {}): NovaRenderMetr
   }
 }
 
-function createFrame(metrics: Partial<NovaRenderMetrics> = {}): NovaRenderFrame {
+function createFrame(metrics: Partial<NovaRenderMetrics> = {}, surfaceId = 'surface'): NovaRenderFrame {
   return {
     id: 1,
-    surfaceId: 'surface',
+    surfaceId,
     rendererType: RendererType.WebGL,
     viewport: {
       x: 0,
@@ -66,6 +66,28 @@ function createFrame(metrics: Partial<NovaRenderMetrics> = {}): NovaRenderFrame 
       bytesUploaded: 0,
     },
     metrics: createMetrics(metrics),
+  }
+}
+
+function createWebGLBackend(metrics: NovaRenderMetrics = createMetrics({ backendMs: 1 })): NovaRenderBackend {
+  return {
+    id: 'webgl-test-backend',
+    type: RendererType.WebGL,
+    novaCanvas: {
+      width: 800,
+      height: 600,
+      pixelWidth: 800,
+      pixelHeight: 600,
+      dpr: 1,
+      maxDpr: 1,
+      element: {} as HTMLCanvasElement,
+      getBoundingClientRect: () => ({ x: 0, y: 0, width: 800, height: 600 } as DOMRectReadOnly),
+      invalidate: vi.fn(),
+      resize: vi.fn(),
+    } as unknown as NovaRenderBackend['novaCanvas'],
+    clearRoot: vi.fn(),
+    renderFrame: vi.fn(() => metrics),
+    destroy: vi.fn(),
   }
 }
 
@@ -139,5 +161,52 @@ describe('NovaRenderOrchestrator', () => {
 
     expect(surface.compileRenderFrame).toHaveBeenCalledTimes(1)
     expect(backend.renderFrame).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders WebGL surfaces directly while surface target compositor is disabled', () => {
+    const compiledFrame = createFrame({ compilerMs: 2, nodeRenderCalls: 1 })
+    const backend = createWebGLBackend()
+    const orchestrator = new NovaRenderOrchestrator(backend)
+    const surface = {
+      renderFrameDirty: false,
+      compileRenderFrame: vi.fn(() => compiledFrame),
+      setRenderMetrics: vi.fn(),
+    } as unknown as NovaSurface<any>
+
+    orchestrator.render([surface], new Set([surface]))
+    orchestrator.render([surface], new Set())
+
+    expect(surface.compileRenderFrame).toHaveBeenCalledTimes(1)
+    expect(backend.renderFrame).toHaveBeenCalledTimes(2)
+    expect(backend.renderFrame).toHaveBeenNthCalledWith(1, compiledFrame)
+    expect(backend.renderFrame).toHaveBeenNthCalledWith(2, compiledFrame)
+  })
+
+  it('renders WebGL controls and world surfaces directly in z-order', () => {
+    const worldFrame = createFrame({ compilerMs: 2, nodeRenderCalls: 1 }, 'root:world')
+    const controlsFrame = createFrame({ compilerMs: 1, nodeRenderCalls: 1 }, 'root:controls')
+    const backend = createWebGLBackend()
+    const orchestrator = new NovaRenderOrchestrator(backend)
+    const world = {
+      name: 'root:world',
+      renderFrameDirty: false,
+      compileRenderFrame: vi.fn(() => worldFrame),
+      setRenderMetrics: vi.fn(),
+    } as unknown as NovaSurface<any>
+    const controls = {
+      name: 'root:controls',
+      renderFrameDirty: false,
+      compileRenderFrame: vi.fn(() => controlsFrame),
+      setRenderMetrics: vi.fn(),
+    } as unknown as NovaSurface<any>
+
+    orchestrator.render([world, controls], new Set([world, controls]))
+    orchestrator.render([world, controls], new Set())
+
+    expect(backend.renderFrame).toHaveBeenCalledTimes(4)
+    expect(backend.renderFrame).toHaveBeenNthCalledWith(1, worldFrame)
+    expect(backend.renderFrame).toHaveBeenNthCalledWith(2, controlsFrame)
+    expect(backend.renderFrame).toHaveBeenNthCalledWith(3, worldFrame)
+    expect(backend.renderFrame).toHaveBeenNthCalledWith(4, controlsFrame)
   })
 })

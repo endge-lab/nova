@@ -178,6 +178,9 @@ interface RenderStats {
   uploadMs: number
   bufferDataCalls: number
   bufferSubDataCalls: number
+  schemaResidentBatchHits: number
+  schemaResidentBatchMisses: number
+  schemaResidentBatchUploads: number
   fullUploads: number
   dirtyRangeCount: number
   updatedHandles: number
@@ -486,6 +489,9 @@ interface RectBatchCache {
   instances: number
   itemOffsets: Array<number>
   signatures: Array<string>
+  upload?: WebGLUploadState
+  buffer?: WebGLBuffer
+  vao?: WebGLVertexArrayObject
   contentVersion?: number
   visibilityKey?: string
 }
@@ -786,6 +792,7 @@ export class NovaWebGLFrameRenderer {
   private readonly _iconStreamBatchCache = new WeakMap<NovaIconBatch, TextureRectStreamBatchCache>()
   private readonly _textStreamBatchCache = new WeakMap<NovaTextBatch, TextureRectStreamBatchCache>()
   private readonly _stripeStreamBatchCache = new WeakMap<NovaStripeRectBatch, StripeStreamBatchCache>()
+  private readonly _ownedRectSchemaBatchCaches = new Set<RectBatchCache>()
   private readonly _ownedTextureBatchCaches = new Set<TextureBatchCache>()
   private readonly _ownedParticleCircleBatchCaches = new Set<ParticleCircleBatchCache>()
   private readonly _ownedParticleSpriteBatchCaches = new Set<ParticleSpriteBatchCache>()
@@ -878,6 +885,9 @@ export class NovaWebGLFrameRenderer {
       uploadMs: 0,
       bufferDataCalls: 0,
       bufferSubDataCalls: 0,
+      schemaResidentBatchHits: 0,
+      schemaResidentBatchMisses: 0,
+      schemaResidentBatchUploads: 0,
       fullUploads: 0,
       dirtyRangeCount: 0,
       updatedHandles: 0,
@@ -1061,6 +1071,9 @@ export class NovaWebGLFrameRenderer {
       uploadBytes: stats.uploadBytes,
       bufferDataCalls: stats.bufferDataCalls,
       bufferSubDataCalls: stats.bufferSubDataCalls,
+      schemaResidentBatchHits: stats.schemaResidentBatchHits,
+      schemaResidentBatchMisses: stats.schemaResidentBatchMisses,
+      schemaResidentBatchUploads: stats.schemaResidentBatchUploads,
       fullUploads: stats.fullUploads,
       dirtyRangeCount: stats.dirtyRangeCount,
       gpuBufferCapacityBytes: stats.gpuBufferCapacityBytes,
@@ -1149,6 +1162,11 @@ export class NovaWebGLFrameRenderer {
     this._textures.clear()
     this.destroyTextAtlas()
     this.destroyGlyphAtlas()
+    for (const cache of this._ownedRectSchemaBatchCaches) {
+      if (cache.buffer) this._gl.deleteBuffer(cache.buffer)
+      if (cache.vao) this._gl.deleteVertexArray(cache.vao)
+    }
+    this._ownedRectSchemaBatchCaches.clear()
     for (const cache of this._ownedTextureBatchCaches) {
       if (cache.buffer) this._gl.deleteBuffer(cache.buffer)
       if (cache.vao) this._gl.deleteVertexArray(cache.vao)
@@ -1320,6 +1338,7 @@ export class NovaWebGLFrameRenderer {
     } else if (batch.visibilityKey !== visibilityKey) {
       const nextBatch = this.buildRectBatch(items, transform, stats)
       if (!nextBatch) return false
+      this.disposeRectSchemaBatchCache(batch)
       nextBatch.contentVersion = contentVersion
       nextBatch.visibilityKey = visibilityKey
       batch = nextBatch
@@ -1329,6 +1348,7 @@ export class NovaWebGLFrameRenderer {
       if (!update) {
         const nextBatch = this.buildRectBatch(items, transform, stats)
         if (!nextBatch) return false
+        this.disposeRectSchemaBatchCache(batch)
         nextBatch.contentVersion = contentVersion
         nextBatch.visibilityKey = visibilityKey
         batch = nextBatch
@@ -1341,13 +1361,7 @@ export class NovaWebGLFrameRenderer {
     }
 
     if (batch.data.length === 0) return true
-    this.flushTexture(stats)
-    this.flushSolid(stats)
-    this.prepareRoundedTransform(transform, stats)
-    if (this._rectData.length > 0 || this._rectCachedData) this.flushRounded(stats)
-    this._rectCachedData = batch.data
-    this._rectCachedDirtyRanges = dirtyRanges
-    stats.instances += batch.instances
+    this.drawResidentRectSchemaBatch(batch, transform, stats, dirtyRanges, 'rounded')
     if (dirtyRanges?.length) {
       stats.updatedHandles += changedItems
       stats.dirtyStreamRanges += dirtyRanges.length
@@ -1371,6 +1385,7 @@ export class NovaWebGLFrameRenderer {
       batch.visibilityKey = visibilityKey
       this._plainRectBatchCache.set(items, batch)
     } else if (batch.visibilityKey !== visibilityKey) {
+      this.disposeRectSchemaBatchCache(batch)
       batch = this.buildPlainRectBatch(items, transform, stats)
       batch.contentVersion = contentVersion
       batch.visibilityKey = visibilityKey
@@ -1378,6 +1393,7 @@ export class NovaWebGLFrameRenderer {
     } else if (contentVersion === undefined || batch.contentVersion !== contentVersion) {
       const update = this.updatePlainRectBatch(items, batch, dirtyIndices)
       if (!update) {
+        this.disposeRectSchemaBatchCache(batch)
         batch = this.buildPlainRectBatch(items, transform, stats)
         batch.contentVersion = contentVersion
         batch.visibilityKey = visibilityKey
@@ -1391,18 +1407,83 @@ export class NovaWebGLFrameRenderer {
 
     if (batch.data.length === 0) return true
 
-    this.flushTexture(stats)
-    this.flushRounded(stats)
-    this.prepareSolidTransform(transform, stats)
-    if (this._solidData.length > 0 || this._solidCachedData) this.flushSolid(stats)
-    this._solidCachedData = batch.data
-    this._solidCachedDirtyRanges = dirtyRanges
-    stats.instances += batch.instances
+    this.drawResidentRectSchemaBatch(batch, transform, stats, dirtyRanges, 'solid')
     if (dirtyRanges?.length) {
       stats.updatedHandles += changedItems
       stats.dirtyStreamRanges += dirtyRanges.length
     }
     return true
+  }
+
+  /**
+   * Рисует cacheable schema rect batch из собственного GPU buffer.
+   */
+  private drawResidentRectSchemaBatch(
+    batch: RectBatchCache,
+    transform: mat3,
+    stats: RenderStats,
+    dirtyRanges: Array<FloatDirtyRange> | null,
+    kind: 'solid' | 'rounded',
+  ): void {
+    this.flush(stats)
+    const gl = this._gl
+    const created = this.ensureRectSchemaBatchCache(batch, kind)
+    if (created) stats.schemaResidentBatchMisses += 1
+    else stats.schemaResidentBatchHits += 1
+
+    const uploadCallsBefore = stats.bufferDataCalls + stats.bufferSubDataCalls
+    const uploadStartedAt = performance.now()
+    gl.bindVertexArray(batch.vao!)
+    gl.bindBuffer(gl.ARRAY_BUFFER, batch.buffer!)
+    this.uploadArrayBuffer(batch.data, batch.upload!, stats, dirtyRanges)
+    stats.uploadMs += performance.now() - uploadStartedAt
+    stats.schemaResidentBatchUploads += Math.max(0, stats.bufferDataCalls + stats.bufferSubDataCalls - uploadCallsBefore)
+
+    if (kind === 'solid') {
+      this._solidProgram.use()
+      gl.uniform2f(this._solidProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
+      gl.uniformMatrix3fv(this._solidProgram.uniformLocation('u_transform'), false, transform)
+      gl.uniform1f(this._solidProgram.uniformLocation('u_time'), this._time)
+      gl.drawArrays(gl.TRIANGLES, 0, batch.data.length / SOLID_STRIDE)
+    } else {
+      this._roundedProgram.use()
+      gl.uniform2f(this._roundedProgram.uniformLocation('u_resolution'), this._renderResolutionWidth, this._renderResolutionHeight)
+      gl.uniformMatrix3fv(this._roundedProgram.uniformLocation('u_transform'), false, transform)
+      gl.uniform1f(this._roundedProgram.uniformLocation('u_time'), this._time)
+      gl.drawArrays(gl.TRIANGLES, 0, batch.data.length / RECT_STRIDE)
+    }
+
+    stats.instances += batch.instances
+    stats.drawCalls += 1
+    stats.batches += 1
+  }
+
+  /**
+   * Создает resident GPU resources для schema rect batch при первом использовании.
+   */
+  private ensureRectSchemaBatchCache(batch: RectBatchCache, kind: 'solid' | 'rounded'): boolean {
+    if (batch.buffer && batch.vao && batch.upload) return false
+
+    this.disposeRectSchemaBatchCache(batch)
+    batch.buffer = this.createBuffer()
+    batch.upload = createWebGLUploadState()
+    batch.vao = kind === 'solid'
+      ? this.createSolidVao(batch.buffer)
+      : this.createRoundedVao(batch.buffer)
+    this._ownedRectSchemaBatchCaches.add(batch)
+    return true
+  }
+
+  /**
+   * Освобождает resident resources schema rect batch.
+   */
+  private disposeRectSchemaBatchCache(batch: RectBatchCache): void {
+    if (batch.buffer) this._gl.deleteBuffer(batch.buffer)
+    if (batch.vao) this._gl.deleteVertexArray(batch.vao)
+    delete batch.buffer
+    delete batch.vao
+    delete batch.upload
+    this._ownedRectSchemaBatchCaches.delete(batch)
   }
 
   /**
@@ -6237,12 +6318,12 @@ export class NovaWebGLFrameRenderer {
   /**
    * Создает rounded vao.
    */
-  private createRoundedVao(): WebGLVertexArrayObject {
+  private createRoundedVao(buffer: WebGLBuffer = this._roundedBuffer): WebGLVertexArrayObject {
     const gl = this._gl
     const vao = this.createVao()
     const stride = RECT_STRIDE * FLOAT_BYTES
     gl.bindVertexArray(vao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._roundedBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     this.bindAttrib(this._roundedProgram, 'a_position', 2, stride, 0)
     this.bindAttrib(this._roundedProgram, 'a_local', 2, stride, 2)
     this.bindAttrib(this._roundedProgram, 'a_size', 2, stride, 4)
@@ -6259,12 +6340,12 @@ export class NovaWebGLFrameRenderer {
   /**
    * Создает solid vao.
    */
-  private createSolidVao(): WebGLVertexArrayObject {
+  private createSolidVao(buffer: WebGLBuffer = this._solidBuffer): WebGLVertexArrayObject {
     const gl = this._gl
     const vao = this.createVao()
     const stride = SOLID_STRIDE * FLOAT_BYTES
     gl.bindVertexArray(vao)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._solidBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
     this.bindAttrib(this._solidProgram, 'a_position', 2, stride, 0)
     this.bindAttrib(this._solidProgram, 'a_color', 4, stride, 2)
     this.bindAttrib(this._solidProgram, 'a_animation', 3, stride, 6)

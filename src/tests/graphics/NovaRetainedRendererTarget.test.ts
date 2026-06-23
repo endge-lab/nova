@@ -354,6 +354,21 @@ function createCompiledFrame(canvas: NovaCanvas, schema: NovaSchema) {
   return frameBuilder.build()
 }
 
+function createMultiSchemaBatchFrame(canvas: NovaCanvas, schemas: Array<NovaSchema>, transform: mat3 = mat3.create()) {
+  const frameBuilder = new NovaRenderFrameBuilder('retained-test', {
+    x: 0,
+    y: 0,
+    width: canvas.width,
+    height: canvas.height,
+    dpr: canvas.dpr,
+  })
+  const writer = new NovaRenderCommandWriter(frameBuilder)
+  const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
+  builder.setTransform(transform)
+  for (const schema of schemas) builder.schema(schema)
+  return frameBuilder.build()
+}
+
 function createCompiledFrameWithGraph(canvas: NovaCanvas, schema: NovaSchema) {
   const frameBuilder = new NovaRenderFrameBuilder('retained-test', {
     x: 0,
@@ -822,6 +837,106 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(second.bufferDataCalls).toBe(0)
     expect(second.bufferSubDataCalls).toBe(0)
     expect(gl.drawArrays).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps multiple plain rect schema batches resident across pan frames', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schemas = Array.from({ length: 4 }, (_item, batchIndex) => {
+      const schema = createRectSchema(80)
+      for (const item of schema) {
+        if (item.type === 'rect') item.y += batchIndex * 16
+      }
+      schema.contentVersion = 1
+      return schema
+    })
+    const translated = mat3.create()
+    mat3.fromTranslation(translated, [128, 64])
+
+    const first = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
+    const warm = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
+    const panned = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas, translated))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(first.schemaResidentBatchMisses).toBe(4)
+    expect(warm.schemaResidentBatchHits).toBe(4)
+    expect(warm.schemaResidentBatchUploads).toBe(0)
+    expect(warm.bufferSubDataCalls).toBe(0)
+    expect(panned.schemaResidentBatchHits).toBe(4)
+    expect(panned.schemaResidentBatchUploads).toBe(0)
+    expect(panned.bufferDataCalls).toBe(0)
+    expect(panned.bufferSubDataCalls).toBe(0)
+    expect(panned.uniformOnlyFrames).toBe(1)
+  })
+
+  it('uploads only the dirty resident schema batch when one content version changes', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schemas = Array.from({ length: 3 }, (_item, batchIndex) => {
+      const schema = createRectSchema(80)
+      for (const item of schema) {
+        if (item.type === 'rect') item.y += batchIndex * 16
+      }
+      schema.contentVersion = 1
+      return schema
+    })
+
+    const first = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
+    const warm = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
+
+    const dirtySchema = schemas[1]!
+    const dirtyItem = dirtySchema[10]
+    if (dirtyItem?.type === 'rect') dirtyItem.styles = { ...dirtyItem.styles, background: '#f97316' }
+    dirtySchema.contentVersion = 2
+    dirtySchema.dirtyIndices = [10]
+    const dirty = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(warm.bufferSubDataCalls).toBe(0)
+    expect(dirty.schemaResidentBatchHits).toBe(3)
+    expect(dirty.schemaResidentBatchUploads).toBe(1)
+    expect(dirty.bufferDataCalls).toBe(0)
+    expect(dirty.bufferSubDataCalls).toBe(1)
+    expect(dirty.updatedHandles).toBe(1)
+    expect(dirty.uploadBytes).toBeLessThan(first.uploadBytes!)
+  })
+
+  it('keeps multiple rounded rect schema batches resident across pan frames', () => {
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
+    const schemas = Array.from({ length: 3 }, (_item, batchIndex) => {
+      const schema = createRectSchema(80)
+      for (const item of schema) {
+        if (item.type === 'rect') {
+          item.y += batchIndex * 16
+          item.styles = {
+            ...item.styles,
+            border: { radius: 3, width: 1, color: '#0f172a' },
+          }
+        }
+      }
+      schema.contentVersion = 1
+      return schema
+    })
+    const translated = mat3.create()
+    mat3.fromTranslation(translated, [-96, 32])
+
+    const first = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
+    const warm = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
+    const panned = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas, translated))
+
+    expect(first.uploadBytes).toBeGreaterThan(0)
+    expect(first.schemaResidentBatchMisses).toBe(3)
+    expect(warm.schemaResidentBatchHits).toBe(3)
+    expect(warm.bufferSubDataCalls).toBe(0)
+    expect(panned.schemaResidentBatchHits).toBe(3)
+    expect(panned.schemaResidentBatchUploads).toBe(0)
+    expect(panned.bufferDataCalls).toBe(0)
+    expect(panned.bufferSubDataCalls).toBe(0)
+    expect(panned.uniformOnlyFrames).toBe(1)
   })
 
   it('uploads only dirty rect ranges when a stable schema batch changes paint', () => {
