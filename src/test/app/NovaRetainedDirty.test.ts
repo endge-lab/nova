@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventList } from '@endge/utils'
 import { NovaNode, type NovaApp, type NovaSurface } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 type TestEvents = EventList
 

@@ -7,7 +7,7 @@ import {
   type NovaApp,
   type NovaSurface,
 } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 /**
  * Описывает Nova-node BenchNode и его runtime-поведение.

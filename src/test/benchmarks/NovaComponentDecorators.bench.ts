@@ -8,7 +8,7 @@ import {
   Watch,
   type NovaApp,
 } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 interface BenchProps {
   width: number

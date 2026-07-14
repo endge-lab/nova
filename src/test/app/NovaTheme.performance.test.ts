@@ -8,7 +8,7 @@ import {
 import {
   createTestApp,
   installCanvasMocks,
-} from '@/tests/helpers/novaTestHarness'
+} from '@/test/helpers/novaTestHarness'
 
 type TestEvents = Record<string, any>
 

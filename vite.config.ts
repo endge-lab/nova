@@ -45,7 +45,7 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     benchmark: {
-      include: ['src/tests/benchmarks/**/*.bench.ts'],
+      include: ['src/test/benchmarks/**/*.bench.ts'],
     },
     coverage: {
       provider: 'v8',

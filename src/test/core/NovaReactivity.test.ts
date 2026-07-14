@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Nova, NovaNode, type NovaApp, type NovaSurface } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 class ReactiveTestNode extends NovaNode<Record<string, any>> {
   reads: Array<unknown> = []

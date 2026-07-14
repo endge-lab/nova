@@ -6,7 +6,7 @@ import {
   Reactive,
   Store,
 } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 @Store()
 class BenchViewportStore {

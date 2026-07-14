@@ -1,6 +1,6 @@
 import { bench, describe, vi } from 'vitest'
 import { NovaSemanticService } from '@/model/semantic/NovaSemanticService'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 const benchOptions = {
   iterations: 3,

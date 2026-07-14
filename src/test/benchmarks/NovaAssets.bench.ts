@@ -1,6 +1,6 @@
 import { bench, describe, vi } from 'vitest'
 import { Nova, NovaAssetRegistry } from '@/index'
-import { create2DContextStub } from '@/tests/helpers/novaTestHarness'
+import { create2DContextStub } from '@/test/helpers/novaTestHarness'
 
 const benchOptions = {
   iterations: 3,

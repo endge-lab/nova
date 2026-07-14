@@ -8,7 +8,7 @@ import {
   type NovaComponentSchema,
   type NovaSurface,
 } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 type TestContext = {
   rowIndex: number

@@ -7,7 +7,7 @@ import {
   type NovaComponentDescriptor,
   type NovaComponentSchema,
 } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 interface SceneChildProps {
   label?: string

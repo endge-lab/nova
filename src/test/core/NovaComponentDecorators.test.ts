@@ -11,7 +11,7 @@ import {
   type NovaComponentDescriptor,
   type NovaSurface,
 } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 interface DecoratedProps {
   width: number

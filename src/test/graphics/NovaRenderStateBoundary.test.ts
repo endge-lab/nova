@@ -5,7 +5,7 @@ import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import { create2DContextStub, createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { create2DContextStub, createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 
 type TestEvents = EventList

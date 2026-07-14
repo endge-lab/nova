@@ -1,6 +1,6 @@
 import { bench, describe, vi } from 'vitest'
 import { Nova, NovaNode, type NovaApp, type NovaSurface } from '@/index'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 class ReactiveBenchNode extends NovaNode<any> {
   value = 0

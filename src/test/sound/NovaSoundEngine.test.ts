@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Nova, RaphSchedulerType, RendererType, type NovaApp } from '@/index'
-import { createCanvas, createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createCanvas, createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 type TestEvents = Record<string, any>
 

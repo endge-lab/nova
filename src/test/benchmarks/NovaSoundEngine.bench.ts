@@ -1,5 +1,5 @@
 import { beforeAll, bench, describe } from 'vitest'
-import { createTestApp, installCanvasMocks } from '@/tests/helpers/novaTestHarness'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 const benchOptions = {
   iterations: 5,
