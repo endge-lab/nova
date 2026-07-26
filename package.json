@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova",
   "private": false,
-  "version": "0.13.5",
+  "version": "0.13.6",
   "type": "module",
   "module": "./dist/nova.js",
   "types": "./dist/index.d.ts",
@@ -27,8 +27,8 @@
     "test:coverage": "vitest run --config vite.config.ts --coverage"
   },
   "dependencies": {
-    "@endge/raph": "^3.0.2",
-    "@endge/utils": "^0.24.3",
+    "@endge/raph": "^3.0.4",
+    "@endge/utils": "^0.24.5",
     "class-transformer": "^0.5.1",
     "gl-matrix": "^3.4.3",
     "rbush": "^4.0.1"
