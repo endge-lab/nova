@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova",
   "private": false,
-  "version": "0.13.7",
+  "version": "0.13.8",
   "type": "module",
   "module": "./dist/nova.js",
   "types": "./dist/index.d.ts",
@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@endge/raph": "^3.0.4",
-    "@endge/utils": "^0.24.5",
+    "@endge/utils": "^0.25.0",
     "class-transformer": "^0.5.1",
     "gl-matrix": "^3.4.3",
     "rbush": "^4.0.1"
