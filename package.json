@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova",
   "private": false,
-  "version": "0.13.8",
+  "version": "0.13.9",
   "type": "module",
   "module": "./dist/nova.js",
   "types": "./dist/index.d.ts",
@@ -24,7 +24,9 @@
     "test": "vitest run --config vite.config.ts",
     "test:perf": "vitest run --config vite.config.ts src/test/**/*.performance.test.ts",
     "bench": "NODE_OPTIONS=--max-old-space-size=8192 vitest bench --run --config vite.config.ts",
-    "test:coverage": "vitest run --config vite.config.ts --coverage"
+    "test:coverage": "vitest run --config vite.config.ts --coverage",
+    "lint-check": "eslint . --cache",
+    "lint-fix": "eslint . --fix --cache"
   },
   "dependencies": {
     "@endge/raph": "^3.0.4",
@@ -34,11 +36,13 @@
     "rbush": "^4.0.1"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "9.3.0",
     "@types/rbush": "^4.0.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vitest/coverage-v8": "^3.2.4",
     "@vue/language-core": "^3.3.11",
     "@vue/tsconfig": "^0.9.1",
+    "eslint": "10.9.1",
     "jsdom": "^26.1.0",
     "rimraf": "^6.0.1",
     "typescript": "~6.0.3",
