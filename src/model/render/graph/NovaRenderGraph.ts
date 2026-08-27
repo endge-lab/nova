@@ -1,3 +1,4 @@
+import type { NovaBounds, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
 import type {
   NovaBatchPlan,
   NovaRenderGroup,
@@ -9,7 +10,6 @@ import type {
   NovaRenderStreamKind,
   NovaRenderVersions,
 } from '@/domain/types/rendering/index'
-import type { NovaBounds, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
 import {
   createNovaBatchPlan,
   createNovaRenderStreamId,
@@ -56,7 +56,9 @@ export class NovaRenderGraph {
    */
   addGroup(group: NovaRenderGroup): void {
     this.groupsById.set(group.id, group)
-    if (group.ownerNodeId) this.groupByNodeId.set(group.ownerNodeId, group)
+    if (group.ownerNodeId) {
+      this.groupByNodeId.set(group.ownerNodeId, group)
+    }
     group.streams ??= new Map()
     this.streamsByGroupId.set(group.id, group.streams as Map<NovaRenderStreamId, NovaTypedRenderStream>)
   }
@@ -88,9 +90,13 @@ export class NovaRenderGraph {
     handles.push(handle)
 
     const group = this.groupsById.get(handle.groupId)
-    if (!group) return
+    if (!group) {
+      return
+    }
 
-    if (!group.renderHandlesByNodeId) group.renderHandlesByNodeId = new Map()
+    if (!group.renderHandlesByNodeId) {
+      group.renderHandlesByNodeId = new Map()
+    }
     let groupHandles = group.renderHandlesByNodeId.get(handle.nodeId)
     if (!groupHandles) {
       groupHandles = []
@@ -107,8 +113,10 @@ export class NovaRenderGraph {
     this.handlesByItemId.clear()
     for (const group of this.groupsById.values()) {
       group.renderHandlesByNodeId?.clear()
-      group.streams?.forEach(stream => {
-        if (stream instanceof NovaTypedRenderStream) stream.clear()
+      group.streams?.forEach((stream) => {
+        if (stream instanceof NovaTypedRenderStream) {
+          stream.clear()
+        }
       })
       group.batchPlan = undefined
     }
@@ -126,7 +134,9 @@ export class NovaRenderGraph {
     }
 
     this.handlesByNodeId.delete(nodeId)
-    for (const handle of handles) this.addHandle(handle)
+    for (const handle of handles) {
+      this.addHandle(handle)
+    }
   }
 
   /**
@@ -134,21 +144,29 @@ export class NovaRenderGraph {
    */
   updateHandle(itemId: NovaRenderItemId, update: NovaRenderHandleUpdate): boolean {
     const handle = this.handlesByItemId.get(itemId)
-    if (!handle) return false
+    if (!handle) {
+      return false
+    }
 
     const stream = this.streamsByGroupId.get(handle.groupId)?.get(handle.streamId)
-    if (!stream) return false
+    if (!stream) {
+      return false
+    }
 
     if (update.batchKey !== undefined) {
       handle.batchKey = update.batchKey
       const slot = stream.slotsByItemId.get(itemId)
-      if (slot) slot.batchKey = update.batchKey
+      if (slot) {
+        slot.batchKey = update.batchKey
+      }
     }
 
     if (update.localBounds !== undefined) {
       handle.localBounds = update.localBounds
       const slot = stream.slotsByItemId.get(itemId)
-      if (slot) slot.bounds = update.localBounds
+      if (slot) {
+        slot.bounds = update.localBounds
+      }
     }
 
     if (update.versions) {
@@ -221,14 +239,18 @@ export class NovaRenderGraph {
     if (!streams) {
       streams = new Map()
       this.streamsByGroupId.set(groupId, streams)
-      if (group) group.streams = streams as Map<NovaRenderStreamId, NovaRenderStream>
+      if (group) {
+        group.streams = streams as Map<NovaRenderStreamId, NovaRenderStream>
+      }
     }
 
     let stream = streams.get(streamId)
     if (!stream) {
       stream = new NovaTypedRenderStream({ id: streamId, groupId, kind })
       streams.set(streamId, stream)
-      if (group) group.streams = streams as Map<NovaRenderStreamId, NovaRenderStream>
+      if (group) {
+        group.streams = streams as Map<NovaRenderStreamId, NovaRenderStream>
+      }
     }
 
     return stream

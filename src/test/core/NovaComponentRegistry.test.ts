@@ -1,15 +1,16 @@
+import type { NovaApp, NovaComponentDescriptor, NovaSurface } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaComponent,
+
   NovaComponentNode,
   NovaNode,
   NovaSchemaRegistry,
+
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSurface,
 } from '@/index'
 
 type TestEvents = Record<string, any>
@@ -129,7 +130,7 @@ function createApp(): NovaApp<TestEvents> {
   })
 }
 
-describe('Nova component registry', () => {
+describe('nova component registry', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
@@ -192,7 +193,7 @@ describe('Nova component registry', () => {
       type: InspectorNode,
       id: 'inline-inspector',
       props: { documentId: 'doc-1' },
-    }) as InspectorNode & { props: Record<string, any>; setProps: (patch: Record<string, any>) => InspectorNode }
+    }) as InspectorNode & { props: Record<string, any>, setProps: (patch: Record<string, any>) => InspectorNode }
 
     expect(app.components.get('inline-inspector')).toBe(node)
     expect((app.components.api<any>('inline-inspector') as { props: Record<string, any> }).props.documentId).toBe('doc-1')

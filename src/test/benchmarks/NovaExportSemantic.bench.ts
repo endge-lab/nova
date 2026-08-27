@@ -14,7 +14,7 @@ vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation((mime?: st
   return `data:${mime ?? 'image/png'};base64,ZmFrZQ==`
 })
 
-describe('Nova export and semantic benchmarks', () => {
+describe('nova export and semantic benchmarks', () => {
   bench('exportImage png current frame', async () => {
     const app = createTestApp({ width: 640, height: 360 })
     await app.exportImage({ format: 'png', pixelRatio: 1 })
@@ -24,12 +24,16 @@ describe('Nova export and semantic benchmarks', () => {
   bench('semantic snapshot 100k synthetic regions bounded query', () => {
     const service = createSemanticFixture(100_000)
     const snapshot = service.snapshot({ scope: 'bench', maxRegions: 256, includeData: false })
-    if (snapshot.regions.length > 256) throw new Error('semantic snapshot exceeded maxRegions')
+    if (snapshot.regions.length > 256) {
+      throw new Error('semantic snapshot exceeded maxRegions')
+    }
   }, benchOptions)
 
   bench('semantic focus navigation 10k focusable regions', () => {
     const service = createSemanticFixture(10_000)
-    for (let index = 0; index < 1_000; index += 1) service.focusNext({ scope: 'bench' })
+    for (let index = 0; index < 1_000; index += 1) {
+      service.focusNext({ scope: 'bench' })
+    }
   }, benchOptions)
 })
 

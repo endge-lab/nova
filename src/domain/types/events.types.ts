@@ -33,19 +33,19 @@ export type NodeEventName = keyof typeof NodeEventNames
 /**
  * Описывает тип DomEventName.
  */
-export type DomEventName =
-  | 'click'
-  | 'dblclick'
-  | 'contextmenu'
-  | 'mousemove'
-  | 'mousedown'
-  | 'mouseup'
-  | 'wheel'
-  | 'zoom'
-  | 'keydown'
-  | 'keyup'
-  | 'mouseenter'
-  | 'mouseleave'
+export type DomEventName
+  = | 'click'
+    | 'dblclick'
+    | 'contextmenu'
+    | 'mousemove'
+    | 'mousedown'
+    | 'mouseup'
+    | 'wheel'
+    | 'zoom'
+    | 'keydown'
+    | 'keyup'
+    | 'mouseenter'
+    | 'mouseleave'
 
 export const CanvasDomEvents: Array<DomEventName> = [
   'click',

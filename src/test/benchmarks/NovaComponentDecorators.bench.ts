@@ -1,12 +1,13 @@
+import type { NovaApp } from '@/index'
 import { bench, describe } from 'vitest'
 import {
   Command,
   Nova,
+
   NovaComponent,
   NovaComponentNode,
   Prop,
   Watch,
-  type NovaApp,
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
@@ -76,7 +77,7 @@ const DECORATOR_NODE_COUNT = 250
 const DECORATOR_COMMAND_COUNT = 10_000
 const DECORATOR_BENCH_OPTIONS = { time: 100, warmupTime: 10 }
 
-describe('Nova component decorators benchmarks', () => {
+describe('nova component decorators benchmarks', () => {
   const dirtyApp = createBenchApp()
   const dirtySurface = dirtyApp.createSurface('bench-dirty')
   const dirtyNodes = Array.from({ length: DECORATOR_NODE_COUNT }, (_item, index) => dirtyApp.schema.createNode(dirtySurface, {

@@ -1,5 +1,6 @@
+import type { NovaApp, NovaSurface } from '@/index'
 import { bench, describe, vi } from 'vitest'
-import { Nova, NovaNode, type NovaApp, type NovaSurface } from '@/index'
+import { Nova, NovaNode } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 class ReactiveBenchNode extends NovaNode<any> {
@@ -21,7 +22,7 @@ const benchOptions = {
 
 installCanvasMocks()
 
-describe('Nova reactive signal benchmarks', () => {
+describe('nova reactive signal benchmarks', () => {
   bench('signal update with one subscriber', () => {
     const signal = Nova.signal(0)
     const node = createBenchNode()

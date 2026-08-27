@@ -1,19 +1,18 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventList } from '@endge/utils'
+import type { NovaApp, NovaComponentDescriptor, NovaCursorRuntimeState, NovaSchema, NovaSurface } from '@/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaComponentNode,
+
   NovaNode,
+
   RaphSchedulerType,
   RendererType,
   resolveNovaCursorValue,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaCursorRuntimeState,
-  type NovaSchema,
-  type NovaSurface,
 } from '@/index'
 
 type TestEvents = EventList
@@ -118,7 +117,9 @@ function create2DContextStub(): CanvasRenderingContext2D {
      * Возвращает значение состояния текущего класса.
      */
     get(target, prop) {
-      if (!(prop in target)) target[prop] = vi.fn()
+      if (!(prop in target)) {
+        target[prop] = vi.fn()
+      }
       return target[prop]
     },
     /**
@@ -137,7 +138,9 @@ function installCanvasMocks(): void {
     configurable: true,
   })
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type === RendererType.Web2D) return create2DContextStub()
+    if (type === RendererType.Web2D) {
+      return create2DContextStub()
+    }
     return null
   })
   vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLCanvasElement) {
@@ -201,7 +204,7 @@ function createRuntimeState(patch: Partial<NovaCursorRuntimeState<TestEvents>> =
   }
 }
 
-describe('Nova cursor system', () => {
+describe('nova cursor system', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

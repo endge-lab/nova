@@ -1,7 +1,7 @@
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import { describe, expect, it, vi } from 'vitest'
 import { Nova, NovaAssetRegistry } from '@/index'
 import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
-import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 
 function createContextSpy(): CanvasRenderingContext2D & { calls: Array<string> } {
   const calls: Array<string> = []
@@ -56,7 +56,7 @@ function createCanvasStub(context: CanvasRenderingContext2D): NovaCanvas {
   } as unknown as NovaCanvas
 }
 
-describe('NovaRenderer2D', () => {
+describe('novaRenderer2D', () => {
   it('clears the real pixel buffer without inheriting the previous transform', () => {
     const context = createContextSpy()
     const renderer = new NovaRenderer2D(createCanvasStub(context))

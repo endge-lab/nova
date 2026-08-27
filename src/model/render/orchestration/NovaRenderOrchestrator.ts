@@ -1,5 +1,4 @@
 import type { EventList } from '@endge/utils'
-import { RendererType } from '@/domain/types/renderer.types'
 import type {
   NovaRenderCommand,
   NovaRenderFrame,
@@ -8,6 +7,7 @@ import type {
 } from '@/domain/types/rendering/index'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { RendererType } from '@/domain/types/renderer.types'
 
 let syntheticFrameId = 0
 
@@ -134,7 +134,8 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
         const metrics = this._backend.renderFrame(targetFrame)
         surface.setRenderMetrics(this.mergeMetrics(frame.metrics, metrics))
         cache.repainted = true
-      } else {
+      }
+      else {
         cache.target = nextTarget
       }
 
@@ -152,7 +153,9 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   private renderCompositeEntries(entries: Array<SurfaceRenderEntry<E>>): void {
     let pendingCaches: Array<SurfaceRenderCache> = []
     const flushPendingCaches = (): void => {
-      if (pendingCaches.length === 0) return
+      if (pendingCaches.length === 0) {
+        return
+      }
       this._backend.renderFrame(this.createCompositeFrame(pendingCaches))
       pendingCaches = []
     }
@@ -183,7 +186,9 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
    */
   private ensureSurfaceCache(surface: NovaSurface<E>): SurfaceRenderCache {
     const current = this._surfaceCaches.get(surface)
-    if (current) return current
+    if (current) {
+      return current
+    }
 
     const cache: SurfaceRenderCache = {
       targetId: `nova:surface-cache:${++this._surfaceTargetSeq}`,
@@ -260,7 +265,9 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
 
     for (const cache of caches) {
       const target = cache.target
-      if (!target) continue
+      if (!target) {
+        continue
+      }
       targets.push(target)
       commands.push({
         id: `${target.id}:draw:${commands.length + 1}`,

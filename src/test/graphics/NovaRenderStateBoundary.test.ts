@@ -1,12 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventList } from '@endge/utils'
-import { NovaNode, type NovaApp, type NovaSurface } from '@/index'
+import type { NovaApp, NovaSurface } from '@/index'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NovaNode } from '@/index'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import { create2DContextStub, createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
-import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 
 type TestEvents = EventList
 
@@ -73,7 +74,7 @@ function createFrameBuilder(): NovaRenderFrameBuilder {
   })
 }
 
-describe('Nova render state boundaries', () => {
+describe('nova render state boundaries', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

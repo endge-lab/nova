@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { interpolateNovaMotionValue } from '@/model/motion/nova-motion-interpolation'
 
-describe('NovaMotionInterpolation', () => {
+describe('novaMotionInterpolation', () => {
   it('interpolates numbers', () => {
     expect(interpolateNovaMotionValue(10, 30, 0.5)).toBe(20)
   })

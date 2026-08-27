@@ -1,6 +1,6 @@
 import type { NovaBounds, NovaSchema } from '@/domain/types/renderer.types'
-import { copyBounds, createEmptyBounds, setBounds, unionBounds } from '@/domain/utils/bounds'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import { copyBounds, createEmptyBounds, setBounds, unionBounds } from '@/domain/utils/bounds'
 
 /**
  * Считает локальные bounds по реальной render-schema.
@@ -10,10 +10,14 @@ export function resolveSchemaBounds(schema: NovaSchema<any>, registry?: NovaSche
   let hasBounds = false
 
   for (const item of schema) {
-    if (item.active === false) continue
+    if (item.active === false) {
+      continue
+    }
 
     const itemBounds = resolveSchemaItemBounds(item, registry)
-    if (!itemBounds) continue
+    if (!itemBounds) {
+      continue
+    }
 
     bounds = hasBounds ? unionBounds(bounds, itemBounds) : copyBounds(bounds, itemBounds)
     hasBounds = true
@@ -66,8 +70,10 @@ function resolveLineBounds(x1: number, y1: number, x2: number, y2: number, width
 /**
  * Вычисляет polygon bounds.
  */
-function resolvePolygonBounds(points: Array<{ x: number; y: number }>, lineWidth: number): NovaBounds | null {
-  if (points.length === 0) return null
+function resolvePolygonBounds(points: Array<{ x: number, y: number }>, lineWidth: number): NovaBounds | null {
+  if (points.length === 0) {
+    return null
+  }
 
   let minX = points[0].x
   let minY = points[0].y

@@ -1,4 +1,3 @@
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type {
   NovaSoundCueInput,
   NovaSoundDescriptor,
@@ -8,6 +7,7 @@ import type {
   NovaSoundPlayOptions,
   NovaSoundStats,
 } from '@/domain/types/sound.types'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
 
 const DEFAULT_SOUND_FORMATS = ['ogg', 'mp3', 'wav']
 const DEFAULT_SOUND_CATEGORY = 'default'
@@ -33,8 +33,8 @@ interface ResolvedNovaSoundDescriptor extends Required<Omit<NovaSoundDescriptor,
  * Описывает backend-specific playback.
  */
 interface NovaSoundBackendPlayback {
-  stop(): void
-  fadeTo(volume: number, durationMs: number): void
+  stop: () => void
+  fadeTo: (volume: number, durationMs: number) => void
 }
 
 /**
@@ -43,13 +43,13 @@ interface NovaSoundBackendPlayback {
 interface NovaSoundBackend {
   readonly kind: string
   readonly decoded: number
-  load(source: string): Promise<unknown>
-  play(asset: NovaSoundAsset, options: ResolvedNovaSoundPlayOptions, onEnded: () => void): NovaSoundBackendPlayback
-  unlock(): Promise<void>
-  setMuted(muted: boolean): void
-  setVolume(volume: number): void
-  setCategoryVolume(category: string, volume: number): void
-  destroy(): void
+  load: (source: string) => Promise<unknown>
+  play: (asset: NovaSoundAsset, options: ResolvedNovaSoundPlayOptions, onEnded: () => void) => NovaSoundBackendPlayback
+  unlock: () => Promise<void>
+  setMuted: (muted: boolean) => void
+  setVolume: (volume: number) => void
+  setCategoryVolume: (category: string, volume: number) => void
+  destroy: () => void
 }
 
 type NovaAudioGlobal = typeof globalThis & {
@@ -68,7 +68,9 @@ interface ResolvedNovaSoundPlayOptions extends Required<Omit<NovaSoundPlayOption
  * Нормализует число к диапазону 0..1.
  */
 function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0
+  if (!Number.isFinite(value)) {
+    return 0
+  }
   return Math.min(1, Math.max(0, value))
 }
 
@@ -112,7 +114,9 @@ function resolvePlayOptions(
  * Извлекает extension или protocol-based format из source.
  */
 function resolveSourceFormat(source: string): string {
-  if (source.startsWith(NOVA_TONE_PROTOCOL)) return 'tone'
+  if (source.startsWith(NOVA_TONE_PROTOCOL)) {
+    return 'tone'
+  }
   const cleanSource = source.split('?')[0]?.split('#')[0] ?? source
   const extension = cleanSource.match(/\.([a-z0-9]+)$/i)?.[1]
   return extension?.toLowerCase() ?? ''
@@ -123,8 +127,12 @@ function resolveSourceFormat(source: string): string {
  */
 function isFormatAllowed(source: string, formats: Array<string>): boolean {
   const format = resolveSourceFormat(source)
-  if (format === 'tone' || source.startsWith('data:')) return true
-  if (!format) return true
+  if (format === 'tone' || source.startsWith('data:')) {
+    return true
+  }
+  if (!format) {
+    return true
+  }
   return formats.includes(format)
 }
 
@@ -134,7 +142,9 @@ function isFormatAllowed(source: string, formats: Array<string>): boolean {
 function resolvePreferredSource(sources: Array<string>, formats: Array<string>): string {
   for (const format of formats) {
     const matched = sources.find(source => resolveSourceFormat(source) === format && isFormatAllowed(source, formats))
-    if (matched) return matched
+    if (matched) {
+      return matched
+    }
   }
   return sources.find(source => isFormatAllowed(source, formats)) ?? sources[0] ?? ''
 }
@@ -206,14 +216,20 @@ export class NovaSoundEngine {
    * Запускает воспроизведение sound asset.
    */
   play(id: string, options: NovaSoundPlayOptions = {}): NovaSoundHandle {
-    if (!this.enabled) return this.skip(id)
+    if (!this.enabled) {
+      return this.skip(id)
+    }
 
     const asset = this.assets.get(id)
-    if (!asset) return this.skip(id)
+    if (!asset) {
+      return this.skip(id)
+    }
 
     const playOptions = resolvePlayOptions(asset.descriptor, options)
     const dedupeKey = playOptions.dedupeKey ?? id
-    if (!this.canPlay(asset.descriptor, playOptions, dedupeKey)) return this.skip(id)
+    if (!this.canPlay(asset.descriptor, playOptions, dedupeKey)) {
+      return this.skip(id)
+    }
 
     this.stopDedupeHandle(dedupeKey)
     this.enforceVoicePool(asset.descriptor.id, playOptions.priority)
@@ -250,7 +266,9 @@ export class NovaSoundEngine {
 
     if (typeof target === 'string') {
       for (const handle of [...this.activeHandles]) {
-        if (handle.id === target) handle.stop()
+        if (handle.id === target) {
+          handle.stop()
+        }
       }
       return
     }
@@ -287,7 +305,9 @@ export class NovaSoundEngine {
    * Разблокирует browser audio context после пользовательского жеста.
    */
   async unlock(): Promise<void> {
-    if (this.unlocked) return
+    if (this.unlocked) {
+      return
+    }
     await this.backend.unlock()
     this.unlocked = true
   }
@@ -296,7 +316,9 @@ export class NovaSoundEngine {
    * Разблокирует audio context только для режима first-input.
    */
   unlockFromInput(): void {
-    if (this.unlockMode !== 'first-input') return
+    if (this.unlockMode !== 'first-input') {
+      return
+    }
     void this.unlock()
   }
 
@@ -339,8 +361,12 @@ export class NovaSoundEngine {
    * Проигрывает sound cue input.
    */
   playCue(input: NovaSoundCueInput | undefined): NovaSoundHandle | null {
-    if (!input) return null
-    if (typeof input === 'string') return this.play(input)
+    if (!input) {
+      return null
+    }
+    if (typeof input === 'string') {
+      return this.play(input)
+    }
     const { id, ...options } = input
     return this.play(id, options)
   }
@@ -358,7 +384,9 @@ export class NovaSoundEngine {
     }
 
     this.descriptors.set(resolved.id, resolved)
-    if (this.assets.has(resolved.id)) return
+    if (this.assets.has(resolved.id)) {
+      return
+    }
 
     const source = resolvePreferredSource(resolved.src, this.formats)
     const resource = await this.backend.load(source)
@@ -392,7 +420,9 @@ export class NovaSoundEngine {
    */
   private stopDedupeHandle(dedupeKey: string): void {
     for (const handle of [...this.activeHandles]) {
-      if (handle.dedupeKey === dedupeKey) handle.stop()
+      if (handle.dedupeKey === dedupeKey) {
+        handle.stop()
+      }
     }
   }
 
@@ -402,11 +432,17 @@ export class NovaSoundEngine {
   private enforceVoicePool(id: string, priority: number): void {
     const sameId = [...this.activeHandles].filter(handle => handle.id === id)
     for (const handle of sameId) {
-      if (this.activeHandles.size < this.maxVoices) break
-      if (handle.priority <= priority) handle.stop()
+      if (this.activeHandles.size < this.maxVoices) {
+        break
+      }
+      if (handle.priority <= priority) {
+        handle.stop()
+      }
     }
 
-    if (this.activeHandles.size < this.maxVoices) return
+    if (this.activeHandles.size < this.maxVoices) {
+      return
+    }
 
     const candidate = [...this.activeHandles]
       .filter(handle => handle.priority <= priority)
@@ -433,10 +469,14 @@ export class NovaSoundEngine {
    * Создает лучший доступный backend.
    */
   private createBackend(): NovaSoundBackend {
-    if (!this.enabled) return new NovaNoopSoundBackend()
+    if (!this.enabled) {
+      return new NovaNoopSoundBackend()
+    }
     const audioGlobal = globalThis as NovaAudioGlobal
     const AudioContextClass = audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext
-    if (!AudioContextClass) return new NovaNoopSoundBackend()
+    if (!AudioContextClass) {
+      return new NovaNoopSoundBackend()
+    }
     return new NovaWebAudioBackend(new AudioContextClass())
   }
 }
@@ -469,7 +509,9 @@ export class NovaSoundScope {
    */
   playCue(input: NovaSoundCueInput | undefined): NovaSoundHandle | null {
     const handle = this.engine.playCue(input)
-    if (handle) this.track(handle)
+    if (handle) {
+      this.track(handle)
+    }
     return handle
   }
 
@@ -513,7 +555,7 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
     state: NovaSoundHandleState = 'playing',
   ) {
     this._state = state
-    this.ended = new Promise(resolve => {
+    this.ended = new Promise((resolve) => {
       this.resolveEnded = resolve
     })
     if (state === 'stopped' || state === 'ended') {
@@ -532,7 +574,9 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
    * Останавливает playback.
    */
   stop(): void {
-    if (this._state === 'stopped' || this._state === 'ended') return
+    if (this._state === 'stopped' || this._state === 'ended') {
+      return
+    }
     this._state = 'stopped'
     this.backendPlayback?.stop()
     this.resolveEnded()
@@ -543,7 +587,9 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
    * Плавно меняет громкость playback.
    */
   fadeTo(volume: number, durationMs = 120): void {
-    if (this._state !== 'playing') return
+    if (this._state !== 'playing') {
+      return
+    }
     this.backendPlayback?.fadeTo(clamp01(volume), Math.max(0, durationMs))
   }
 
@@ -558,7 +604,9 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
    * Завершает playback по сигналу backend.
    */
   _end(): void {
-    if (this._state === 'stopped' || this._state === 'ended') return
+    if (this._state === 'stopped' || this._state === 'ended') {
+      return
+    }
     this._state = 'ended'
     this.resolveEnded()
     this.onFinish(this)
@@ -630,7 +678,8 @@ class NovaWebAudioBackend implements NovaSoundBackend {
       panner.pan.value = options.pan
       gain.connect(panner)
       panner.connect(destination)
-    } else {
+    }
+    else {
       gain.connect(destination)
     }
 
@@ -641,7 +690,8 @@ class NovaWebAudioBackend implements NovaSoundBackend {
         source.onended = null
         try {
           source.stop()
-        } catch {
+        }
+        catch {
           // Source может быть уже остановлен браузером.
         }
       },

@@ -1,3 +1,4 @@
+import type { NovaBounds, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
 import type {
   NovaBatchPlan,
   NovaRenderBatch,
@@ -8,7 +9,6 @@ import type {
   NovaRenderStreamKind,
   NovaRenderStreamSlot,
 } from '@/domain/types/rendering/index'
-import type { NovaBounds, NovaSemanticScopeKind } from '@/domain/types/renderer.types'
 
 /**
  * Описывает контракт CreateNovaTypedRenderStreamOptions.
@@ -151,7 +151,9 @@ export class NovaTypedRenderStream implements NovaRenderStream {
    */
   writeSlot(itemId: string, values: ReadonlyArray<number>): boolean {
     const slot = this._slotsByItemId.get(itemId)
-    if (!slot || values.length > this.strideFloats) return false
+    if (!slot || values.length > this.strideFloats) {
+      return false
+    }
 
     const start = slot.offset * this.strideFloats
     this._data.set(values, start)
@@ -164,7 +166,9 @@ export class NovaTypedRenderStream implements NovaRenderStream {
    */
   removeSlot(itemId: string): boolean {
     const slot = this._slotsByItemId.get(itemId)
-    if (!slot) return false
+    if (!slot) {
+      return false
+    }
 
     this._slotsByItemId.delete(itemId)
     delete this.slots[slot.offset]
@@ -206,7 +210,9 @@ export class NovaTypedRenderStream implements NovaRenderStream {
    * Выполняет внутреннюю операцию ensure slot capacity.
    */
   private ensureSlotCapacity(requiredSlots: number): void {
-    if (requiredSlots <= this.slotCapacity) return
+    if (requiredSlots <= this.slotCapacity) {
+      return
+    }
 
     const nextCapacity = Math.max(requiredSlots, this.slotCapacity * 2, 16)
     const next = new Float32Array(nextCapacity * this.strideFloats)
@@ -319,9 +325,13 @@ export function createNovaBatchPlan(
   slots.sort((a, b) => {
     if (canLayer) {
       const layerDiff = semanticLayerOrder[a.semanticLayer] - semanticLayerOrder[b.semanticLayer]
-      if (layerDiff !== 0) return layerDiff
+      if (layerDiff !== 0) {
+        return layerDiff
+      }
       const streamDiff = a.stream.id.localeCompare(b.stream.id)
-      if (streamDiff !== 0) return streamDiff
+      if (streamDiff !== 0) {
+        return streamDiff
+      }
     }
 
     return a.slot.order - b.slot.order
@@ -370,7 +380,9 @@ export function createNovaBatchPlan(
  * Объединяет slot dirty ranges.
  */
 function mergeSlotDirtyRanges(ranges: Array<NovaRenderStreamDirtyRange>): Array<NovaRenderStreamDirtyRange> {
-  if (ranges.length <= 1) return [...ranges]
+  if (ranges.length <= 1) {
+    return [...ranges]
+  }
 
   const sorted = [...ranges].sort((a, b) => a.startSlot - b.startSlot)
   const merged: Array<NovaRenderStreamDirtyRange> = []

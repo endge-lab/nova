@@ -45,7 +45,7 @@ export interface NovaDecoratedComponentOptions {
   bounds?: 'size' | 'custom'
 }
 
-type NovaDecoratedComponentStaticNormalizer = {
+interface NovaDecoratedComponentStaticNormalizer {
   normalizeProps?: (props: Record<string, any>) => Record<string, any>
 }
 
@@ -192,7 +192,9 @@ export function createNovaDecoratedComponentDescriptor<
   const type = metadata.type ?? (metadata.tag ? `nova.component:${metadata.tag}` : component.name)
   const normalize = (schema: NovaComponentSchema<TSchema>): TProps => {
     const customNormalize = (component as unknown as NovaDecoratedComponentStaticNormalizer).normalizeProps
-    if (typeof customNormalize === 'function') return customNormalize(schema.props ?? {}) as TProps
+    if (typeof customNormalize === 'function') {
+      return customNormalize(schema.props ?? {}) as TProps
+    }
     return normalizeDecoratedProps(schema as NovaComponentSchema<Record<string, any>>, metadata) as TProps
   }
   const descriptor: NovaComponentDescriptor<TProps, TApi, TEvents, TSchema> = {
@@ -209,7 +211,9 @@ export function createNovaDecoratedComponentDescriptor<
     fields: createFields(metadata.props),
     normalize,
     measureBounds: (_ctx, schema) => {
-      if (resolveBounds(metadata) !== 'size') return null
+      if (resolveBounds(metadata) !== 'size') {
+        return null
+      }
       const props = normalize(schema)
       return {
         x: 0,
@@ -232,13 +236,17 @@ export function installNovaPropAccessors(component: Function): void {
   for (const prop of metadata.props) {
     const accessorKey = prop.propertyKey ?? prop.key
     const descriptor = Object.getOwnPropertyDescriptor(component.prototype, accessorKey)
-    if (descriptor?.get || descriptor?.set) continue
+    if (descriptor?.get || descriptor?.set) {
+      continue
+    }
     Object.defineProperty(component.prototype, accessorKey, {
-      get(this: { props?: Record<string, any>; getProps?: () => Record<string, any> }) {
+      get(this: { props?: Record<string, any>, getProps?: () => Record<string, any> }) {
         return typeof this.getProps === 'function' ? this.getProps()[prop.key] : this.props?.[prop.key]
       },
-      set(this: { props?: Record<string, any>; setProps?: (patch: Record<string, any>) => unknown }, value: unknown) {
-        if (typeof this.setProps === 'function') this.setProps({ [prop.key]: value })
+      set(this: { props?: Record<string, any>, setProps?: (patch: Record<string, any>) => unknown }, value: unknown) {
+        if (typeof this.setProps === 'function') {
+          this.setProps({ [prop.key]: value })
+        }
         else {
           this.props = { ...(this.props ?? {}), [prop.key]: value }
         }
@@ -259,7 +267,9 @@ export function normalizeDecoratedProps(
   const output: Record<string, any> = {}
   for (const prop of metadata.props) {
     let value = input[prop.key]
-    if (value === undefined) value = resolveDefaultValue(prop)
+    if (value === undefined) {
+      value = resolveDefaultValue(prop)
+    }
     if (value === undefined && prop.required) {
       throw new Error(`[NovaComponent] Required prop "${prop.key}" is missing.`)
     }
@@ -270,7 +280,9 @@ export function normalizeDecoratedProps(
   }
 
   for (const [key, value] of Object.entries(input)) {
-    if (!(key in output)) output[key] = value
+    if (!(key in output)) {
+      output[key] = value
+    }
   }
   return output
 }
@@ -282,7 +294,9 @@ export function readNovaComponentPath(source: Record<string, any> | undefined, p
   const parts = path.split('.')
   let current: unknown = source
   for (const part of parts) {
-    if (current === null || current === undefined || typeof current !== 'object') return undefined
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return undefined
+    }
     current = (current as Record<string, unknown>)[part]
   }
   return current
@@ -296,7 +310,9 @@ export function collectMetadata(component: Function): NovaDecoratedComponentMeta
   let current: unknown = component
   while (typeof current === 'function') {
     const metadata = readNovaDecoratedComponent(current as NovaElementConstructor<any>)
-    if (metadata) chain.unshift(metadata)
+    if (metadata) {
+      chain.unshift(metadata)
+    }
     current = Object.getPrototypeOf(current)
   }
 
@@ -331,7 +347,9 @@ function createEmptyMetadata(): NovaDecoratedComponentMetadata {
  */
 function readOwnMetadata(component: Function): NovaDecoratedComponentMetadata {
   const current = (component as { [NOVA_COMPONENT_METADATA]?: NovaDecoratedComponentMetadata })[NOVA_COMPONENT_METADATA]
-  if (!current) return createEmptyMetadata()
+  if (!current) {
+    return createEmptyMetadata()
+  }
   return {
     ...current,
     props: [...current.props],
@@ -344,8 +362,8 @@ function readOwnMetadata(component: Function): NovaDecoratedComponentMetadata {
 /**
  * Создает fields из prop metadata.
  */
-function createFields(props: Array<NovaComponentPropDefinition>): Record<string, { type: string; required?: boolean }> {
-  const fields: Record<string, { type: string; required?: boolean }> = {}
+function createFields(props: Array<NovaComponentPropDefinition>): Record<string, { type: string, required?: boolean }> {
+  const fields: Record<string, { type: string, required?: boolean }> = {}
   for (const prop of props) {
     fields[prop.key] = {
       type: prop.kind === 'model' ? 'record' : prop.kind,
@@ -361,14 +379,16 @@ function createFields(props: Array<NovaComponentPropDefinition>): Record<string,
 function createDecoratedNode<E extends EventList>(
   component: NovaElementConstructor<E>,
   descriptor: NovaComponentDescriptor<any, any, any, any>,
-  context: { app: any; surface: any; registry: { createChild: (parent: NovaNode<E>, schema: any) => NovaNode<E> } },
+  context: { app: any, surface: any, registry: { createChild: (parent: NovaNode<E>, schema: any) => NovaNode<E> } },
   schema: NovaComponentSchema<Record<string, any>>,
 ): NovaNode<E> {
   const props = descriptor.normalize?.(schema) ?? schema.props ?? {}
   const node = component.prototype instanceof NovaComponentNode
     ? new (component as any)(context.app, context.surface, descriptor, props, { componentId: schema.id })
     : new component(context.app, context.surface, props)
-  if (!(component.prototype instanceof NovaComponentNode)) attachPlainDecoratedRuntime(node, props, schema.id)
+  if (!(component.prototype instanceof NovaComponentNode)) {
+    attachPlainDecoratedRuntime(node, props, schema.id)
+  }
   applyDecoratedNodeSlots(node, schema.slots)
   for (const child of (schema as typeof schema & { children?: Array<any> }).children ?? []) {
     context.registry.createChild(node, child)
@@ -377,8 +397,10 @@ function createDecoratedNode<E extends EventList>(
 }
 
 function applyDecoratedNodeSlots(node: NovaNode<any>, slots: NovaElementSlots | undefined): void {
-  if (!slots) return
-  const target = node as unknown as { setSlots?: (slots: NovaElementSlots) => void; getApi?: () => unknown }
+  if (!slots) {
+    return
+  }
+  const target = node as unknown as { setSlots?: (slots: NovaElementSlots) => void, getApi?: () => unknown }
   if (typeof target.setSlots === 'function') {
     target.setSlots(slots)
     return
@@ -400,14 +422,16 @@ function attachPlainDecoratedRuntime(node: NovaNode<any>, props: Record<string, 
     setProps?: (patch: Record<string, any>) => NovaNode<any>
   }
   target.props = { ...(target.props ?? {}), ...props }
-  if (typeof target.getApi !== 'function') target.getApi = () => target
+  if (typeof target.getApi !== 'function') {
+    target.getApi = () => target
+  }
   if (componentId) {
     target.componentId = componentId
-    node.nova.components.register(target as { componentId: string; getApi: () => unknown })
-    node.addDisposer(() => node.nova.components.unregister(target as { componentId: string; getApi: () => unknown }))
+    node.nova.components.register(target as { componentId: string, getApi: () => unknown })
+    node.addDisposer(() => node.nova.components.unregister(target as { componentId: string, getApi: () => unknown }))
   }
   if (typeof target.setProps !== 'function') {
-    target.setProps = patch => {
+    target.setProps = (patch) => {
       target.props = { ...(target.props ?? {}), ...patch }
       node.dirty({ update: true, render: true })
       return node
@@ -419,7 +443,9 @@ function attachPlainDecoratedRuntime(node: NovaNode<any>, props: Record<string, 
  * Возвращает bounds mode.
  */
 function resolveBounds(metadata: NovaDecoratedComponentMetadata): 'size' | 'custom' {
-  if (metadata.bounds) return metadata.bounds
+  if (metadata.bounds) {
+    return metadata.bounds
+  }
   const hasWidth = metadata.props.some(prop => prop.key === 'width')
   const hasHeight = metadata.props.some(prop => prop.key === 'height')
   return hasWidth && hasHeight ? 'size' : 'custom'
@@ -429,16 +455,18 @@ function resolveBounds(metadata: NovaDecoratedComponentMetadata): 'size' | 'cust
  * Возвращает default prop value.
  */
 function resolveDefaultValue(prop: NovaComponentPropDefinition): unknown {
-  if (typeof prop.defaultValue === 'function') return (prop.defaultValue as () => unknown)()
+  if (typeof prop.defaultValue === 'function') {
+    return (prop.defaultValue as () => unknown)()
+  }
   return prop.defaultValue
 }
 
 /**
  * Нормализует versioned options ref.
  */
-function normalizeVersionedOptions(value: unknown): { current: unknown; version: number } {
+function normalizeVersionedOptions(value: unknown): { current: unknown, version: number } {
   if (value && typeof value === 'object' && 'current' in value) {
-    const ref = value as { current: unknown; version?: number }
+    const ref = value as { current: unknown, version?: number }
     return { current: ref.current, version: ref.version ?? 0 }
   }
   return { current: value, version: 0 }
@@ -449,7 +477,11 @@ function normalizeVersionedOptions(value: unknown): { current: unknown; version:
  */
 function mergeByKey<T extends { key: string }>(base: Array<T>, patch: Array<T>): Array<T> {
   const map = new Map<string, T>()
-  for (const item of base) map.set(item.key, item)
-  for (const item of patch) map.set(item.key, item)
+  for (const item of base) {
+    map.set(item.key, item)
+  }
+  for (const item of patch) {
+    map.set(item.key, item)
+  }
   return [...map.values()]
 }

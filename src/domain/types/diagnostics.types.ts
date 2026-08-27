@@ -6,14 +6,14 @@ export type NovaDiagnosticsMetricSource = 'exact' | 'estimated' | 'observed' | '
 /**
  * Описывает категорию runtime diagnostics.
  */
-export type NovaDiagnosticsCategory =
-  | 'runtime'
-  | 'frame'
-  | 'render'
-  | 'resources'
-  | 'browser'
-  | 'input'
-  | 'history'
+export type NovaDiagnosticsCategory
+  = | 'runtime'
+    | 'frame'
+    | 'render'
+    | 'resources'
+    | 'browser'
+    | 'input'
+    | 'history'
 
 /**
  * Описывает доступность группы диагностических данных.

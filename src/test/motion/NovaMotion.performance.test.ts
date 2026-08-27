@@ -1,15 +1,14 @@
+import type { NovaApp, NovaMotionPatternName, NovaMotionPresetName, NovaSurface } from '@/index'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  Nova,
   NOVA_MOTION_PATTERNS,
   NOVA_MOTION_PRESETS,
-  Nova,
+
   NovaNode,
+
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
-  type NovaMotionPatternName,
-  type NovaMotionPresetName,
-  type NovaSurface,
 } from '@/index'
 
 type TestEvents = Record<string, any>
@@ -31,7 +30,7 @@ class PerfMotionNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('NovaMotion performance', () => {
+describe('novaMotion performance', () => {
   let app: NovaApp<TestEvents>
 
   beforeEach(() => {
@@ -76,7 +75,7 @@ describe('NovaMotion performance', () => {
     expect(elapsed).toBeLessThan(1_000)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('ticks preset %s under a local budget', name => {
+  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('ticks preset %s under a local budget', (name) => {
     const surface = app.createSurface(`preset-${name}`)
     const nodes = Array.from({ length: 160 }, (_, index) => {
       const node = surface.createNode(PerfMotionNode)
@@ -101,7 +100,7 @@ describe('NovaMotion performance', () => {
     expect(elapsed).toBeLessThan(1_000)
   })
 
-  it.each([100, 500, 1000])('ticks all motion patterns with %s targets under a local budget', count => {
+  it.each([100, 500, 1000])('ticks all motion patterns with %s targets under a local budget', (count) => {
     for (const name of Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>) {
       const surface = app.createSurface(`pattern-${name}-${count}`)
       const columns = Math.max(1, Math.ceil(Math.sqrt(count)))
@@ -140,7 +139,9 @@ function createApp(): NovaApp<TestEvents> {
 
 function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type !== RendererType.Web2D) return null
+    if (type !== RendererType.Web2D) {
+      return null
+    }
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
       /**
        * Возвращает значение состояния текущего класса.

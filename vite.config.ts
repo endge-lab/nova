@@ -1,7 +1,7 @@
-import path from 'path'
-import { defineConfig } from 'vitest/config'
+import path from 'node:path'
 import vue from '@vitejs/plugin-vue'
 import dts from 'unplugin-dts/vite'
+import { defineConfig } from 'vitest/config'
 
 const externalPackages = [
   '@endge/raph',

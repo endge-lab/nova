@@ -14,8 +14,8 @@ import type {
   NovaText,
   NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
-import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
+import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 
 /**
  * Предоставляет renderer-facing API для записи schema и primitive intents.
@@ -34,7 +34,9 @@ export class NovaRenderContext {
    */
   schema(schema: NovaSchema<any> | NovaSchemaItem<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
-    for (const item of items) this.schemaItem(item as NovaSchemaItem<any>)
+    for (const item of items) {
+      this.schemaItem(item as NovaSchemaItem<any>)
+    }
   }
 
   /**
@@ -104,7 +106,9 @@ export class NovaRenderContext {
    * Записывает retained rect batch.
    */
   rects(batch: NovaRectBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawRectBatch(batch)
   }
 
@@ -112,7 +116,9 @@ export class NovaRenderContext {
    * Записывает retained time-range segment batch.
    */
   timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawTimeRangeSegmentBatch(batch)
   }
 
@@ -134,7 +140,9 @@ export class NovaRenderContext {
    * Выполняет внутреннюю операцию schema item.
    */
   private schemaItem(item: NovaSchemaItem<any>): void {
-    if (item.active === false) return
+    if (item.active === false) {
+      return
+    }
 
     if (item.clip !== undefined && item.clip !== true) {
       this.pushClip(item.clip)

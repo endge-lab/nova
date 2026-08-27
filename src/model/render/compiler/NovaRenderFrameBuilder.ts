@@ -1,4 +1,3 @@
-import { RendererType } from '@/domain/types/renderer.types'
 import type {
   NovaRenderCommand,
   NovaRenderFrame,
@@ -9,6 +8,7 @@ import type {
   NovaRenderTarget,
   NovaRenderViewport,
 } from '@/domain/types/rendering/index'
+import { RendererType } from '@/domain/types/renderer.types'
 import { createNovaRenderLayer } from '@/model/render/graph/nova-render-layer'
 
 let frameId = 0

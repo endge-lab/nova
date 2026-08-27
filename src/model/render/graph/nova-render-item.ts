@@ -1,4 +1,5 @@
 import type { mat3 } from 'gl-matrix'
+import type { NovaBounds, NovaSchemaItem } from '@/domain/types/renderer.types'
 import type {
   NovaRenderClip,
   NovaRenderGroupId,
@@ -7,7 +8,6 @@ import type {
   NovaRenderLayerId,
   NovaRenderStreamKind,
 } from '@/domain/types/rendering/index'
-import type { NovaBounds, NovaSchemaItem } from '@/domain/types/renderer.types'
 
 /**
  * Описывает контракт CreateNovaRenderItemOptions.
@@ -77,11 +77,21 @@ export function createNovaRenderItemBatchKey(item: NovaSchemaItem<any>): string 
     return `rect:${background}:${border}:${radius}:${item.styles?.opacity ?? 1}`
   }
 
-  if (item.type === 'border') return `border:${item.styles?.color ?? 'none'}:${item.styles?.width ?? 0}`
-  if (item.type === 'text') return `text:${item.styles?.font?.family ?? 'sans'}:${item.styles?.font?.size ?? 12}:${item.styles?.font?.weight ?? 'normal'}`
-  if (item.type === 'icon') return `icon:${typeof item.icon === 'string' ? item.icon : 'source'}`
-  if (item.type === 'nine-slice-image') return `nine-slice-image:${typeof item.image === 'string' ? item.image : item.image.id}:${item.styles?.opacity ?? 1}`
-  if (item.type === 'pattern-rect') return `pattern-rect:${item.pattern.type}:${item.pattern.shape ?? 'square'}:${item.pattern.color}:${item.styles?.opacity ?? 1}`
+  if (item.type === 'border') {
+    return `border:${item.styles?.color ?? 'none'}:${item.styles?.width ?? 0}`
+  }
+  if (item.type === 'text') {
+    return `text:${item.styles?.font?.family ?? 'sans'}:${item.styles?.font?.size ?? 12}:${item.styles?.font?.weight ?? 'normal'}`
+  }
+  if (item.type === 'icon') {
+    return `icon:${typeof item.icon === 'string' ? item.icon : 'source'}`
+  }
+  if (item.type === 'nine-slice-image') {
+    return `nine-slice-image:${typeof item.image === 'string' ? item.image : item.image.id}:${item.styles?.opacity ?? 1}`
+  }
+  if (item.type === 'pattern-rect') {
+    return `pattern-rect:${item.pattern.type}:${item.pattern.shape ?? 'square'}:${item.pattern.color}:${item.styles?.opacity ?? 1}`
+  }
 
   return item.type
 }
@@ -96,18 +106,38 @@ export function resolveNovaRenderStreamKind(item: NovaSchemaItem<any>): NovaRend
     const borderWidth = border?.width ?? 0
     const background = item.styles?.background
 
-    if (background && typeof background !== 'string') return 'texture-quad'
+    if (background && typeof background !== 'string') {
+      return 'texture-quad'
+    }
     return radius > 0 || borderWidth > 0 ? 'rounded-rect' : 'plain-rect'
   }
 
-  if (item.type === 'border') return 'border'
-  if (item.type === 'line') return 'line'
-  if (item.type === 'circle') return 'circle'
-  if (item.type === 'arc') return 'arc'
-  if (item.type === 'polygon') return 'polygon'
-  if (item.type === 'text') return 'text-run'
-  if (item.type === 'icon') return 'icon'
-  if (item.type === 'nine-slice-image') return 'nine-slice-image'
-  if (item.type === 'pattern-rect') return 'pattern-rect'
+  if (item.type === 'border') {
+    return 'border'
+  }
+  if (item.type === 'line') {
+    return 'line'
+  }
+  if (item.type === 'circle') {
+    return 'circle'
+  }
+  if (item.type === 'arc') {
+    return 'arc'
+  }
+  if (item.type === 'polygon') {
+    return 'polygon'
+  }
+  if (item.type === 'text') {
+    return 'text-run'
+  }
+  if (item.type === 'icon') {
+    return 'icon'
+  }
+  if (item.type === 'nine-slice-image') {
+    return 'nine-slice-image'
+  }
+  if (item.type === 'pattern-rect') {
+    return 'pattern-rect'
+  }
   return 'cached-group'
 }

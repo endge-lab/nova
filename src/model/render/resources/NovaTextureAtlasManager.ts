@@ -86,7 +86,9 @@ export class NovaTextureAtlasManager<T = unknown> {
    */
   get(key: string): NovaTextureAtlasEntry<T> | undefined {
     const entry = this._entries.get(key)
-    if (entry) entry.lastUsed = ++this._tick
+    if (entry) {
+      entry.lastUsed = ++this._tick
+    }
     return entry
   }
 
@@ -123,11 +125,15 @@ export class NovaTextureAtlasManager<T = unknown> {
   evictToBudget(): Array<NovaTextureAtlasEntry<T>> {
     const evicted: Array<NovaTextureAtlasEntry<T>> = []
     const budgetBytes = this._options.maxMemoryMB * 1024 * 1024
-    if (this._bytes <= budgetBytes) return evicted
+    if (this._bytes <= budgetBytes) {
+      return evicted
+    }
 
     const candidates = [...this._entries.values()].sort((a, b) => a.lastUsed - b.lastUsed)
     for (const entry of candidates) {
-      if (this._bytes <= budgetBytes) break
+      if (this._bytes <= budgetBytes) {
+        break
+      }
       this._entries.delete(entry.key)
       this._bytes -= entry.bytes
       this.removeFromPage(entry)
@@ -149,14 +155,16 @@ export class NovaTextureAtlasManager<T = unknown> {
   /**
    * Выполняет внутреннюю операцию allocate region.
    */
-  private allocateRegion(width: number, height: number): { page: NovaTextureAtlasPage; x: number; y: number } {
+  private allocateRegion(width: number, height: number): { page: NovaTextureAtlasPage, x: number, y: number } {
     const pageSize = this._options.pageSize ?? 2048
     const w = Math.max(1, Math.ceil(width))
     const h = Math.max(1, Math.ceil(height))
 
     for (const page of this._pages) {
       const region = this.tryAllocateOnPage(page, w, h)
-      if (region) return region
+      if (region) {
+        return region
+      }
     }
 
     const page: NovaTextureAtlasPage = {
@@ -175,8 +183,10 @@ export class NovaTextureAtlasManager<T = unknown> {
   /**
    * Выполняет внутреннюю операцию try allocate on page.
    */
-  private tryAllocateOnPage(page: NovaTextureAtlasPage, width: number, height: number): { page: NovaTextureAtlasPage; x: number; y: number } | null {
-    if (width > page.width || height > page.height) return null
+  private tryAllocateOnPage(page: NovaTextureAtlasPage, width: number, height: number): { page: NovaTextureAtlasPage, x: number, y: number } | null {
+    if (width > page.width || height > page.height) {
+      return null
+    }
 
     if (page.cursorX + width > page.width) {
       page.cursorX = 0
@@ -184,7 +194,9 @@ export class NovaTextureAtlasManager<T = unknown> {
       page.rowHeight = 0
     }
 
-    if (page.cursorY + height > page.height) return null
+    if (page.cursorY + height > page.height) {
+      return null
+    }
 
     const x = page.cursorX
     const y = page.cursorY
@@ -197,7 +209,9 @@ export class NovaTextureAtlasManager<T = unknown> {
    * Удаляет from page.
    */
   private removeFromPage(entry: NovaTextureAtlasEntry<T>): void {
-    if (!entry.pageId) return
+    if (!entry.pageId) {
+      return
+    }
     const page = this._pages.find(item => item.id === entry.pageId)
     page?.entries.delete(entry.key)
   }

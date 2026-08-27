@@ -1,11 +1,11 @@
+import type { NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentSchema } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   NOVA_SCENE_SCHEMA_TYPE,
   NOVA_SCENES_SCHEMA_TYPE,
+
   NovaComponentNode,
-  type NovaComponentCreateContext,
-  type NovaComponentDescriptor,
-  type NovaComponentSchema,
+
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
@@ -44,7 +44,7 @@ function createSceneChildDescriptor(): NovaComponentDescriptor<SceneChildProps, 
   return descriptor
 }
 
-describe('Nova scene DSL components', () => {
+describe('nova scene DSL components', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

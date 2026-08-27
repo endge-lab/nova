@@ -1,31 +1,31 @@
+import type { NovaCanvas, NovaParticleBatch, NovaRectBatch, NovaSchema, NovaTextBatch } from '@/index'
 import { mat3 } from 'gl-matrix'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  NovaRenderGraph,
-  NovaSchemaRegistry,
-  NovaTextureAtlasManager,
-  NovaTextAtlasManager,
-  NovaGlyphAtlasManager,
-  NovaAssetRegistry,
-  NovaAssets,
-  NovaRenderHitIndex,
   collectVisibleNovaRenderGroups,
   createNovaRenderGroup,
+  NovaAssetRegistry,
+  NovaAssets,
+
+  NovaGlyphAtlasManager,
+
+  NovaRenderGraph,
+  NovaRenderHitIndex,
+
+  NovaSchemaRegistry,
+  NovaTextAtlasManager,
+
+  NovaTextureAtlasManager,
   resolveNovaRendererConfig,
-  type NovaCanvas,
-  type NovaParticleBatch,
-  type NovaRectBatch,
-  type NovaSchema,
-  type NovaTextBatch,
 } from '@/index'
+import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
+import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
-import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
-import { NovaGpuBufferArena } from '@/model/render/backends/webgl/NovaGpuBufferArena'
 import { NovaRenderTargetManager } from '@/model/render/targets/NovaRenderTargetManager'
 
-type RetainedContractCase = {
+interface RetainedContractCase {
   id: string
   priority: 'P0' | 'P1' | 'P2'
   area: 'dirty' | 'compiler' | 'streams' | 'gpu' | 'resources' | 'input'
@@ -148,27 +148,27 @@ function createWebGLContextStub(): WebGL2RenderingContext {
   const shaderSources: Array<string> = []
   const constants: Record<string, number> = {
     ARRAY_BUFFER: 0x8892,
-    BLEND: 0x0be2,
-    CLAMP_TO_EDGE: 0x812f,
+    BLEND: 0x0BE2,
+    CLAMP_TO_EDGE: 0x812F,
     COLOR_BUFFER_BIT: 0x4000,
-    COMPILE_STATUS: 0x8b81,
-    CULL_FACE: 0x0b44,
-    DEPTH_TEST: 0x0b71,
-    DYNAMIC_DRAW: 0x88e8,
+    COMPILE_STATUS: 0x8B81,
+    CULL_FACE: 0x0B44,
+    DEPTH_TEST: 0x0B71,
+    DYNAMIC_DRAW: 0x88E8,
     FLOAT: 0x1406,
-    FRAGMENT_SHADER: 0x8b30,
+    FRAGMENT_SHADER: 0x8B30,
     LINEAR: 0x2601,
-    LINK_STATUS: 0x8b82,
+    LINK_STATUS: 0x8B82,
     NO_ERROR: 0,
     ONE: 1,
     ONE_MINUS_SRC_ALPHA: 0x0303,
     RGBA: 0x1908,
     REPEAT: 0x2901,
-    SCISSOR_TEST: 0x0c11,
+    SCISSOR_TEST: 0x0C11,
     SRC_ALPHA: 0x0302,
-    STATIC_DRAW: 0x88e4,
-    TEXTURE0: 0x84c0,
-    TEXTURE_2D: 0x0de1,
+    STATIC_DRAW: 0x88E4,
+    TEXTURE0: 0x84C0,
+    TEXTURE_2D: 0x0DE1,
     TEXTURE_MAG_FILTER: 0x2800,
     TEXTURE_MIN_FILTER: 0x2801,
     TEXTURE_WRAP_S: 0x2802,
@@ -176,7 +176,7 @@ function createWebGLContextStub(): WebGL2RenderingContext {
     TRIANGLES: 0x0004,
     UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
     UNSIGNED_BYTE: 0x1401,
-    VERTEX_SHADER: 0x8b31,
+    VERTEX_SHADER: 0x8B31,
   }
 
   return {
@@ -239,7 +239,9 @@ function createWebGLContextStub(): WebGL2RenderingContext {
 function createCanvasStub(gl: WebGL2RenderingContext): NovaCanvas {
   const canvas = document.createElement('canvas')
   vi.spyOn(canvas, 'getContext').mockImplementation((type: string) => {
-    if (type === 'webgl2') return gl
+    if (type === 'webgl2') {
+      return gl
+    }
     return null
   })
 
@@ -324,7 +326,9 @@ function createMixedSemanticSchema(count: number): NovaSchema {
 
 function mockCanvas2D(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function getContextMock(this: HTMLCanvasElement, type: string) {
-    if (type !== '2d') return null
+    if (type !== '2d') {
+      return null
+    }
 
     return {
       canvas: this,
@@ -365,7 +369,9 @@ function createMultiSchemaBatchFrame(canvas: NovaCanvas, schemas: Array<NovaSche
   const writer = new NovaRenderCommandWriter(frameBuilder)
   const builder = new NovaRenderBuilder(canvas, new NovaSchemaRegistry(), writer)
   builder.setTransform(transform)
-  for (const schema of schemas) builder.schema(schema)
+  for (const schema of schemas) {
+    builder.schema(schema)
+  }
   return frameBuilder.build()
 }
 
@@ -546,7 +552,7 @@ function createTextBatchFrame(canvas: NovaCanvas, batch: NovaTextBatch) {
   }
 }
 
-describe('Nova retained WebGL2 renderer target contract matrix', () => {
+describe('nova retained WebGL2 renderer target contract matrix', () => {
   it('keeps retained-renderer contract case ids unique', () => {
     expect(new Set(ids(RETAINED_CONTRACT_CASES)).size).toBe(RETAINED_CONTRACT_CASES.length)
   })
@@ -846,7 +852,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     const schemas = Array.from({ length: 4 }, (_item, batchIndex) => {
       const schema = createRectSchema(80)
       for (const item of schema) {
-        if (item.type === 'rect') item.y += batchIndex * 16
+        if (item.type === 'rect') {
+          item.y += batchIndex * 16
+        }
       }
       schema.contentVersion = 1
       return schema
@@ -877,7 +885,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     const schemas = Array.from({ length: 3 }, (_item, batchIndex) => {
       const schema = createRectSchema(80)
       for (const item of schema) {
-        if (item.type === 'rect') item.y += batchIndex * 16
+        if (item.type === 'rect') {
+          item.y += batchIndex * 16
+        }
       }
       schema.contentVersion = 1
       return schema
@@ -888,7 +898,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     const dirtySchema = schemas[1]!
     const dirtyItem = dirtySchema[10]
-    if (dirtyItem?.type === 'rect') dirtyItem.styles = { ...dirtyItem.styles, background: '#f97316' }
+    if (dirtyItem?.type === 'rect') {
+      dirtyItem.styles = { ...dirtyItem.styles, background: '#f97316' }
+    }
     dirtySchema.contentVersion = 2
     dirtySchema.dirtyIndices = [10]
     const dirty = renderer.renderFrame(createMultiSchemaBatchFrame(canvas, schemas))
@@ -950,7 +962,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     for (let index = 0; index < 5; index += 1) {
       const item = schema[index]
-      if (item.type === 'rect') item.styles = { ...item.styles, background: '#f97316' }
+      if (item.type === 'rect') {
+        item.styles = { ...item.styles, background: '#f97316' }
+      }
     }
 
     const dirty = renderer.renderFrame(createCompiledFrame(canvas, schema))
@@ -976,7 +990,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     for (let index = 0; index < schema.length; index += 1) {
       const item = schema[index]
-      if (item.type === 'rect') item.styles = { ...item.styles, background: '#f97316' }
+      if (item.type === 'rect') {
+        item.styles = { ...item.styles, background: '#f97316' }
+      }
     }
 
     schema.contentVersion = 2
@@ -1004,7 +1020,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
 
     const nextItems = createRectSchema(100)
     const moved = nextItems[10]
-    if (moved.type === 'rect') moved.x += 48
+    if (moved.type === 'rect') {
+      moved.x += 48
+    }
 
     schema.length = 0
     schema.push(...nextItems)
@@ -1199,9 +1217,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.uploadBytes).toBe(0)
   })
 
-	  it('culls retained text batch runs before run-atlas raster and upload work', () => {
-	    mockCanvas2D()
-	    const gl = createWebGLContextStub()
+  it('culls retained text batch runs before run-atlas raster and upload work', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(
       canvas,
@@ -1228,139 +1246,139 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     expect(first.textRasterCount).toBeGreaterThan(0)
     expect(first.textRasterCount).toBeLessThanOrEqual(10)
     expect(first.textRasterCount + warm.textRasterCount).toBeLessThanOrEqual(10)
-	    expect(settled.textRasterCount).toBe(0)
-	    expect(settled.uploadBytes).toBe(0)
-	  })
+    expect(settled.textRasterCount).toBe(0)
+    expect(settled.uploadBytes).toBe(0)
+  })
 
-	  it('rasterizes run-atlas text into a tight rect smaller than the layout box', () => {
-	    mockCanvas2D()
-	    const gl = createWebGLContextStub()
-	    const canvas = createCanvasStub(gl)
-	    const renderer = new NovaRendererWebGL(
-	      canvas,
-	      new NovaSchemaRegistry(),
-	      resolveNovaRendererConfig({
-	        text: {
-	          mode: 'run-atlas',
-	          tightRunAtlas: true,
-	          visibleOnlyRaster: true,
-	          fallbackPreviousScale: false,
-	          prewarmAdjacentBuckets: false,
-	          rasterBudgetMs: 100,
-	        },
-	      }),
-	    )
-	    const schema = [
-	      {
-	        type: 'text',
-	        x: 10,
-	        y: 10,
-	        width: 400,
-	        height: 80,
-	        text: 'Hi',
-	        styles: { color: '#ffffff', font: { size: 12 }, lineHeight: 12 },
-	      },
-	    ] as NovaSchema
+  it('rasterizes run-atlas text into a tight rect smaller than the layout box', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'run-atlas',
+          tightRunAtlas: true,
+          visibleOnlyRaster: true,
+          fallbackPreviousScale: false,
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 400,
+        height: 80,
+        text: 'Hi',
+        styles: { color: '#ffffff', font: { size: 12 }, lineHeight: 12 },
+      },
+    ] as NovaSchema
 
-	    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
 
-	    expect(metrics.textRasterCount).toBe(1)
-	    expect(metrics.textRasterBoxPixels).toBe(400 * 80)
-	    expect(metrics.textRasterPixels).toBeGreaterThan(0)
-	    expect(metrics.textRasterPixels).toBeLessThan(metrics.textRasterBoxPixels!)
-	    expect(metrics.textRasterBytes).toBe(metrics.textRasterPixels! * 4)
-	    expect(metrics.textRasterSavedPixels).toBe(metrics.textRasterBoxPixels! - metrics.textRasterPixels!)
-	  })
+    expect(metrics.textRasterCount).toBe(1)
+    expect(metrics.textRasterBoxPixels).toBe(400 * 80)
+    expect(metrics.textRasterPixels).toBeGreaterThan(0)
+    expect(metrics.textRasterPixels).toBeLessThan(metrics.textRasterBoxPixels!)
+    expect(metrics.textRasterBytes).toBe(metrics.textRasterPixels! * 4)
+    expect(metrics.textRasterSavedPixels).toBe(metrics.textRasterBoxPixels! - metrics.textRasterPixels!)
+  })
 
-	  it('keeps the full layout box when tight run-atlas is disabled', () => {
-	    mockCanvas2D()
-	    const gl = createWebGLContextStub()
-	    const canvas = createCanvasStub(gl)
-	    const renderer = new NovaRendererWebGL(
-	      canvas,
-	      new NovaSchemaRegistry(),
-	      resolveNovaRendererConfig({
-	        text: {
-	          mode: 'run-atlas',
-	          tightRunAtlas: false,
-	          visibleOnlyRaster: true,
-	          fallbackPreviousScale: false,
-	          prewarmAdjacentBuckets: false,
-	          rasterBudgetMs: 100,
-	        },
-	      }),
-	    )
-	    const schema = [
-	      {
-	        type: 'text',
-	        x: 10,
-	        y: 10,
-	        width: 400,
-	        height: 80,
-	        text: 'Hi',
-	        styles: { color: '#ffffff', font: { size: 12 }, lineHeight: 12 },
-	      },
-	    ] as NovaSchema
+  it('keeps the full layout box when tight run-atlas is disabled', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'run-atlas',
+          tightRunAtlas: false,
+          visibleOnlyRaster: true,
+          fallbackPreviousScale: false,
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const schema = [
+      {
+        type: 'text',
+        x: 10,
+        y: 10,
+        width: 400,
+        height: 80,
+        text: 'Hi',
+        styles: { color: '#ffffff', font: { size: 12 }, lineHeight: 12 },
+      },
+    ] as NovaSchema
 
-	    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
+    const metrics = renderer.renderFrame(createCompiledFrame(canvas, schema))
 
-	    expect(metrics.textRasterCount).toBe(1)
-	    expect(metrics.textRasterBoxPixels).toBe(400 * 80)
-	    expect(metrics.textRasterPixels).toBe(metrics.textRasterBoxPixels)
-	    expect(metrics.textRasterSavedPixels).toBe(0)
-	  })
+    expect(metrics.textRasterCount).toBe(1)
+    expect(metrics.textRasterBoxPixels).toBe(400 * 80)
+    expect(metrics.textRasterPixels).toBe(metrics.textRasterBoxPixels)
+    expect(metrics.textRasterSavedPixels).toBe(0)
+  })
 
-	  it('keeps clipped retained long-ellipsis run-atlas batches warm with tight raster rects', () => {
-	    mockCanvas2D()
-	    const gl = createWebGLContextStub()
-	    const canvas = createCanvasStub(gl)
-	    const renderer = new NovaRendererWebGL(
-	      canvas,
-	      new NovaSchemaRegistry(),
-	      resolveNovaRendererConfig({
-	        text: {
-	          mode: 'run-atlas',
-	          tightRunAtlas: true,
-	          visibleOnlyRaster: true,
-	          fallbackPreviousScale: false,
-	          prewarmAdjacentBuckets: false,
-	          rasterBudgetMs: 100,
-	        },
-	      }),
-	    )
-	    const batch: NovaTextBatch = {
-	      count: 1,
-	      text: ['Long timeline item with clipped status and owner'],
-	      x: new Float32Array([10]),
-	      y: new Float32Array([10]),
-	      width: new Float32Array([132]),
-	      height: new Float32Array([24]),
-	      clipX: new Float32Array([14]),
-	      clipY: new Float32Array([12]),
-	      clipWidth: new Float32Array([124]),
-	      clipHeight: new Float32Array([20]),
-	      color: '#ffffff',
-	      font: { size: 12, weight: '700' },
-	      align: { horizontal: 'center', vertical: 'middle' },
-	      lineHeight: 12,
-	      ellipsis: true,
-	      revision: 1,
-	      staticRevision: 1,
-	    }
-	    const { frame } = createTextBatchFrame(canvas, batch)
+  it('keeps clipped retained long-ellipsis run-atlas batches warm with tight raster rects', () => {
+    mockCanvas2D()
+    const gl = createWebGLContextStub()
+    const canvas = createCanvasStub(gl)
+    const renderer = new NovaRendererWebGL(
+      canvas,
+      new NovaSchemaRegistry(),
+      resolveNovaRendererConfig({
+        text: {
+          mode: 'run-atlas',
+          tightRunAtlas: true,
+          visibleOnlyRaster: true,
+          fallbackPreviousScale: false,
+          prewarmAdjacentBuckets: false,
+          rasterBudgetMs: 100,
+        },
+      }),
+    )
+    const batch: NovaTextBatch = {
+      count: 1,
+      text: ['Long timeline item with clipped status and owner'],
+      x: new Float32Array([10]),
+      y: new Float32Array([10]),
+      width: new Float32Array([132]),
+      height: new Float32Array([24]),
+      clipX: new Float32Array([14]),
+      clipY: new Float32Array([12]),
+      clipWidth: new Float32Array([124]),
+      clipHeight: new Float32Array([20]),
+      color: '#ffffff',
+      font: { size: 12, weight: '700' },
+      align: { horizontal: 'center', vertical: 'middle' },
+      lineHeight: 12,
+      ellipsis: true,
+      revision: 1,
+      staticRevision: 1,
+    }
+    const { frame } = createTextBatchFrame(canvas, batch)
 
-	    const first = renderer.renderFrame(frame)
-	    const warm = renderer.renderFrame(frame)
+    const first = renderer.renderFrame(frame)
+    const warm = renderer.renderFrame(frame)
 
-	    expect(first.visibleTextRuns).toBe(1)
-	    expect(first.textRasterPixels).toBeGreaterThan(0)
-	    expect(first.textRasterPixels).toBeLessThan(first.textRasterBoxPixels!)
-	    expect(warm.textRasterCount).toBe(0)
-	    expect(warm.uploadBytes).toBe(0)
-	  })
+    expect(first.visibleTextRuns).toBe(1)
+    expect(first.textRasterPixels).toBeGreaterThan(0)
+    expect(first.textRasterPixels).toBeLessThan(first.textRasterBoxPixels!)
+    expect(warm.textRasterCount).toBe(0)
+    expect(warm.uploadBytes).toBe(0)
+  })
 
-	  it('defers visible text without falling back to per-text rendering when raster budget is exhausted', () => {
-	    mockCanvas2D()
+  it('defers visible text without falling back to per-text rendering when raster budget is exhausted', () => {
+    mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(
@@ -1745,7 +1763,9 @@ describe('Nova retained WebGL2 renderer target contract matrix', () => {
     const zoomedTransform = mat3.create()
     mat3.fromScaling(zoomedTransform, [2, 2])
     for (const command of frame.commands) {
-      if (command.type === 'setTransform') command.transform = zoomedTransform
+      if (command.type === 'setTransform') {
+        command.transform = zoomedTransform
+      }
     }
     const zoomed = renderer.renderFrame(frame)
 

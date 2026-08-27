@@ -1,5 +1,6 @@
+import type { NovaApp } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Nova, RaphSchedulerType, RendererType, type NovaApp } from '@/index'
+import { Nova, RaphSchedulerType, RendererType } from '@/index'
 import { createCanvas, createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 type TestEvents = Record<string, any>
@@ -11,7 +12,7 @@ const CLICK_SOUND = {
   maxInstances: 2,
 }
 
-describe('NovaSoundEngine', () => {
+describe('novaSoundEngine', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.useRealTimers()

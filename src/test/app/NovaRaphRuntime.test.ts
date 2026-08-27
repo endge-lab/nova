@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { NovaApp, NovaSurface } from '@/index'
 import { RaphKernel } from '@endge/raph'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+
   NovaNode,
   NovaPhase,
-  type NovaApp,
-  type NovaSurface,
+
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
@@ -56,7 +57,7 @@ function createAuditNode(
   return node
 }
 
-describe('Nova Raph runtime bridge', () => {
+describe('nova Raph runtime bridge', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

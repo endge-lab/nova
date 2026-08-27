@@ -1,5 +1,5 @@
-import type { NovaRenderGroup, NovaRenderViewport } from '@/domain/types/rendering/index'
 import type { NovaBounds } from '@/domain/types/renderer.types'
+import type { NovaRenderGroup, NovaRenderViewport } from '@/domain/types/rendering/index'
 
 /**
  * Описывает контракт NovaRenderCullingResult.
@@ -36,9 +36,13 @@ export function novaViewportToBounds(viewport: NovaRenderViewport): NovaBounds {
  * Проверяет nova render group visible.
  */
 export function isNovaRenderGroupVisible(group: NovaRenderGroup, viewport: NovaRenderViewport): boolean {
-  if (group.visible === false) return false
+  if (group.visible === false) {
+    return false
+  }
   const bounds = group.chunkBounds ?? group.bounds
-  if (!bounds) return true
+  if (!bounds) {
+    return true
+  }
   return novaBoundsIntersects(bounds, novaViewportToBounds(viewport))
 }
 

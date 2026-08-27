@@ -31,7 +31,9 @@ export class NovaRenderResourceCache<T> {
    */
   getOrCreate(key: string, factory: () => T): T {
     const current = this._cache.get(key)
-    if (current !== undefined) return current
+    if (current !== undefined) {
+      return current
+    }
 
     const next = factory()
     this._cache.set(key, next)

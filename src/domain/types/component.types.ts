@@ -1,9 +1,9 @@
 import type { EventList } from '@endge/utils'
+import type { NovaBounds, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaBounds, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 
 /**
  * Описывает тип NovaSchemaDescriptorKind.

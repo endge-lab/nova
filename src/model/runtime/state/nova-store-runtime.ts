@@ -1,12 +1,12 @@
 import type { DataPathDef } from '@endge/raph'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { NovaReactiveFieldMetadata, NovaStorePhase } from '@/model/runtime/state/nova-store-decorators'
 import {
   isNovaStoreObject,
   normalizeNovaStorePhases,
+
   readNovaStoreMetadata,
   readNovaStoreOptions,
-  type NovaReactiveFieldMetadata,
-  type NovaStorePhase,
 } from '@/model/runtime/state/nova-store-decorators'
 import { trackNovaStoreRead } from '@/model/runtime/state/nova-store-tracking'
 
@@ -44,7 +44,9 @@ export function createNovaStore<T extends object>(instance: T, options: NovaCrea
  */
 export function batchNovaStore<T>(store: object, callback: () => T): T {
   const runtime = findNovaStoreRuntime(store)
-  if (!runtime?.app) return callback()
+  if (!runtime?.app) {
+    return callback()
+  }
   let result!: T
   runtime.app.raph.kernel.transaction(() => {
     result = callback()
@@ -74,11 +76,14 @@ function attachNovaStore(store: object, runtime: NovaStoreRuntime): void {
     previousRuntime.path = runtime.path
     previousRuntime.root = runtime.root
     runtime = previousRuntime
-  } else {
+  }
+  else {
     STORE_RUNTIME.set(store, runtime)
   }
   const metadata = readNovaStoreMetadata(store.constructor)
-  if (!metadata) return
+  if (!metadata) {
+    return
+  }
 
   for (const field of metadata.reactiveFields) {
     installReactiveField(store, runtime, field)
@@ -99,7 +104,8 @@ function installReactiveField(
         ...runtime,
         path: resolveFieldPath(store, runtime.path, field),
       })
-    } else {
+    }
+    else {
       writeInitialValue(runtime, resolveFieldPath(store, runtime.path, field), value)
     }
     return
@@ -111,8 +117,10 @@ function installReactiveField(
     ...runtime,
     path: localPath,
   }
-  if (isNovaStoreObject(value)) attachNovaStore(value, childRuntime)
-  else writeInitialValue(runtime, localPath, value)
+  if (isNovaStoreObject(value)) {
+    attachNovaStore(value, childRuntime)
+  }
+  else { writeInitialValue(runtime, localPath, value) }
 
   Object.defineProperty(store, key, {
     configurable: true,
@@ -120,13 +128,16 @@ function installReactiveField(
     get() {
       if (isNovaStoreObject(value)) {
         trackNovaStoreRead(createStorePath(runtime, `${localPath}.*`), field.options.phase)
-      } else {
+      }
+      else {
         trackNovaStoreRead(createStorePath(runtime, localPath), field.options.phase)
       }
       return value
     },
     set(next: unknown) {
-      if (Object.is(value, next)) return
+      if (Object.is(value, next)) {
+        return
+      }
       value = next
       const branch = isNovaStoreObject(next)
       if (branch) {
@@ -165,7 +176,9 @@ function notifyPath(
   value: unknown,
   _phases: Array<NovaStorePhase>,
 ): void {
-  if (!runtime.app) return
+  if (!runtime.app) {
+    return
+  }
   runtime.app.raph.kernel.set(createStorePath(runtime, path), value)
 }
 

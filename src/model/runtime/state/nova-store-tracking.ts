@@ -1,9 +1,10 @@
 import type { DataPathDef } from '@endge/raph'
 import type { NovaPhaseName } from '@/domain/constants/nova-phase'
+import type { NovaStorePhaseInput } from '@/model/runtime/state/nova-store-decorators'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import {
   normalizeNovaStorePhases,
-  type NovaStorePhaseInput,
+
 } from '@/model/runtime/state/nova-store-decorators'
 
 export type NovaStoreTrackingPhase = 'update' | 'matrix' | 'render'
@@ -39,7 +40,9 @@ export function beginNovaStoreTracking(
  */
 export function endNovaStoreTracking(): void {
   const context = trackingStack.pop()
-  if (!context) return
+  if (!context) {
+    return
+  }
   compactBranchReads(context.reads)
   context.node.syncReactiveStoreReads(context.reads, context.touchedPhases)
 }
@@ -49,7 +52,9 @@ export function endNovaStoreTracking(): void {
  */
 export function trackNovaStoreRead(path: DataPathDef, phaseInput?: NovaStorePhaseInput): void {
   const context = trackingStack[trackingStack.length - 1]
-  if (!context) return
+  if (!context) {
+    return
+  }
 
   const phases = normalizeNovaStorePhases(phaseInput, context.defaultPhase as NovaPhaseName)
   for (const phase of phases) {
@@ -66,10 +71,14 @@ export function trackNovaStoreRead(path: DataPathDef, phaseInput?: NovaStorePhas
 function compactBranchReads(readsByPhase: NovaStoreReadMap): void {
   for (const reads of readsByPhase.values()) {
     for (const path of [...reads]) {
-      if (!path.endsWith('.*')) continue
+      if (!path.endsWith('.*')) {
+        continue
+      }
       const prefix = path.slice(0, -1)
       const hasLeafRead = [...reads].some(candidate => candidate !== path && candidate.startsWith(prefix))
-      if (hasLeafRead) reads.delete(path)
+      if (hasLeafRead) {
+        reads.delete(path)
+      }
     }
   }
 }

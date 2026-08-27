@@ -24,39 +24,39 @@ export type NovaThemeTokens = Record<NovaThemeTokenName, NovaThemeTokenValue>
  * Описывает тему Nova runtime.
  */
 export interface NovaThemeDefinition {
-    id: NovaThemeId
-    title?: string
-    tokens: NovaThemeTokens
+  id: NovaThemeId
+  title?: string
+  tokens: NovaThemeTokens
 }
 
 /**
  * Описывает snapshot активной темы.
  */
 export interface NovaThemeSnapshot {
-    active: NovaThemeId | null
-    version: number
-    tokens: NovaThemeTokens
+  active: NovaThemeId | null
+  version: number
+  tokens: NovaThemeTokens
 }
 
 /**
  * Описывает runtime resolver theme tokens.
  */
 export interface NovaThemeTokenResolver {
-    resolve: (name: string, fallback?: string) => string | undefined
-    version?: number
+  resolve: (name: string, fallback?: string) => string | undefined
+  version?: number
 }
 
 /**
  * Описывает настройки подписки Nova node на смену темы.
  */
 export interface NovaThemeObserveOptions {
-    phase?: NovaPhaseName | string
+  phase?: NovaPhaseName | string
 }
 
 /**
  * Описывает настройки создания theme service.
  */
 export interface NovaThemeCreateOptions {
-    themes?: Array<NovaThemeDefinition>
-    active?: NovaThemeId
+  themes?: Array<NovaThemeDefinition>
+  active?: NovaThemeId
 }

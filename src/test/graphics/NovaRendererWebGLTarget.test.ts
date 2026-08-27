@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  NovaRenderContext,
-  NovaSchemaRegistry,
   compileNovaRectStyle,
   compileNovaTextStyle,
+  NovaRenderContext,
+  NovaSchemaRegistry,
   parseNovaColor,
 } from '@/index'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
@@ -21,7 +21,7 @@ function createFrameBuilder(): NovaRenderFrameBuilder {
   })
 }
 
-describe('Nova target WebGL2 renderer contracts', () => {
+describe('nova target WebGL2 renderer contracts', () => {
   it('keeps target render context schema-first without ordered/batched public methods', () => {
     expect('schema' in NovaRenderContext.prototype).toBe(true)
     expect('schemaOrdered' in NovaRenderContext.prototype).toBe(false)

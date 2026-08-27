@@ -23,9 +23,9 @@ export class NovaGraphics {
    */
   static darkenColor(hex: string, factor: number): string {
     const cleanHex = hex.replace('#', '')
-    const r = parseInt(cleanHex.substring(0, 2), 16)
-    const g = parseInt(cleanHex.substring(2, 4), 16)
-    const b = parseInt(cleanHex.substring(4, 6), 16)
+    const r = Number.parseInt(cleanHex.substring(0, 2), 16)
+    const g = Number.parseInt(cleanHex.substring(2, 4), 16)
+    const b = Number.parseInt(cleanHex.substring(4, 6), 16)
     const darken = (component: number) =>
       Math.max(0, Math.min(255, Math.floor(component * factor)))
     return `#${darken(r).toString(16).padStart(2, '0')}${darken(g)
@@ -56,7 +56,9 @@ export class NovaGraphics {
     const patternCanvas = document.createElement('canvas')
     const patternCtx = patternCanvas.getContext('2d')
 
-    if (!patternCtx) return null
+    if (!patternCtx) {
+      return null
+    }
 
     patternCanvas.width = patternSize
     patternCanvas.height = patternSize
@@ -96,7 +98,9 @@ export class NovaGraphics {
     canvas.width = w
     canvas.height = h
     const ctx = canvas.getContext('2d')
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     const svgWithColor = svgContent.replace('currentColor', fillColor)
     const blob = new Blob([svgWithColor], { type: 'image/svg+xml' })

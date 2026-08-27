@@ -10,7 +10,7 @@ export interface NovaRenderTargetResource<TTexture = unknown, TFramebuffer = unk
   readonly canvas?: HTMLCanvasElement | OffscreenCanvas
   readonly context?: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null
 
-  resize(width: number, height: number, dpr: number): void
-  clear(): void
-  destroy(): void
+  resize: (width: number, height: number, dpr: number) => void
+  clear: () => void
+  destroy: () => void
 }

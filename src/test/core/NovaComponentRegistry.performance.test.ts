@@ -3,7 +3,7 @@ import { Nova, NovaNode, NovaSchemaRegistry } from '@/index'
 
 type TestEvents = Record<string, any>
 
-describe('Nova defined component registry performance', () => {
+describe('nova defined component registry performance', () => {
   it('registers and resolves 10k global tags under budget', () => {
     const registry = new NovaSchemaRegistry()
     const components = Array.from({ length: 10_000 }, (_item, index) => Nova.defineComponent(

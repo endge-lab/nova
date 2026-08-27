@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-type BenchmarkTarget = {
+interface BenchmarkTarget {
   minFps?: number
   maxFrameMs?: number
   maxUploadMBPerFrame?: number
@@ -17,7 +17,7 @@ type BenchmarkTarget = {
   maxLodDroppedTextRuns?: number
 }
 
-type RetainedBenchmarkCase = {
+interface RetainedBenchmarkCase {
   id: string
   area: 'rect' | 'rounded' | 'text' | 'mixed' | 'timeline' | 'input' | 'resources' | 'motion'
   workload: 'static' | 'pan-only' | 'paint-5%' | 'paint-30%' | 'shader-animation' | 'slaylines' | 'scroll' | 'eviction' | 'zoom-inside-bucket' | 'zoom-bucket-crossing'
@@ -634,7 +634,7 @@ function byId(testCase: RetainedBenchmarkCase): string {
   return testCase.id
 }
 
-describe('Nova retained WebGL2 benchmark acceptance matrix', () => {
+describe('nova retained WebGL2 benchmark acceptance matrix', () => {
   it('keeps benchmark scenario ids unique', () => {
     expect(new Set(RETAINED_BENCHMARKS.map(byId)).size).toBe(RETAINED_BENCHMARKS.length)
   })

@@ -1,12 +1,3 @@
-import { mat3 } from 'gl-matrix'
-import type {
-  NovaRenderClip,
-  NovaRenderCommand,
-  NovaRenderHandle,
-  NovaRenderGroup,
-  NovaRenderItem,
-  NovaRenderTargetKind,
-} from '@/domain/types/rendering/index'
 import type {
   NovaIconBatch,
   NovaParticleBatch,
@@ -18,9 +9,18 @@ import type {
   NovaTextBatch,
   NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
-import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/nova-render-item'
-import type { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
+import type {
+  NovaRenderClip,
+  NovaRenderCommand,
+  NovaRenderGroup,
+  NovaRenderHandle,
+  NovaRenderItem,
+  NovaRenderTargetKind,
+} from '@/domain/types/rendering/index'
 import type { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
+import type { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
+import { mat3 } from 'gl-matrix'
+import { createNovaRenderItem, createNovaRenderItemBatchKey, resolveNovaRenderItemKind, resolveNovaRenderStreamKind } from '@/model/render/graph/nova-render-item'
 
 /**
  * Записывает render commands в instruction buffer и поддерживает clip stack.
@@ -99,7 +99,9 @@ export class NovaRenderCommandWriter {
    */
   restore(): NovaRenderCommand | null {
     const minDepth = this.activeStateMark?.transformDepth ?? 0
-    if (this._transformStack.length <= minDepth) return null
+    if (this._transformStack.length <= minDepth) {
+      return null
+    }
     return this.restoreUnsafe()
   }
 
@@ -131,7 +133,9 @@ export class NovaRenderCommandWriter {
    */
   clearClip(): NovaRenderCommand | null {
     const minDepth = this.activeStateMark?.clipDepth ?? 0
-    if (this._clipStack.length <= minDepth) return null
+    if (this._clipStack.length <= minDepth) {
+      return null
+    }
     return this.clearClipUnsafe()
   }
 
@@ -171,7 +175,7 @@ export class NovaRenderCommandWriter {
     id: string,
     width: number,
     height: number,
-    options: { dpr?: number; kind?: Extract<NovaRenderTargetKind, 'texture' | 'cache' | 'effect'> } = {},
+    options: { dpr?: number, kind?: Extract<NovaRenderTargetKind, 'texture' | 'cache' | 'effect'> } = {},
   ): NovaRenderCommand {
     const target = this._frameBuilder.addTarget({
       id,
@@ -427,7 +431,9 @@ export class NovaRenderCommandWriter {
    * Добавляет handle.
    */
   private addHandle(renderItem: NovaRenderItem, item: NovaSchemaItem<any>, offset: number, count: number, nodeId: string): void {
-    if (!this._graph) return
+    if (!this._graph) {
+      return
+    }
 
     const handle: NovaRenderHandle = {
       id: `handle:${++this._handleId}`,
@@ -461,7 +467,9 @@ export class NovaRenderCommandWriter {
    * Добавляет handle для retained particle stream.
    */
   private addParticleHandle(renderItem: NovaRenderItem, batch: NovaParticleBatch, nodeId: string, streamKind: NovaRenderHandle['streamKind']): void {
-    if (!this._graph) return
+    if (!this._graph) {
+      return
+    }
 
     const handle: NovaRenderHandle = {
       id: `handle:${++this._handleId}`,
@@ -493,7 +501,9 @@ export class NovaRenderCommandWriter {
    * Добавляет handle для retained rect stream.
    */
   private addRectBatchHandle(renderItem: NovaRenderItem, batch: NovaRectBatch, nodeId: string): void {
-    if (!this._graph) return
+    if (!this._graph) {
+      return
+    }
 
     const handle: NovaRenderHandle = {
       id: `handle:${++this._handleId}`,
@@ -525,7 +535,9 @@ export class NovaRenderCommandWriter {
    * Добавляет handle для retained time-range segment stream.
    */
   private addTimeRangeSegmentBatchHandle(renderItem: NovaRenderItem, batch: NovaTimeRangeSegmentBatch, nodeId: string): void {
-    if (!this._graph) return
+    if (!this._graph) {
+      return
+    }
 
     const handle: NovaRenderHandle = {
       id: `handle:${++this._handleId}`,
@@ -600,7 +612,9 @@ export class NovaRenderCommandWriter {
     nodeId: string,
     streamKind: 'stripe-batch' | 'icon-batch' | 'text-batch',
   ): void {
-    if (!this._graph) return
+    if (!this._graph) {
+      return
+    }
 
     const handle: NovaRenderHandle = {
       id: `handle:${++this._handleId}`,

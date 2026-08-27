@@ -1,6 +1,4 @@
-import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
-import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type {
   NovaArc,
   NovaBorder,
@@ -23,13 +21,15 @@ import type {
   NovaTextChunk,
   NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
-import { RendererType } from '@/domain/types/renderer.types'
-import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
 import type { NovaAssetRegistry, NovaNineSliceInsets } from '@/model/runtime/assets/NovaAssetRegistry'
-import { isNovaAssetRef, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import { randomString } from '@endge/utils'
+import { RendererType } from '@/domain/types/renderer.types'
 import { resolveNovaIconRenderOpacity, resolveNovaIconRenderRect } from '@/model/render/utils/nova-icon-rendering'
+import { isNovaAssetRef, NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 
 /**
  * Рисует compiled Nova render frame через Canvas2D backend.
@@ -85,7 +85,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    * Возвращает ctx.
    */
   get ctx(): CanvasRenderingContext2D {
-    if (this._activeTargetContext) return this._activeTargetContext
+    if (this._activeTargetContext) {
+      return this._activeTargetContext
+    }
     return this.novaCanvas.getContext2D()
   }
 
@@ -104,7 +106,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     if (this._activeTargetContext) {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-    } else {
+    }
+    else {
       ctx.clearRect(0, 0, this.novaCanvas.pixelWidth, this.novaCanvas.pixelHeight)
       ctx.scale(this.novaCanvas.dpr, this.novaCanvas.dpr)
     }
@@ -134,7 +137,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       canvas.height = pixelHeight
     }
     const context = canvas.getContext('2d')
-    if (!context) return
+    if (!context) {
+      return
+    }
     this._targetStack.push(this._activeTargetContext)
     this._activeTargetContext = context
     context.setTransform(1, 0, 0, 1, 0, 0)
@@ -154,7 +159,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    */
   drawRenderTarget(id: string, x: number, y: number, width: number, height: number): void {
     const canvas = this._renderTargets.get(id)
-    if (!canvas || width <= 0 || height <= 0) return
+    if (!canvas || width <= 0 || height <= 0) {
+      return
+    }
     this.ctx.drawImage(canvas, x, y, width, height)
   }
 
@@ -166,7 +173,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     this._clearTextBackground = enabled
     try {
       return run()
-    } finally {
+    }
+    finally {
       this._clearTextBackground = previous
     }
   }
@@ -191,10 +199,14 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           this.restore()
           break
         case 'setTransform':
-          if (command.transform) this.setTransform(command.transform)
+          if (command.transform) {
+            this.setTransform(command.transform)
+          }
           break
         case 'clip':
-          if (command.clip) this.clip(command.clip.x, command.clip.y, command.clip.width, command.clip.height)
+          if (command.clip) {
+            this.clip(command.clip.x, command.clip.y, command.clip.width, command.clip.height)
+          }
           break
         case 'clearClip':
           this.clearClip()
@@ -256,7 +268,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           }
           break
         case 'cursor':
-          if (command.cursor) this.cursor(command.cursor)
+          if (command.cursor) {
+            this.cursor(command.cursor)
+          }
           break
         default:
           break
@@ -374,7 +388,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    */
   restore(): void {
     const minDepth = this.activeStateMark?.transformDepth ?? 0
-    if (this._transformDepth <= minDepth) return
+    if (this._transformDepth <= minDepth) {
+      return
+    }
     this.restoreUnsafe()
   }
 
@@ -395,7 +411,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    */
   clearClip(): void {
     const minDepth = this.activeStateMark?.clipDepth ?? 0
-    if (this._clipDepth <= minDepth) return
+    if (this._clipDepth <= minDepth) {
+      return
+    }
     this.clearClipUnsafe()
   }
 
@@ -444,7 +462,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     const ctx = this.ctx
     ctx.save()
 
-    if (p.styles?.opacity !== undefined) ctx.globalAlpha = p.styles.opacity
+    if (p.styles?.opacity !== undefined) {
+      ctx.globalAlpha = p.styles.opacity
+    }
 
     // Фон
     if (p.styles?.background) {
@@ -454,12 +474,14 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       if (typeof background === 'string') {
         ctx.fillStyle = background
         ctx.fill()
-      } else if (source) {
+      }
+      else if (source) {
         const fillMode = this._assets.resolveDrawableFillMode(background)
         if (fillMode === 'stretch') {
           ctx.clip()
           ctx.drawImage(source, p.x, p.y, p.width, p.height)
-        } else {
+        }
+        else {
           ctx.fillStyle = ctx.createPattern(source, fillMode)!
           ctx.fill()
         }
@@ -513,21 +535,25 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
       if (width > 0 && height > 0) {
         this.clip(x, y, width, height)
-      } else {
+      }
+      else {
         this.clip(p.x, p.y, p.width, p.height)
       }
     }
 
     if (p.parser === 'markdown') {
       this.textMarkdown(p)
-    } else {
+    }
+    else {
       this.textString(p)
     }
 
     if (shouldClipToInner) {
       this.clearClip()
     }
-    if (rotation !== 0) ctx.restore()
+    if (rotation !== 0) {
+      ctx.restore()
+    }
   }
 
   /**
@@ -539,12 +565,16 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     const clipWidth = batch.clipWidth?.[index]
     const clipHeight = batch.clipHeight?.[index]
     if (
-      clipX === undefined ||
-      clipY === undefined ||
-      clipWidth === undefined ||
-      clipHeight === undefined
-    ) return undefined
-    if (clipWidth < 0 || clipHeight < 0) return null
+      clipX === undefined
+      || clipY === undefined
+      || clipWidth === undefined
+      || clipHeight === undefined
+    ) {
+      return undefined
+    }
+    if (clipWidth < 0 || clipHeight < 0) {
+      return null
+    }
 
     return {
       x: clipX,
@@ -563,14 +593,17 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     top: number
     bottom: number
   } {
-    if (!padding) return { left: 0, right: 0, top: 0, bottom: 0 }
-    if ('all' in padding)
-      {return {
+    if (!padding) {
+      return { left: 0, right: 0, top: 0, bottom: 0 }
+    }
+    if ('all' in padding) {
+      return {
         left: padding.all,
         right: padding.all,
         top: padding.all,
         bottom: padding.all,
-      }}
+      }
+    }
     if ('horizontal' in padding || 'vertical' in padding) {
       return {
         left: padding.horizontal || 0,
@@ -630,7 +663,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   arc(p: NovaArc): void {
     const width = p.styles?.width ?? 1
     const opacity = p.styles?.opacity ?? 1
-    if (p.radius <= 0 || width <= 0 || opacity <= 0) return
+    if (p.radius <= 0 || width <= 0 || opacity <= 0) {
+      return
+    }
 
     const ctx = this.ctx
     ctx.save()
@@ -651,7 +686,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     const ctx = this.ctx
     ctx.save()
 
-    if (p.styles?.opacity !== undefined) ctx.globalAlpha = p.styles.opacity
+    if (p.styles?.opacity !== undefined) {
+      ctx.globalAlpha = p.styles.opacity
+    }
 
     ctx.beginPath()
     if (p.points.length > 0) {
@@ -705,7 +742,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    * Рисует процедурный pattern rect через bounded Canvas2D fallback.
    */
   patternRect(p: NovaPatternRect): void {
-    if (p.width <= 0 || p.height <= 0 || p.pattern.type !== 'dot-grid') return
+    if (p.width <= 0 || p.height <= 0 || p.pattern.type !== 'dot-grid') {
+      return
+    }
 
     const ctx = this.ctx
     const pattern = p.pattern
@@ -717,8 +756,12 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     const half = size / 2
     let firstX = pattern.originX + Math.floor((p.x - pattern.originX) / effectiveStep) * effectiveStep
     let firstY = pattern.originY + Math.floor((p.y - pattern.originY) / effectiveStep) * effectiveStep
-    if (firstX < p.x) firstX += effectiveStep
-    if (firstY < p.y) firstY += effectiveStep
+    if (firstX < p.x) {
+      firstX += effectiveStep
+    }
+    if (firstY < p.y) {
+      firstY += effectiveStep
+    }
 
     ctx.save()
     ctx.beginPath()
@@ -733,7 +776,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           ctx.beginPath()
           ctx.arc(x, y, half, 0, Math.PI * 2)
           ctx.fill()
-        } else {
+        }
+        else {
           ctx.fillRect(x - half, y - half, size, size)
         }
       }
@@ -748,7 +792,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   nineSliceImage(p: NovaNineSliceImage): void {
     const ctx = this.ctx
     const source = this._assets.resolveDrawable(p.image)
-    if (!source) return
+    if (!source) {
+      return
+    }
 
     const descriptor = this._assets.resolveNineSlice(p.image)
     const slice = normalizeNineSliceInput(p.slice ?? descriptor?.slice ?? 0)
@@ -775,7 +821,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           width: columns[column].targetSize,
           height: rows[row].targetSize,
         }
-        if (sourceRect.width <= 0 || sourceRect.height <= 0 || targetRect.width <= 0 || targetRect.height <= 0) continue
+        if (sourceRect.width <= 0 || sourceRect.height <= 0 || targetRect.width <= 0 || targetRect.height <= 0) {
+          continue
+        }
         if (centerMode === 'repeat' && row === 1 && column === 1) {
           this.drawRepeatedNineSliceCenter(source, sourceRect, targetRect)
           continue
@@ -792,19 +840,23 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    */
   private drawRepeatedNineSliceCenter(
     source: CanvasImageSource,
-    sourceRect: { x: number; y: number; width: number; height: number },
-    targetRect: { x: number; y: number; width: number; height: number },
+    sourceRect: { x: number, y: number, width: number, height: number },
+    targetRect: { x: number, y: number, width: number, height: number },
   ): void {
     const ctx = this.ctx
     const tile = document.createElement('canvas')
     const tileCtx = tile.getContext('2d')
     tile.width = Math.max(1, sourceRect.width)
     tile.height = Math.max(1, sourceRect.height)
-    if (!tileCtx) return
+    if (!tileCtx) {
+      return
+    }
 
     tileCtx.drawImage(source, sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height, 0, 0, tile.width, tile.height)
     const pattern = ctx.createPattern(tile, 'repeat')
-    if (!pattern) return
+    if (!pattern) {
+      return
+    }
 
     ctx.save()
     ctx.beginPath()
@@ -837,7 +889,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
       if (batch.kind === 'sprite') {
         const source = this._assets.resolveDrawable(batch.texture)
-        if (source) ctx.drawImage(source, x, y, size, size)
+        if (source) {
+          ctx.drawImage(source, x, y, size, size)
+        }
         continue
       }
 
@@ -875,7 +929,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     for (let index = 0; index < batch.count; index += 1) {
       const colorOffset = index * 4
       const alpha = (batch.colors[colorOffset + 3] ?? 1) * opacity
-      if (alpha <= 0) continue
+      if (alpha <= 0) {
+        continue
+      }
 
       ctx.fillStyle = `rgba(${Math.round((batch.colors[colorOffset] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 1] ?? 0) * 255)}, ${Math.round((batch.colors[colorOffset + 2] ?? 0) * 255)}, ${alpha})`
       const x = batch.x[index] ?? 0
@@ -886,7 +942,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       if (radius > 0) {
         this._drawRoundedRect(x, y, width, height, radius)
         ctx.fill()
-      } else {
+      }
+      else {
         ctx.fillRect(x, y, width, height)
       }
     }
@@ -904,7 +961,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     for (let index = 0; index < batch.count; index += 1) {
       const colorOffset = index * 4
       const alpha = batch.colors[colorOffset + 3] ?? 1
-      if (alpha <= 0) continue
+      if (alpha <= 0) {
+        continue
+      }
       const x = batch.viewportX + ((batch.startTime[index] ?? 0) - batch.timeStart) * batch.pxPerMs
       const width = Math.max(1, ((batch.endTime[index] ?? 0) - (batch.startTime[index] ?? 0)) * batch.pxPerMs)
       const y = (batch.y[index] ?? 0) + batch.yOffset
@@ -931,7 +990,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       const y = batch.y[index] ?? 0
       const width = batch.width[index] ?? 0
       const height = batch.height[index] ?? 0
-      if (!source || width <= 0 || height <= 0) continue
+      if (!source || width <= 0 || height <= 0) {
+        continue
+      }
 
       ctx.fillStyle = ctx.createPattern(source, 'repeat')!
       ctx.fillRect(x, y, width, height)
@@ -952,7 +1013,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     for (let index = 0; index < batch.count; index += 1) {
       const source = this._assets.resolveDrawable(batch.icons[index])
-      if (!source) continue
+      if (!source) {
+        continue
+      }
       ctx.drawImage(
         source,
         batch.x[index] ?? 0,
@@ -1022,13 +1085,16 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       sides.add('right')
       sides.add('bottom')
       sides.add('left')
-    } else if (p.position === 'vertical') {
+    }
+    else if (p.position === 'vertical') {
       sides.add('left')
       sides.add('right')
-    } else if (p.position === 'horizontal') {
+    }
+    else if (p.position === 'horizontal') {
       sides.add('top')
       sides.add('bottom')
-    } else if (Array.isArray(p.position)) {
+    }
+    else if (Array.isArray(p.position)) {
       for (const s of p.position) {
         sides.add(s)
       }
@@ -1037,7 +1103,9 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     if ((!p.position || p.position === 'all') && radius > 0) {
       ctx.strokeStyle = color
       ctx.lineWidth = w
-      if (p.styles?.dashPattern) ctx.setLineDash(p.styles.dashPattern)
+      if (p.styles?.dashPattern) {
+        ctx.setLineDash(p.styles.dashPattern)
+      }
       this._drawRoundedRect(p.x, p.y, p.width, p.height, radius)
       ctx.stroke()
       ctx.setLineDash([])
@@ -1076,7 +1144,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
       }
 
       ctx.setLineDash([])
-    } else {
+    }
+    else {
       ctx.fillStyle = color
 
       if (sides.has('top')) {
@@ -1194,7 +1263,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
 
     let finalText = p.text
     if (p.styles?.ellipsis) {
-      while (finalText.length > 0 && ctx.measureText(finalText + '...').width > maxWidth) {
+      while (finalText.length > 0 && ctx.measureText(`${finalText}...`).width > maxWidth) {
         finalText = finalText.slice(0, -1)
       }
       if (finalText.length > 0 && finalText !== p.text) {
@@ -1210,7 +1279,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Выполняет внутреннюю операцию measure text.
    */
-  measureText(p: NovaText): { width: number; height: number } {
+  measureText(p: NovaText): { width: number, height: number } {
     const fontSize = p.styles?.font?.size || 12
     const fontFamily = p.styles?.font?.family || 'Verdana'
     const fontWeight = p.styles?.font?.weight || 'normal'
@@ -1305,7 +1374,6 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     }
 
     ctx.restore()
-    return
   }
 
   /**
@@ -1321,13 +1389,17 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     for (const line of lines) {
       const parts = line.split(/(\*\*[^*]+\*\*|_[^_]+_)/g)
       for (const part of parts) {
-        if (!part) continue
+        if (!part) {
+          continue
+        }
 
         if (/^\*\*(.+)\*\*$/.test(part)) {
           chunks.push({ text: part.slice(2, -2), bold: true })
-        } else if (/^_(.+)_$/.test(part)) {
+        }
+        else if (/^_(.+)_$/.test(part)) {
           chunks.push({ text: part.slice(1, -1), italic: true })
-        } else {
+        }
+        else {
           chunks.push({ text: part })
         }
       }
@@ -1394,8 +1466,12 @@ function resolveNineSliceSegments(sourceSize: number, targetSize: number, startS
  * Возвращает width canvas source.
  */
 function resolveCanvasSourceWidth(source: CanvasImageSource): number {
-  if ('naturalWidth' in source) return Math.max(1, Number(source.naturalWidth) || 1)
-  if ('width' in source) return Math.max(1, Number(source.width) || 1)
+  if ('naturalWidth' in source) {
+    return Math.max(1, Number(source.naturalWidth) || 1)
+  }
+  if ('width' in source) {
+    return Math.max(1, Number(source.width) || 1)
+  }
   return Math.max(1, Number(source.displayWidth) || 1)
 }
 
@@ -1403,7 +1479,11 @@ function resolveCanvasSourceWidth(source: CanvasImageSource): number {
  * Возвращает height canvas source.
  */
 function resolveCanvasSourceHeight(source: CanvasImageSource): number {
-  if ('naturalHeight' in source) return Math.max(1, Number(source.naturalHeight) || 1)
-  if ('height' in source) return Math.max(1, Number(source.height) || 1)
+  if ('naturalHeight' in source) {
+    return Math.max(1, Number(source.naturalHeight) || 1)
+  }
+  if ('height' in source) {
+    return Math.max(1, Number(source.height) || 1)
+  }
   return Math.max(1, Number(source.displayHeight) || 1)
 }

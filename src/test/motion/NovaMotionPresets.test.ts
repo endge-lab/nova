@@ -1,17 +1,16 @@
+import type { NovaApp, NovaMotionPatternName, NovaMotionPresetName, NovaSurface } from '@/index'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  Nova,
   NOVA_MOTION_PATTERNS,
   NOVA_MOTION_PRESETS,
-  Nova,
+
   NovaNode,
+
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
-  type NovaMotionPatternName,
-  type NovaMotionPresetName,
-  type NovaSurface,
 } from '@/index'
 
 type TestEvents = Record<string, any>
@@ -75,7 +74,7 @@ class VisualNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('NovaMotion presets and patterns', () => {
+describe('novaMotion presets and patterns', () => {
   let app: NovaApp<TestEvents>
   let surface: NovaSurface<TestEvents>
 
@@ -115,7 +114,7 @@ describe('NovaMotion presets and patterns', () => {
     expect(source).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('runs preset %s through start, middle and final ticks', name => {
+  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('runs preset %s through start, middle and final ticks', (name) => {
     const node = surface.createNode(VisualNode)
 
     const playback = app.motion.preset(node, name, {
@@ -173,7 +172,7 @@ describe('NovaMotion presets and patterns', () => {
     expect(node.strokeWidth).toBe(1)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('runs pattern %s on a target group', name => {
+  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('runs pattern %s on a target group', (name) => {
     const targets = Array.from({ length: 16 }, (_, index) => {
       const node = surface.createNode(VisualNode)
       node.options({ x: 20 + (index % 4) * 24, y: 20 + Math.floor(index / 4) * 22 })
@@ -189,13 +188,15 @@ describe('NovaMotion presets and patterns', () => {
     })
 
     app.motion.tick({ now: 50, delta: 50, elapsed: 50, frame: 1 })
-    for (const target of targets) expectMotionNumbers(target)
+    for (const target of targets) {
+      expectMotionNumbers(target)
+    }
 
     app.motion.tick({ now: 220, delta: 170, elapsed: 220, frame: 2 })
     expect(['running', 'finished']).toContain(playback.state)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('keeps looping pattern %s alive with repeat infinity', name => {
+  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('keeps looping pattern %s alive with repeat infinity', (name) => {
     const targets = Array.from({ length: 16 }, (_, index) => {
       const node = surface.createNode(VisualNode)
       node.options({ x: 20 + (index % 4) * 24, y: 20 + Math.floor(index / 4) * 22 })
@@ -214,7 +215,9 @@ describe('NovaMotion presets and patterns', () => {
 
     app.motion.tick({ now: 1200, delta: 1200, elapsed: 1200, frame: 1 })
     expect(playback.state).toBe('running')
-    for (const target of targets) expectMotionNumbers(target)
+    for (const target of targets) {
+      expectMotionNumbers(target)
+    }
   })
 })
 
@@ -240,7 +243,9 @@ function createApp(): NovaApp<TestEvents> {
 
 function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type !== RendererType.Web2D) return null
+    if (type !== RendererType.Web2D) {
+      return null
+    }
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
       /**
        * Возвращает значение состояния текущего класса.

@@ -7,13 +7,13 @@ import type {
   NovaElementSlots,
   NovaRuntimeComponentNode,
 } from '@/domain/types/component.types'
-import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import {
   createNovaDecoratedComponentDescriptor,
   readNovaDecoratedComponent,
 } from '@/model/runtime/components/nova-component-metadata'
+import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 
 const NOVA_DEFINED_COMPONENT_SYMBOL = Symbol('nova.defined-component')
 const NOVA_RUNTIME_COMPONENT_SYMBOL = Symbol('nova.runtime-component')
@@ -154,12 +154,12 @@ export function createDefinedComponentNode<E extends EventList = Record<string, 
     : metadata
       ? new component(context.app, context.surface)
       : new component(
-        context.app,
-        context.surface,
-        schema.props ?? {},
-        options.listeners ?? {},
-        options.slots ?? {},
-      )
+          context.app,
+          context.surface,
+          schema.props ?? {},
+          options.listeners ?? {},
+          options.slots ?? {},
+        )
 
   if (context.context !== undefined) {
     node.setContext(context.context)
@@ -187,7 +187,9 @@ export function attachRuntimeComponentState(
     slots?: NovaElementSlots
   } = {},
 ): void {
-  if (node instanceof NovaComponentNode) return
+  if (node instanceof NovaComponentNode) {
+    return
+  }
 
   const target = node as NovaNode<any> & Partial<NovaRuntimeComponentState>
   target.props = {
@@ -235,7 +237,9 @@ export function attachRuntimeComponentState(
       let changed = false
       const next = { ...(this.props ?? {}) }
       for (const [key, value] of Object.entries(patch)) {
-        if (value === undefined || next[key] === value) continue
+        if (value === undefined || next[key] === value) {
+          continue
+        }
         next[key] = value
         changed = true
       }
@@ -247,11 +251,15 @@ export function attachRuntimeComponentState(
     }
   }
 
-  if (!options.componentId) return
+  if (!options.componentId) {
+    return
+  }
 
   target.componentId = options.componentId
 
-  if (target[NOVA_RUNTIME_COMPONENT_SYMBOL]) return
+  if (target[NOVA_RUNTIME_COMPONENT_SYMBOL]) {
+    return
+  }
 
   node.nova.components.register(target as NovaRuntimeComponentNode)
   node.addDisposer(() => {

@@ -35,7 +35,9 @@ export class NovaMetrics {
    * Запускает связанную runtime-операцию.
    */
   start(): void {
-    if (this._rafId || typeof requestAnimationFrame === 'undefined') return
+    if (this._rafId || typeof requestAnimationFrame === 'undefined') {
+      return
+    }
     this._rafId = requestAnimationFrame(this.tickRaf)
   }
 
@@ -43,7 +45,9 @@ export class NovaMetrics {
    * Останавливает связанную runtime-операцию.
    */
   stop(): void {
-    if (!this._rafId || typeof cancelAnimationFrame === 'undefined') return
+    if (!this._rafId || typeof cancelAnimationFrame === 'undefined') {
+      return
+    }
     cancelAnimationFrame(this._rafId)
     this._rafId = 0
   }
@@ -59,7 +63,9 @@ export class NovaMetrics {
    * Помечает frame end.
    */
   markFrameEnd(now = performance.now()): void {
-    if (!this._frameStartedAt) return
+    if (!this._frameStartedAt) {
+      return
+    }
     this._last = now - this._frameStartedAt
   }
 
@@ -68,7 +74,9 @@ export class NovaMetrics {
    */
   markDraw(now = performance.now()): void {
     this._drawLastAt = now
-    if (!this._drawWindowAt) this._drawWindowAt = now
+    if (!this._drawWindowAt) {
+      this._drawWindowAt = now
+    }
 
     this._drawFrames += 1
 
@@ -96,7 +104,9 @@ export class NovaMetrics {
   }
 
   private tickRaf = (now: number): void => {
-    if (!this._rafLastAt) this._rafLastAt = now
+    if (!this._rafLastAt) {
+      this._rafLastAt = now
+    }
 
     this._rafFrames += 1
 

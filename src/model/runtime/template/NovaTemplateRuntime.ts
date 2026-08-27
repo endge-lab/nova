@@ -7,9 +7,10 @@ import type {
   NovaElementType,
 } from '@/domain/types/component.types'
 import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
+import type { NovaRef, NovaRefMap, NovaScope } from '@/model/runtime/refs/nova-ref'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import {
   createDefinedComponentNode,
@@ -20,11 +21,9 @@ import {
   bindNovaRefMap,
   isNovaRef,
   isNovaRefMap,
+
   unbindNovaRef,
   unbindNovaRefMap,
-  type NovaRef,
-  type NovaRefMap,
-  type NovaScope,
 } from '@/model/runtime/refs/nova-ref'
 
 /** Constructor скомпилированного `.nova` компонента. */
@@ -107,6 +106,7 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
     removed: 0,
     patched: 0,
   }
+
   private reconciling = false
 
   /**
@@ -142,7 +142,8 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
         parentRenderDirty: this.options.parentRenderDirty ?? 'always',
       })
       this.managedChildren = this.stats.nodes
-    } finally {
+    }
+    finally {
       this.reconciling = false
     }
 
@@ -230,7 +231,9 @@ export function reconcileNovaTemplateChildren<E extends EventList>(
   })
 
   for (const node of previousNodes) {
-    if (used.has(node)) continue
+    if (used.has(node)) {
+      continue
+    }
     releaseNovaTemplateRef(node)
     node.remove()
     removed += 1
@@ -267,7 +270,7 @@ export function patchNovaTemplateNode<E extends EventList>(
   node: NovaNode<E>,
   schema: NovaTemplateChildSchema,
 ): void {
-  if (Object.prototype.hasOwnProperty.call(schema, 'context')) {
+  if (Object.hasOwn(schema, 'context')) {
     node.setContext(schema.context)
   }
 
@@ -280,7 +283,8 @@ export function patchNovaTemplateNode<E extends EventList>(
     listenerTarget.setListeners(
       schema.events as Record<string, (...args: Array<any>) => void> ?? {},
     )
-  } else {
+  }
+  else {
     patchNovaTemplateEvents(node, schema.events ?? {})
   }
 
@@ -297,9 +301,12 @@ export function patchNovaTemplateNode<E extends EventList>(
   const slotTarget = node as unknown as Partial<NovaTemplateSlotTarget>
   if (typeof slotTarget.setSlots === 'function') {
     slotTarget.setSlots(slots)
-  } else if (typeof (node as NovaComponentNode<any>).getApi === 'function') {
+  }
+  else if (typeof (node as NovaComponentNode<any>).getApi === 'function') {
     const api = (node as NovaComponentNode<any>).getApi() as Partial<NovaTemplateSlotTarget>
-    if (typeof api?.setSlots === 'function') api.setSlots(slots)
+    if (typeof api?.setSlots === 'function') {
+      api.setSlots(slots)
+    }
   }
 }
 
@@ -307,15 +314,25 @@ export function patchNovaTemplateNode<E extends EventList>(
  * Проверяет, может ли node быть обновлена без пересоздания.
  */
 export function canPatchTemplateNode(node: NovaNode<any>, schema: NovaTemplateChildSchema): boolean {
-  if (typeof schema.type === 'function') return node.constructor === schema.type
+  if (typeof schema.type === 'function') {
+    return node.constructor === schema.type
+  }
 
   const component = node as NovaComponentNode<any>
-  if (!component.descriptor) return false
-  if (component.descriptor.type === schema.type) return true
+  if (!component.descriptor) {
+    return false
+  }
+  if (component.descriptor.type === schema.type) {
+    return true
+  }
 
   const descriptor = node.nova.schema.resolve(schema.type)
-  if (!descriptor) return false
-  if (descriptor.type === component.descriptor.type) return true
+  if (!descriptor) {
+    return false
+  }
+  if (descriptor.type === component.descriptor.type) {
+    return true
+  }
 
   return descriptor.kind === component.descriptor.kind
     && descriptor.name === component.descriptor.name
@@ -335,14 +352,20 @@ function patchNovaTemplateEvents<E extends EventList>(
   }
 
   for (const key of [...state.events.keys()]) {
-    if (events[key as keyof NovaNodeEventHandlers]) continue
+    if (events[key as keyof NovaNodeEventHandlers]) {
+      continue
+    }
     node.off(key as keyof NovaNodeEventHandlers)
     state.events.delete(key)
   }
 
   for (const [key, handler] of Object.entries(events)) {
-    if (!handler || state.events.get(key) === handler) continue
-    if (state.events.has(key)) node.off(key as keyof NovaNodeEventHandlers)
+    if (!handler || state.events.get(key) === handler) {
+      continue
+    }
+    if (state.events.has(key)) {
+      node.off(key as keyof NovaNodeEventHandlers)
+    }
     node.on(key as keyof NovaNodeEventHandlers, handler as NonNullable<NovaNodeEventHandlers[keyof NovaNodeEventHandlers]>)
     state.events.set(key, handler as (...args: Array<any>) => void)
   }
@@ -354,7 +377,9 @@ function resolveSchemaKey(schema: NovaTemplateChildSchema, index: number): strin
 
 function resolveNodeKey(node: NovaNode<any>, index: number): string {
   const templateKey = NODE_TEMPLATE_KEY.get(node)
-  if (templateKey) return templateKey
+  if (templateKey) {
+    return templateKey
+  }
 
   const component = node as NovaComponentNode<any>
   return String(component.componentId ?? `${node.__type}:${index}`)
@@ -376,27 +401,27 @@ function createTemplateChild<E extends EventList>(
   const Component = schema.type as NovaCompiledNodeConstructor<E>
   const node = readDefinedComponent(Component)
     ? createDefinedComponentNode(Component, {
-      app: parent.nova,
-      surface: parent.surface,
-      registry: parent.nova.schema,
-      parent,
-      context: schema.context,
-    }, {
-      schema: {
-        ...schema,
-        type: Component.name || 'AnonymousComponent',
-      } as NovaComponentSchema<Record<string, any>>,
-      componentId: schema.id,
-      listeners: schema.events as Record<string, (...args: Array<any>) => void> ?? {},
-      slots: schema.slots ?? {},
-    })
+        app: parent.nova,
+        surface: parent.surface,
+        registry: parent.nova.schema,
+        parent,
+        context: schema.context,
+      }, {
+        schema: {
+          ...schema,
+          type: Component.name || 'AnonymousComponent',
+        } as NovaComponentSchema<Record<string, any>>,
+        componentId: schema.id,
+        listeners: schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+        slots: schema.slots ?? {},
+      })
     : new Component(
-      parent.nova,
-      parent.surface,
-      schema.props ?? {},
-      schema.events as Record<string, (...args: Array<any>) => void> ?? {},
-      schema.slots ?? {},
-    )
+        parent.nova,
+        parent.surface,
+        schema.props ?? {},
+        schema.events as Record<string, (...args: Array<any>) => void> ?? {},
+        schema.slots ?? {},
+      )
   parent.addChild(node, {
     context: schema.context,
   })
@@ -436,24 +461,30 @@ function syncNovaTemplateRef<E extends EventList>(
 
   const api = resolveNovaTemplateRefApi(node)
   const current = NODE_REF_STATE.get(node)
-  if (current && current.name === name && current.key === schema.refKey && current.api === api) return
+  if (current && current.name === name && current.key === schema.refKey && current.api === api) {
+    return
+  }
 
   releaseNovaTemplateRef(node)
 
   const target = scope.refs[name]
-  if (!target) return
+  if (!target) {
+    return
+  }
 
   if (isNovaRefMap(target)) {
     if (schema.refKey === undefined) {
       throw new Error(`[NovaTemplateRuntime] Ref map "${name}" requires ref-key.`)
     }
     bindNovaRefMap(target, schema.refKey, api)
-  } else if (isNovaRef(target)) {
+  }
+  else if (isNovaRef(target)) {
     if (schema.refKey !== undefined) {
       throw new Error(`[NovaTemplateRuntime] Ref "${name}" received ref-key but is not a ref map.`)
     }
     bindNovaRef(target, api)
-  } else {
+  }
+  else {
     throw new Error(`[NovaTemplateRuntime] Ref "${name}" is not a Nova ref.`)
   }
 
@@ -468,11 +499,15 @@ function syncNovaTemplateRef<E extends EventList>(
 
 function releaseNovaTemplateRef(node: NovaNode<any>): void {
   const binding = NODE_REF_STATE.get(node)
-  if (!binding) return
+  if (!binding) {
+    return
+  }
 
   NODE_REF_STATE.delete(node)
   if (isNovaRefMap(binding.target)) {
-    if (binding.key !== undefined) unbindNovaRefMap(binding.target, binding.key, binding.api)
+    if (binding.key !== undefined) {
+      unbindNovaRefMap(binding.target, binding.key, binding.api)
+    }
     return
   }
 

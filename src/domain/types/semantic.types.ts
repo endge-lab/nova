@@ -1,19 +1,19 @@
 import type { DataRect } from '@endge/utils'
 
-export type NovaSemanticRole =
-  | 'application'
-  | 'region'
-  | 'group'
-  | 'button'
-  | 'chart'
-  | 'axis'
-  | 'grid'
-  | 'series'
-  | 'mark'
-  | 'legend'
-  | 'tooltip'
-  | 'viewport'
-  | 'custom'
+export type NovaSemanticRole
+  = | 'application'
+    | 'region'
+    | 'group'
+    | 'button'
+    | 'chart'
+    | 'axis'
+    | 'grid'
+    | 'series'
+    | 'mark'
+    | 'legend'
+    | 'tooltip'
+    | 'viewport'
+    | 'custom'
 
 export interface NovaSemanticState {
   hovered?: boolean

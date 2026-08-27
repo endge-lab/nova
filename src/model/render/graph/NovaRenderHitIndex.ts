@@ -49,7 +49,9 @@ export class NovaRenderHitIndex<T = unknown> {
    */
   set(entry: NovaRenderHitEntry<T>): void {
     const previous = this._entries.get(entry.id)
-    if (previous) this._index.remove(previous)
+    if (previous) {
+      this._index.remove(previous)
+    }
     this._entries.set(entry.id, entry)
     this._index.update(entry)
   }
@@ -59,7 +61,9 @@ export class NovaRenderHitIndex<T = unknown> {
    */
   delete(id: string): boolean {
     const entry = this._entries.get(id)
-    if (!entry) return false
+    if (!entry) {
+      return false
+    }
 
     this._index.remove(entry)
     return this._entries.delete(id)
@@ -71,7 +75,9 @@ export class NovaRenderHitIndex<T = unknown> {
   queryPoint(x: number, y: number): NovaRenderHitEntry<T> | undefined {
     let top: NovaRenderHitEntry<T> | undefined
     for (const entry of this._index.queryPoint(x, y)) {
-      if (!top || entry.order >= top.order) top = entry
+      if (!top || entry.order >= top.order) {
+        top = entry
+      }
     }
 
     return top

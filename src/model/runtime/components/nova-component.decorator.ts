@@ -1,20 +1,20 @@
 import type { EventList } from '@endge/utils'
 import type { NovaElementConstructor } from '@/domain/types/component.types'
-import {
-  defineNovaComponent,
-  type NovaDefinedComponentOptions,
-} from '@/model/runtime/components/nova-defined-component'
+import type { NovaDecoratedComponentOptions, NovaPropDecoratorOptions, NovaWatchDecoratorOptions } from '@/model/runtime/components/nova-component-metadata'
+import type { NovaDefinedComponentOptions } from '@/model/runtime/components/nova-defined-component'
 import {
   addNovaApiMetadata,
   addNovaCommandMetadata,
   addNovaPropMetadata,
   addNovaWatchMetadata,
   installNovaPropAccessors,
+
   updateNovaDecoratedComponent,
-  type NovaDecoratedComponentOptions,
-  type NovaPropDecoratorOptions,
-  type NovaWatchDecoratorOptions,
 } from '@/model/runtime/components/nova-component-metadata'
+import {
+  defineNovaComponent,
+
+} from '@/model/runtime/components/nova-defined-component'
 
 /**
  * Помечает class-компонент metadata для DSL и явной registry-регистрации.

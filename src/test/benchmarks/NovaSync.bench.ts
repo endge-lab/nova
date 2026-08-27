@@ -1,7 +1,7 @@
 import { bench, describe } from 'vitest'
 import {
-  NovaSyncScope,
   createNovaSyncPort,
+  NovaSyncScope,
 } from '@/index'
 
 function createPort(value = 0) {
@@ -25,7 +25,7 @@ function createPort(value = 0) {
   }
 }
 
-describe('NovaSync benchmarks', () => {
+describe('novaSync benchmarks', () => {
   bench('1k one-to-one links immediate', () => {
     const scope = new NovaSyncScope()
     const nodes = Array.from({ length: 1000 }, (_, index) => {

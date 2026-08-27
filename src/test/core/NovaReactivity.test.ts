@@ -1,5 +1,6 @@
+import type { NovaApp, NovaSurface } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Nova, NovaNode, type NovaApp, type NovaSurface } from '@/index'
+import { Nova, NovaNode } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 class ReactiveTestNode extends NovaNode<Record<string, any>> {
@@ -13,7 +14,7 @@ class ReactiveTestNode extends NovaNode<Record<string, any>> {
   }
 }
 
-function createNode(): { app: NovaApp; surface: NovaSurface<Record<string, any>>; node: ReactiveTestNode } {
+function createNode(): { app: NovaApp, surface: NovaSurface<Record<string, any>>, node: ReactiveTestNode } {
   const app = createTestApp()
   const surface = app.createSurface('reactivity')
   const node = new ReactiveTestNode(app, surface)
@@ -24,7 +25,7 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('Nova reactivity', () => {
+describe('nova reactivity', () => {
   it('reads and writes mutable signals', () => {
     const count = Nova.signal(0)
 

@@ -1,22 +1,23 @@
+import type { NovaApp, NovaComponentDescriptor, NovaSurface } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Api,
   Command,
   Nova,
+
   NovaComponent,
+
   NovaComponentNode,
+
   Prop,
   Watch,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSurface,
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 interface DecoratedProps {
   width: number
   height: number
-  model: { version: number; label?: string }
+  model: { version: number, label?: string }
 }
 
 interface DecoratedApi {
@@ -56,9 +57,9 @@ class DecoratedCounterNode extends NovaComponentNode<DecoratedProps, DecoratedAp
   }
 
   @Prop.model({ required: true })
-  declare model: { version: number; label?: string }
+  declare model: { version: number, label?: string }
 
-  readonly watcherCalls: Array<{ next: unknown; prev: unknown; path: string }> = []
+  readonly watcherCalls: Array<{ next: unknown, prev: unknown, path: string }> = []
 
   /**
    * Записывает изменения модели.
@@ -139,7 +140,7 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('Nova component decorators', () => {
+describe('nova component decorators', () => {
   it('generates descriptor metadata, defaults and size bounds', () => {
     const { app, descriptor } = createDecoratedFixture()
 

@@ -16,7 +16,7 @@ const CLICK_SOUND = {
 
 installCanvasMocks()
 
-describe('Nova Sound Engine benchmarks', () => {
+describe('nova Sound Engine benchmarks', () => {
   const cacheApp = createTestApp({ sound: { formats: ['ogg', 'mp3'] } })
   const playbackApp = createTestApp({ sound: { maxVoices: 64 } })
   const poolApp = createTestApp({ sound: { maxVoices: 16 } })

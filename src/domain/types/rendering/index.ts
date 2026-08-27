@@ -4,12 +4,12 @@ import type {
   NovaIconBatch,
   NovaParticleBatch,
   NovaRectBatch,
-  NovaSemanticScopeKind,
   NovaSchemaItem,
+  NovaSemanticScopeKind,
   NovaStripeRectBatch,
   NovaTextBatch,
-  NovaTimeRangeSegmentBatch,
   NovaTextRenderMode,
+  NovaTimeRangeSegmentBatch,
   RendererType,
 } from '@/domain/types/renderer.types'
 
@@ -223,7 +223,7 @@ export interface NovaRendererConfig {
 /**
  * Описывает тип NovaRendererConfigInput.
  */
-export type NovaRendererConfigInput = {
+export interface NovaRendererConfigInput {
   batching?: Partial<NovaRendererBatchingConfig>
   text?: Partial<Omit<NovaRendererTextConfig, 'modes' | 'interaction' | 'lod' | 'glyphs' | 'sdf'>> & {
     modes?: Partial<NovaRendererTextZoneModes>
@@ -314,28 +314,28 @@ export interface NovaRenderTarget {
 /**
  * Описывает тип NovaRenderItemKind.
  */
-export type NovaRenderItemKind =
-  | 'rect'
-  | 'border'
-  | 'line'
-  | 'circle'
-  | 'arc'
-  | 'polygon'
-  | 'text'
-  | 'icon'
-  | 'image'
-  | 'nine-slice-image'
-  | 'pattern-rect'
-  | 'texture'
-  | 'cached-group'
-  | 'particle-circle'
-  | 'particle-sprite'
-  | 'rect-batch'
-  | 'time-range-segment-batch'
-  | 'stripe-batch'
-  | 'icon-batch'
-  | 'text-batch'
-  | 'custom'
+export type NovaRenderItemKind
+  = | 'rect'
+    | 'border'
+    | 'line'
+    | 'circle'
+    | 'arc'
+    | 'polygon'
+    | 'text'
+    | 'icon'
+    | 'image'
+    | 'nine-slice-image'
+    | 'pattern-rect'
+    | 'texture'
+    | 'cached-group'
+    | 'particle-circle'
+    | 'particle-sprite'
+    | 'rect-batch'
+    | 'time-range-segment-batch'
+    | 'stripe-batch'
+    | 'icon-batch'
+    | 'text-batch'
+    | 'custom'
 
 /**
  * Описывает контракт NovaRenderItem.
@@ -358,40 +358,40 @@ export interface NovaRenderItem {
 /**
  * Описывает тип NovaRenderStreamKind.
  */
-export type NovaRenderStreamKind =
-  | 'plain-rect'
-  | 'rounded-rect'
-  | 'motion-rect'
-  | 'border'
-  | 'line'
-  | 'circle'
-  | 'arc'
-  | 'polygon'
-  | 'texture-quad'
-  | 'text-run'
-  | 'icon'
-  | 'nine-slice-image'
-  | 'pattern-rect'
-  | 'cached-group'
-  | 'particle-circle'
-  | 'particle-sprite'
-  | 'rect-batch'
-  | 'time-range-segment-batch'
-  | 'stripe-batch'
-  | 'icon-batch'
-  | 'text-batch'
+export type NovaRenderStreamKind
+  = | 'plain-rect'
+    | 'rounded-rect'
+    | 'motion-rect'
+    | 'border'
+    | 'line'
+    | 'circle'
+    | 'arc'
+    | 'polygon'
+    | 'texture-quad'
+    | 'text-run'
+    | 'icon'
+    | 'nine-slice-image'
+    | 'pattern-rect'
+    | 'cached-group'
+    | 'particle-circle'
+    | 'particle-sprite'
+    | 'rect-batch'
+    | 'time-range-segment-batch'
+    | 'stripe-batch'
+    | 'icon-batch'
+    | 'text-batch'
 
 /**
  * Описывает тип NovaRenderSemanticLayer.
  */
-export type NovaRenderSemanticLayer =
-  | 'background'
-  | 'border'
-  | 'texture'
-  | 'text'
-  | 'selection'
-  | 'overlay'
-  | 'strict'
+export type NovaRenderSemanticLayer
+  = | 'background'
+    | 'border'
+    | 'texture'
+    | 'text'
+    | 'selection'
+    | 'overlay'
+    | 'strict'
 
 /**
  * Описывает контракт NovaRenderStreamSlot.
@@ -470,27 +470,27 @@ export interface NovaRenderHandle {
 /**
  * Описывает тип NovaRenderCommandType.
  */
-export type NovaRenderCommandType =
-  | 'clear'
-  | 'save'
-  | 'restore'
-  | 'setTransform'
-  | 'clip'
-  | 'clearClip'
-  | 'beginRenderTarget'
-  | 'endRenderTarget'
-  | 'drawRenderTarget'
-  | 'drawItem'
-  | 'drawSchemaBatch'
-  | 'drawParticles'
-  | 'drawRectBatch'
-  | 'drawTimeRangeSegmentBatch'
-  | 'drawStripeBatch'
-  | 'drawIconBatch'
-  | 'drawTextBatch'
-  | 'cursor'
-  | 'beginGroup'
-  | 'endGroup'
+export type NovaRenderCommandType
+  = | 'clear'
+    | 'save'
+    | 'restore'
+    | 'setTransform'
+    | 'clip'
+    | 'clearClip'
+    | 'beginRenderTarget'
+    | 'endRenderTarget'
+    | 'drawRenderTarget'
+    | 'drawItem'
+    | 'drawSchemaBatch'
+    | 'drawParticles'
+    | 'drawRectBatch'
+    | 'drawTimeRangeSegmentBatch'
+    | 'drawStripeBatch'
+    | 'drawIconBatch'
+    | 'drawTextBatch'
+    | 'cursor'
+    | 'beginGroup'
+    | 'endGroup'
 
 /**
  * Описывает контракт NovaRenderCommand.

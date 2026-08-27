@@ -1,9 +1,9 @@
 import type { EventList } from '@endge/utils'
-import { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaBounds } from '@/domain/types/renderer.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
-import type { NovaBounds } from '@/domain/types/renderer.types'
 import { createEmptyBounds, unionBounds } from '@/domain/utils/bounds'
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 /**
  * Описывает контейнерный node для группировки дочерних Nova nodes.
@@ -55,7 +55,9 @@ export class NovaContainer<E extends EventList> extends NovaNode<E> {
       return
     }
 
-    if (node.parent !== this) return false
+    if (node.parent !== this) {
+      return false
+    }
 
     node.remove()
     this.dirty({ render: true })

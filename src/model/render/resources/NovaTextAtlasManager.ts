@@ -1,10 +1,11 @@
-import type { NovaRendererTextConfig } from '@/domain/types/rendering/index'
 import type { NovaText } from '@/domain/types/renderer.types'
+import type { NovaRendererTextConfig } from '@/domain/types/rendering/index'
+import type { NovaTextureAtlasEntry, NovaTextureAtlasPage } from '@/model/render/resources/NovaTextureAtlasManager'
 import { NovaTextLayoutEngine } from '@/model/render/resources/NovaTextLayoutEngine'
 import {
+
   NovaTextureAtlasManager,
-  type NovaTextureAtlasEntry,
-  type NovaTextureAtlasPage,
+
 } from '@/model/render/resources/NovaTextureAtlasManager'
 
 /**

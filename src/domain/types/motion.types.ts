@@ -17,14 +17,14 @@ export type NovaMotionPatch = Record<string, NovaMotionValue>
 /**
  * Описывает тип NovaMotionEasingName.
  */
-export type NovaMotionEasingName =
-  | 'linear'
-  | 'inQuad'
-  | 'outQuad'
-  | 'inOutQuad'
-  | 'inCubic'
-  | 'outCubic'
-  | 'inOutCubic'
+export type NovaMotionEasingName
+  = | 'linear'
+    | 'inQuad'
+    | 'outQuad'
+    | 'inOutQuad'
+    | 'inCubic'
+    | 'outCubic'
+    | 'inOutCubic'
 
 /**
  * Описывает тип NovaMotionPlaybackState.
@@ -108,11 +108,11 @@ export interface NovaMotionTimelineOptions extends NovaMotionOptions {
 export interface NovaMotionPlayback {
   readonly id?: string
   readonly state: NovaMotionPlaybackState
-  play(): void
-  pause(): void
-  resume(): void
-  cancel(): void
-  seek(time: number): void
+  play: () => void
+  pause: () => void
+  resume: () => void
+  cancel: () => void
+  seek: (time: number) => void
 }
 
 /**

@@ -104,7 +104,8 @@ class StoreConditionalReader extends NovaComponentNode {
     const store = this.inject(TEST_STORE)
     if ((store as any).advanced?.mode === 'selection') {
       this.lastValue = store.selection.ids.length
-    } else {
+    }
+    else {
       this.lastValue = store.viewport.scale
     }
     this.renderCount += 1
@@ -115,7 +116,7 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('Nova store decorators', () => {
+describe('nova store decorators', () => {
   it('tracks reactive field reads during render and dirties only dependent nodes', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreReader as never)

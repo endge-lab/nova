@@ -26,7 +26,9 @@ export class NovaCaretBlinkController {
    * Запускает runtime-процесс NovaCaretBlinkController.
    */
   start(): void {
-    if (this.active) return
+    if (this.active) {
+      return
+    }
     this.active = true
     this.visible = true
     NovaCaretBlinkController.instances.add(this)
@@ -38,7 +40,9 @@ export class NovaCaretBlinkController {
    * Останавливает runtime-процесс NovaCaretBlinkController.
    */
   stop(): void {
-    if (!this.active) return
+    if (!this.active) {
+      return
+    }
     this.active = false
     NovaCaretBlinkController.instances.delete(this)
     this.visible = false
@@ -53,7 +57,9 @@ export class NovaCaretBlinkController {
    * Сбрасывает состояние к базовым значениям NovaCaretBlinkController.
    */
   reset(): void {
-    if (!this.active) return
+    if (!this.active) {
+      return
+    }
     this.visible = true
     this.onTick(true)
   }
@@ -62,7 +68,9 @@ export class NovaCaretBlinkController {
    * Выполняет внутренний шаг ensureTimer для NovaCaretBlinkController.
    */
   private static ensureTimer(interval: number): void {
-    if (NovaCaretBlinkController.timer) return
+    if (NovaCaretBlinkController.timer) {
+      return
+    }
     NovaCaretBlinkController.timer = setInterval(() => {
       for (const instance of NovaCaretBlinkController.instances) {
         instance.visible = !instance.visible

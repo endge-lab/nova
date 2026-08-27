@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
-import { RendererType } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
-import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { describe, expect, it, vi } from 'vitest'
+import { RendererType } from '@/domain/types/renderer.types'
+import { NovaRenderOrchestrator } from '@/model/render/orchestration/NovaRenderOrchestrator'
 
 function createMetrics(partial: Partial<NovaRenderMetrics> = {}): NovaRenderMetrics {
   return {
@@ -91,7 +91,7 @@ function createWebGLBackend(metrics: NovaRenderMetrics = createMetrics({ backend
   }
 }
 
-describe('NovaRenderOrchestrator', () => {
+describe('novaRenderOrchestrator', () => {
   it('re-enters retained compiler for dirty surfaces so transform updates can patch cached frame', () => {
     const compiledFrame = createFrame({ compilerMs: 3, nodeRenderCalls: 2 })
     const backendMetrics = createMetrics({ backendMs: 1, drawMs: 1, drawCalls: 1 })

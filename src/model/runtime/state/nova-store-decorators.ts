@@ -43,8 +43,8 @@ export function Reactive<TStore extends object = object>(options: NovaReactiveOp
   return (...args: Array<any>): any => {
     if (isStandardAccessorDecorator(args)) {
       const [value, context] = args as [
-        { get(this: object): unknown; set(this: object, value: unknown): void },
-        { kind: string; name: string | symbol; addInitializer?(initializer: (this: object) => void): void },
+        { get: (this: object) => unknown, set: (this: object, value: unknown) => void },
+        { kind: string, name: string | symbol, addInitializer?: (initializer: (this: object) => void) => void },
       ]
       context.addInitializer?.(function initializer(this: object) {
         addNovaReactiveMetadata(this.constructor, context.name, options as NovaReactiveOptions)
@@ -69,7 +69,9 @@ export function readNovaStoreMetadata(target: Function): NovaStoreMetadata | und
  * Проверяет, что объект помечен как Nova store или содержит reactive fields.
  */
 export function isNovaStoreObject(value: unknown): value is object {
-  if (!value || typeof value !== 'object') return false
+  if (!value || typeof value !== 'object') {
+    return false
+  }
   const metadata = readNovaStoreMetadata(value.constructor)
   return Boolean(metadata?.reactiveFields.length)
 }
@@ -86,7 +88,7 @@ function addNovaReactiveMetadata(
   key: string | symbol,
   options: NovaReactiveOptions,
 ): void {
-  updateNovaStoreMetadata(target, metadata => {
+  updateNovaStoreMetadata(target, (metadata) => {
     const reactiveFields = metadata.reactiveFields.filter(field => field.key !== key)
     reactiveFields.push({ key, options })
     return { ...metadata, reactiveFields }

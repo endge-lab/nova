@@ -1,21 +1,21 @@
+import type { NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentSchema, NovaSurface } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaComponentNode,
+
   NovaNode,
-  type NovaComponentCreateContext,
-  type NovaComponentDescriptor,
-  type NovaComponentSchema,
-  type NovaSurface,
+
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
-type TestContext = {
+interface TestContext {
   rowIndex: number
   groupId: string
 }
 
-type TestProps = {
+interface TestProps {
   label: string
 }
 
@@ -55,7 +55,7 @@ function createNode(surface: NovaSurface<Record<string, any>>): TestNode {
   return node
 }
 
-describe('Nova context provide/inject', () => {
+describe('nova context provide/inject', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
@@ -161,7 +161,7 @@ describe('Nova context provide/inject', () => {
   })
 })
 
-describe('Nova explicit child context', () => {
+describe('nova explicit child context', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

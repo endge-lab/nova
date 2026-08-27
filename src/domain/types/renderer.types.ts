@@ -1,7 +1,7 @@
-import type { mat3 } from 'gl-matrix'
 import type { DataRect } from '@endge/utils'
-import type { NovaAssetDrawableInput, NovaAssetRef, NovaNineSliceInsets } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { mat3 } from 'gl-matrix'
 import type { NovaSemanticSchemaItem } from '@/domain/types/semantic.types'
+import type { NovaAssetDrawableInput, NovaAssetRef, NovaNineSliceInsets } from '@/model/runtime/assets/NovaAssetRegistry'
 
 /**
  * Описывает набор значений RendererType.
@@ -14,20 +14,20 @@ export enum RendererType {
 /**
  * Описывает тип NovaStylePadding.
  */
-export type NovaStylePadding =
+export type NovaStylePadding
+  = | {
+    left?: number
+    right?: number
+    top?: number
+    bottom?: number
+  }
   | {
-      left?: number
-      right?: number
-      top?: number
-      bottom?: number
-    }
+    horizontal?: number
+    vertical?: number
+  }
   | {
-      horizontal?: number
-      vertical?: number
-    }
-  | {
-      all?: number
-    }
+    all?: number
+  }
 
 /**
  * HEX/RGBA/ImageBitmap
@@ -316,7 +316,7 @@ export interface NovaPatternRect extends NovaUIBase {
  * Описывает контракт NovaPolygon.
  */
 export interface NovaPolygon extends NovaUIBase {
-  points: Array<{ x: number; y: number }>
+  points: Array<{ x: number, y: number }>
   styles?: {
     background?: string
     stroke?: string
@@ -467,18 +467,18 @@ export interface NovaStripePattern {
 /**
  * Описывает тип NovaSchemaItem.
  */
-export type NovaSchemaItem<TCustom extends { type: string } = never> =
-  | ({ type: 'rect' } & NovaRect)
-  | ({ type: 'border' } & NovaBorder)
-  | ({ type: 'text' } & NovaText)
-  | ({ type: 'line' } & NovaLine)
-  | ({ type: 'circle' } & NovaCircle)
-  | ({ type: 'arc' } & NovaArc)
-  | ({ type: 'icon' } & NovaIcon)
-  | ({ type: 'nine-slice-image' } & NovaNineSliceImage)
-  | ({ type: 'pattern-rect' } & NovaPatternRect)
-  | ({ type: 'polygon' } & NovaPolygon)
-  | TCustom
+export type NovaSchemaItem<TCustom extends { type: string } = never>
+  = | ({ type: 'rect' } & NovaRect)
+    | ({ type: 'border' } & NovaBorder)
+    | ({ type: 'text' } & NovaText)
+    | ({ type: 'line' } & NovaLine)
+    | ({ type: 'circle' } & NovaCircle)
+    | ({ type: 'arc' } & NovaArc)
+    | ({ type: 'icon' } & NovaIcon)
+    | ({ type: 'nine-slice-image' } & NovaNineSliceImage)
+    | ({ type: 'pattern-rect' } & NovaPatternRect)
+    | ({ type: 'polygon' } & NovaPolygon)
+    | TCustom
 
 /**
  * Описывает контракт NovaCustomSchemaItem.
@@ -579,14 +579,14 @@ export interface NovaRendererCanvas {
   readonly dpr: number
   readonly maxDpr: number
 
-  getBoundingClientRect(): DOMRectReadOnly
-  invalidate(): void
-  resize(width: number, height: number, options?: { dpr?: number; maxDpr?: number }): void
-  getContext2D(): CanvasRenderingContext2D
-  destroy(): void
-  onContextLost(callback: () => void): void
-  onContextRestored(callback: () => void): void
-  isContextLost(): boolean
+  getBoundingClientRect: () => DOMRectReadOnly
+  invalidate: () => void
+  resize: (width: number, height: number, options?: { dpr?: number, maxDpr?: number }) => void
+  getContext2D: () => CanvasRenderingContext2D
+  destroy: () => void
+  onContextLost: (callback: () => void) => void
+  onContextRestored: (callback: () => void) => void
+  isContextLost: () => boolean
 }
 
 /**
@@ -605,44 +605,44 @@ export interface NovaRenderer {
   readonly novaCanvas: NovaRendererCanvas
   readonly capabilities: NovaRendererCapabilities
 
-  schema(schema: NovaSchema<any>): void
+  schema: (schema: NovaSchema<any>) => void
 
-  save(): void
-  restore(): void
-  clear(): void
+  save: () => void
+  restore: () => void
+  clear: () => void
 
-  clip(x: number, y: number, width: number, height: number): void
-  clearClip(): void
-  markState(): NovaRendererStateMark
-  restoreState(mark: NovaRendererStateMark): void
+  clip: (x: number, y: number, width: number, height: number) => void
+  clearClip: () => void
+  markState: () => NovaRendererStateMark
+  restoreState: (mark: NovaRendererStateMark) => void
 
-  setTransform(matrix: mat3): void
+  setTransform: (matrix: mat3) => void
 
-  beginRenderTarget?(id: string, width: number, height: number, options?: { dpr?: number; kind?: 'texture' | 'cache' | 'effect' }): void
-  endRenderTarget?(): void
-  drawRenderTarget?(id: string, x: number, y: number, width: number, height: number): void
+  beginRenderTarget?: (id: string, width: number, height: number, options?: { dpr?: number, kind?: 'texture' | 'cache' | 'effect' }) => void
+  endRenderTarget?: () => void
+  drawRenderTarget?: (id: string, x: number, y: number, width: number, height: number) => void
 
-  text(params: NovaText): void
-  rect(params: NovaRect): void
-  border(params: NovaBorder): void
-  line(params: NovaLine): void
-  circle(params: NovaCircle): void
-  arc(params: NovaArc): void
-  polygon(params: NovaPolygon): void
-  icon(params: NovaIcon): void
-  patternRect(params: NovaPatternRect): void
-  rects(batch: NovaRectBatch): void
-  timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void
-  stripes(batch: NovaStripeRectBatch): void
-  icons(batch: NovaIconBatch): void
-  texts(batch: NovaTextBatch): void
-  particles(batch: NovaParticleBatch): void
+  text: (params: NovaText) => void
+  rect: (params: NovaRect) => void
+  border: (params: NovaBorder) => void
+  line: (params: NovaLine) => void
+  circle: (params: NovaCircle) => void
+  arc: (params: NovaArc) => void
+  polygon: (params: NovaPolygon) => void
+  icon: (params: NovaIcon) => void
+  patternRect: (params: NovaPatternRect) => void
+  rects: (batch: NovaRectBatch) => void
+  timeRangeSegments: (batch: NovaTimeRangeSegmentBatch) => void
+  stripes: (batch: NovaStripeRectBatch) => void
+  icons: (batch: NovaIconBatch) => void
+  texts: (batch: NovaTextBatch) => void
+  particles: (batch: NovaParticleBatch) => void
 
-  measureText(params: NovaText): { width: number; height: number }
+  measureText: (params: NovaText) => { width: number, height: number }
 
-  cursor(type: string): void
+  cursor: (type: string) => void
 
-  destroy(): void
+  destroy: () => void
 }
 
 /**

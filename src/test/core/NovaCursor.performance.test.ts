@@ -1,17 +1,15 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventList } from '@endge/utils'
+import type { NovaApp, NovaComponentDescriptor, NovaNode, NovaSchema, NovaSurface } from '@/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaComponentNode,
+
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaNode,
-  type NovaSchema,
-  type NovaSurface,
 } from '@/index'
 
 type TestEvents = EventList
@@ -82,7 +80,9 @@ function create2DContextStub(): CanvasRenderingContext2D {
      * Возвращает значение состояния текущего класса.
      */
     get(target, prop) {
-      if (!(prop in target)) target[prop] = vi.fn()
+      if (!(prop in target)) {
+        target[prop] = vi.fn()
+      }
       return target[prop]
     },
     /**
@@ -101,7 +101,9 @@ function installCanvasMocks(): void {
     configurable: true,
   })
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type === RendererType.Web2D) return create2DContextStub()
+    if (type === RendererType.Web2D) {
+      return create2DContextStub()
+    }
     return null
   })
   vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockImplementation(function getRect(this: HTMLCanvasElement) {
@@ -145,7 +147,7 @@ function measure(label: string, run: () => void): number {
   return elapsed
 }
 
-describe('Nova cursor performance', () => {
+describe('nova cursor performance', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

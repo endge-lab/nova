@@ -25,10 +25,14 @@ export class NovaWebGLProgram {
    */
   uniformLocation(name: string): WebGLUniformLocation {
     const cached = this.uniformLocationByName.get(name)
-    if (cached) return cached
+    if (cached) {
+      return cached
+    }
 
     const location = this.gl.getUniformLocation(this.program, name)
-    if (!location) throw new Error(`WebGL uniform "${name}" not found`)
+    if (!location) {
+      throw new Error(`WebGL uniform "${name}" not found`)
+    }
     this.uniformLocationByName.set(name, location)
     return location
   }
@@ -38,10 +42,14 @@ export class NovaWebGLProgram {
    */
   attribLocation(name: string): number {
     const cached = this.attribLocationByName.get(name)
-    if (cached !== undefined) return cached
+    if (cached !== undefined) {
+      return cached
+    }
 
     const location = this.gl.getAttribLocation(this.program, name)
-    if (location < 0) throw new Error(`WebGL attribute "${name}" not found`)
+    if (location < 0) {
+      throw new Error(`WebGL attribute "${name}" not found`)
+    }
     this.attribLocationByName.set(name, location)
     return location
   }
@@ -62,7 +70,9 @@ export class NovaWebGLProgram {
     const vertexShader = compileShader(gl, gl.VERTEX_SHADER, vertexSource)
     const fragmentShader = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource)
     const program = gl.createProgram()
-    if (!program) throw new Error('Failed to create WebGL2 program')
+    if (!program) {
+      throw new Error('Failed to create WebGL2 program')
+    }
 
     gl.attachShader(program, vertexShader)
     gl.attachShader(program, fragmentShader)
@@ -87,7 +97,9 @@ export class NovaWebGLProgram {
  */
 function compileShader(gl: WebGL2RenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type)
-  if (!shader) throw new Error('Failed to create WebGL2 shader')
+  if (!shader) {
+    throw new Error('Failed to create WebGL2 shader')
+  }
 
   gl.shaderSource(shader, source)
   gl.compileShader(shader)

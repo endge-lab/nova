@@ -1,14 +1,14 @@
 import type { EventList } from '@endge/utils'
-import { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import type { NovaComponentDescriptor } from '@/domain/types/component.types'
 import type { NovaMotionOptions, NovaMotionPlayback } from '@/domain/types/motion.types'
-import { createNovaComponentPropSyncPorts } from '@/model/runtime/sync/nova-sync-ports'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaSyncPortMap } from '@/model/runtime/sync/nova-sync.types'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import {
   readNovaComponentPath,
 } from '@/model/runtime/components/nova-component-metadata'
+import { createNovaComponentPropSyncPorts } from '@/model/runtime/sync/nova-sync-ports'
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 /**
  * Описывает runtime-сущность NovaComponentNode.
@@ -28,7 +28,7 @@ export abstract class NovaComponentNode<
   protected props: TProps
   private unregisterSyncPorts?: () => void
   private commandDisposers: Array<() => void> = []
-  private pendingWatcherChanges = new Map<string, { prev: unknown; next: unknown }>()
+  private pendingWatcherChanges = new Map<string, { prev: unknown, next: unknown }>()
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -58,12 +58,16 @@ export abstract class NovaComponentNode<
 
     for (const key of Object.keys(patch) as Array<keyof TProps>) {
       const nextValue = patch[key]
-      if (nextValue === undefined || this.props[key] === nextValue) continue
+      if (nextValue === undefined || this.props[key] === nextValue) {
+        continue
+      }
       this.props[key] = nextValue as TProps[typeof key]
       changedKeys.push(key)
     }
 
-    if (changedKeys.length === 0) return this
+    if (changedKeys.length === 0) {
+      return this
+    }
 
     this.onPropsChanged(changedKeys)
     this.collectWatcherChanges(previousWatcherValues)
@@ -87,7 +91,9 @@ export abstract class NovaComponentNode<
       const api: Record<string, unknown> = {}
       for (const item of this.descriptor.apiDefinitions) {
         const method = (this as unknown as Record<string, unknown>)[item.methodName]
-        if (typeof method === 'function') api[item.methodName] = method.bind(this)
+        if (typeof method === 'function') {
+          api[item.methodName] = method.bind(this)
+        }
       }
       return api as TApi
     }
@@ -150,8 +156,10 @@ export abstract class NovaComponentNode<
    * Уведомляет sync scope об изменении конкретного порта.
    */
   notifySyncPortChanged(name: string, value?: unknown): void {
-    if (arguments.length >= 2) this.nova.sync.notifyPortChanged(this, name, value)
-    else this.nova.sync.notifyPortChanged(this, name)
+    if (arguments.length >= 2) {
+      this.nova.sync.notifyPortChanged(this, name, value)
+    }
+    else { this.nova.sync.notifyPortChanged(this, name) }
   }
 
   /**
@@ -178,16 +186,20 @@ export abstract class NovaComponentNode<
   /**
    * Вычисляет dirty.
    */
-  private resolveDirty(changedKeys: Array<keyof TProps>): { matrix?: boolean; update?: boolean; render?: boolean } {
+  private resolveDirty(changedKeys: Array<keyof TProps>): { matrix?: boolean, update?: boolean, render?: boolean } {
     const policy = this.descriptor.dirtyPolicy
-    if (!policy) return { update: true, render: true }
+    if (!policy) {
+      return { update: true, render: true }
+    }
 
     const hasMatrix = intersectsDirtyPaths(changedKeys, policy.matrix, this.pendingWatcherChanges)
     const hasUpdate = intersectsDirtyPaths(changedKeys, policy.update, this.pendingWatcherChanges)
     const hasRender = hasUpdate || hasMatrix || intersectsDirtyPaths(changedKeys, policy.render, this.pendingWatcherChanges)
       || dirtyPathsChanged(policy.render, this.pendingWatcherChanges)
 
-    if (!hasMatrix && !hasUpdate && !hasRender) return { update: true, render: true }
+    if (!hasMatrix && !hasUpdate && !hasRender) {
+      return { update: true, render: true }
+    }
     return {
       matrix: hasMatrix,
       update: hasUpdate,
@@ -216,7 +228,9 @@ export abstract class NovaComponentNode<
     this.pendingWatcherChanges.clear()
     for (const [path, prev] of previous) {
       const next = readNovaComponentPath(this.props, path)
-      if (Object.is(prev, next)) continue
+      if (Object.is(prev, next)) {
+        continue
+      }
       this.pendingWatcherChanges.set(path, { prev, next })
     }
   }
@@ -227,7 +241,9 @@ export abstract class NovaComponentNode<
   private runImmediateWatchers(): void {
     for (const watcher of this.descriptor.watchDefinitions ?? []) {
       const next = readNovaComponentPath(this.props, watcher.path)
-      if (!watcher.immediate) continue
+      if (!watcher.immediate) {
+        continue
+      }
       this.callWatcher(watcher.methodName, {
         next,
         prev: undefined,
@@ -242,11 +258,15 @@ export abstract class NovaComponentNode<
    */
   private runWatchers(phase: 'update' | 'render' | 'matrix'): void {
     const watchers = (this.descriptor.watchDefinitions ?? []).filter(watcher => watcher.phase === phase)
-    if (watchers.length === 0) return
+    if (watchers.length === 0) {
+      return
+    }
 
     for (const watcher of watchers) {
       const change = this.pendingWatcherChanges.get(watcher.path)
-      if (!change) continue
+      if (!change) {
+        continue
+      }
       this.callWatcher(watcher.methodName, {
         next: change.next,
         prev: change.prev,
@@ -259,7 +279,7 @@ export abstract class NovaComponentNode<
   /**
    * Вызывает watcher method.
    */
-  private callWatcher(methodName: string, payload: { next: unknown; prev: unknown; path: string; changedPaths: Array<string> }): void {
+  private callWatcher(methodName: string, payload: { next: unknown, prev: unknown, path: string, changedPaths: Array<string> }): void {
     const method = (this as unknown as Record<string, unknown>)[methodName]
     if (typeof method === 'function') {
       method.call(this, payload.next, payload.prev, payload)
@@ -273,7 +293,9 @@ export abstract class NovaComponentNode<
     this.disposeCommands()
     for (const command of this.descriptor.commandDefinitions ?? []) {
       const method = (this as unknown as Record<string, unknown>)[command.methodName]
-      if (typeof method !== 'function') continue
+      if (typeof method !== 'function') {
+        continue
+      }
       this.commandDisposers.push(this.nova.commands.register(command.id, payload => method.call(this, payload), {
         owner: this,
         scope: command.scope,
@@ -285,7 +307,9 @@ export abstract class NovaComponentNode<
    * Снимает command handlers.
    */
   private disposeCommands(): void {
-    for (const dispose of this.commandDisposers.splice(0)) dispose()
+    for (const dispose of this.commandDisposers.splice(0)) {
+      dispose()
+    }
   }
 }
 
@@ -298,12 +322,16 @@ export abstract class NovaComponentNode<
 function intersectsDirtyPaths<TProps extends Record<string, any>>(
   changedKeys: ReadonlyArray<keyof TProps>,
   policyKeys: ReadonlyArray<keyof TProps | string> | undefined,
-  changes: Map<string, { prev: unknown; next: unknown }>,
+  changes: Map<string, { prev: unknown, next: unknown }>,
 ): boolean {
-  if (!policyKeys?.length) return false
-  return policyKeys.some(path => {
+  if (!policyKeys?.length) {
+    return false
+  }
+  return policyKeys.some((path) => {
     const stringPath = String(path)
-    if (stringPath.includes('.')) return changes.has(stringPath)
+    if (stringPath.includes('.')) {
+      return changes.has(stringPath)
+    }
     return changedKeys.includes(stringPath as keyof TProps)
   })
 }
@@ -313,9 +341,11 @@ function intersectsDirtyPaths<TProps extends Record<string, any>>(
  */
 function dirtyPathsChanged<TProps extends Record<string, any>>(
   policyKeys: ReadonlyArray<keyof TProps | string> | undefined,
-  changes: Map<string, { prev: unknown; next: unknown }>,
+  changes: Map<string, { prev: unknown, next: unknown }>,
 ): boolean {
-  if (!policyKeys?.length) return false
+  if (!policyKeys?.length) {
+    return false
+  }
   return policyKeys.some(path => changes.has(String(path)))
 }
 
@@ -323,9 +353,11 @@ function dirtyPathsChanged<TProps extends Record<string, any>>(
  * Собирает paths из dirty policy.
  */
 function collectDirtyPolicyPaths<TProps extends Record<string, any>>(
-  policy?: { update?: ReadonlyArray<keyof TProps | string>; render?: ReadonlyArray<keyof TProps | string>; matrix?: ReadonlyArray<keyof TProps | string> },
+  policy?: { update?: ReadonlyArray<keyof TProps | string>, render?: ReadonlyArray<keyof TProps | string>, matrix?: ReadonlyArray<keyof TProps | string> },
 ): Array<string> {
-  if (!policy) return []
+  if (!policy) {
+    return []
+  }
   return [...(policy.update ?? []), ...(policy.render ?? []), ...(policy.matrix ?? [])]
     .map(String)
     .filter(path => path.includes('.'))

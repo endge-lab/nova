@@ -1,4 +1,3 @@
-import type { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
 import type {
   NovaMotionOptions,
   NovaMotionPatch,
@@ -8,27 +7,28 @@ import type {
   NovaMotionTweenOptions,
   NovaMotionValue,
 } from '@/domain/types/motion.types'
+import type { NovaMotionEngine } from '@/model/motion/NovaMotionEngine'
 
 /**
  * Описывает тип NovaMotionPresetCategory.
  */
-export type NovaMotionPresetCategory =
-  | 'Fade'
-  | 'Slide'
-  | 'Scale'
-  | 'Rotate'
-  | 'Attention'
-  | 'Gesture'
-  | 'Visual'
+export type NovaMotionPresetCategory
+  = | 'Fade'
+    | 'Slide'
+    | 'Scale'
+    | 'Rotate'
+    | 'Attention'
+    | 'Gesture'
+    | 'Visual'
 
 /**
  * Описывает тип NovaMotionPatternCategory.
  */
-export type NovaMotionPatternCategory =
-  | 'Stagger'
-  | 'Timeline'
-  | 'Sequence'
-  | 'Repeat'
+export type NovaMotionPatternCategory
+  = | 'Stagger'
+    | 'Timeline'
+    | 'Sequence'
+    | 'Repeat'
 
 /**
  * Описывает контракт NovaMotionPresetMeta.
@@ -573,7 +573,7 @@ const PATTERN_RUNNERS: Record<NovaMotionPatternName, PatternRunner> = {
 
   repeatYoyo: (engine, targets, options) => {
     const d = distance(options, 18)
-    return timeline(engine, 'repeatYoyo', { repeat: 1, yoyo: true, ...options }, targets.map(target => {
+    return timeline(engine, 'repeatYoyo', { repeat: 1, yoyo: true, ...options }, targets.map((target) => {
       const x = numberValue(target, 'x')
       return {
         target,
@@ -799,9 +799,15 @@ function stringValue(target: NovaMotionTarget, key: string, fallback: string): s
  * Читает value.
  */
 function readValue(target: NovaMotionTarget, key: string): NovaMotionValue {
-  if (key in target) return (target as any)[key]
-  if (typeof (target as any).getProps === 'function') return (target as any).getProps()[key]
-  if (typeof (target as any).get === 'function') return (target as any).get(key)
+  if (key in target) {
+    return (target as any)[key]
+  }
+  if (typeof (target as any).getProps === 'function') {
+    return (target as any).getProps()[key]
+  }
+  if (typeof (target as any).get === 'function') {
+    return (target as any).get(key)
+  }
   return undefined
 }
 
@@ -813,9 +819,11 @@ function setTargets(targets: Array<NovaMotionTarget>, patch: NovaMotionPatch): v
     for (const [key, value] of Object.entries(patch)) {
       if (key in target) {
         ;(target as any)[key] = value
-      } else if (typeof (target as any).setProps === 'function') {
+      }
+      else if (typeof (target as any).setProps === 'function') {
         ;(target as any).setProps({ [key]: value })
-      } else if (typeof (target as any).options === 'function') {
+      }
+      else if (typeof (target as any).options === 'function') {
         ;(target as any).options({ [key]: value })
       }
     }

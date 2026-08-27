@@ -1,8 +1,4 @@
 import type { EventList } from '@endge/utils'
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
-import { NovaSpatialIndex } from '@/model/runtime/interaction/NovaSpatialIndex'
 import type {
   NovaComponentCursorValue,
   NovaCursorContext,
@@ -14,6 +10,10 @@ import type {
   NovaCursorValue,
   NovaUrlCursorValue,
 } from '@/domain/types/cursor.types'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { NovaSpatialIndex } from '@/model/runtime/interaction/NovaSpatialIndex'
 
 /**
  * Описывает входные данные для синхронизации cursor с pointer.
@@ -80,11 +80,19 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
       return
     }
 
-    if (!this.cursorNodes.has(node) && !includeChildren) return
-    if (this._spatialFullDirty) return
+    if (!this.cursorNodes.has(node) && !includeChildren) {
+      return
+    }
+    if (this._spatialFullDirty) {
+      return
+    }
 
-    if (this.cursorNodes.has(node)) this._spatialDirtyNodes.add(node)
-    if (!includeChildren) return
+    if (this.cursorNodes.has(node)) {
+      this._spatialDirtyNodes.add(node)
+    }
+    if (!includeChildren) {
+      return
+    }
 
     for (const child of node.children) {
       if (child instanceof Object && isNovaNode(child)) {
@@ -197,8 +205,12 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Восстанавливает DOM cursor после render/backend writers, если они перезаписали canvas style.
    */
   reapplyNativeCursor(): void {
-    if (!this._lastDomCursor) return
-    if (this.app.canvas.element.style.cursor === this._lastDomCursor) return
+    if (!this._lastDomCursor) {
+      return
+    }
+    if (this.app.canvas.element.style.cursor === this._lastDomCursor) {
+      return
+    }
 
     this.app.canvas.element.style.cursor = this._lastDomCursor
   }
@@ -223,10 +235,14 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    */
   private resolveCursorSource(target: NovaNode<E> | null, x: number, y: number): NovaNode<E> | null {
     const fromTarget = target ? this.findCursorAncestor(target) : null
-    if (fromTarget) return fromTarget
+    if (fromTarget) {
+      return fromTarget
+    }
 
     const fromIndex = this.cursorHitTest(x, y)
-    if (fromIndex) return fromIndex
+    if (fromIndex) {
+      return fromIndex
+    }
 
     const previous = this._lastSource
     if (
@@ -248,7 +264,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
   private findCursorAncestor(target: NovaNode<E>): NovaNode<E> | null {
     let current: NovaNode<E> | null = target
     while (current) {
-      if (this.cursorNodes.has(current) && current.active && current.visible) return current
+      if (this.cursorNodes.has(current) && current.active && current.visible) {
+        return current
+      }
       const parent: unknown = current.parent
       current = isNovaNode(parent) ? parent as NovaNode<E> : null
     }
@@ -262,8 +280,12 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
     let top: NovaNode<E> | null = null
 
     for (const node of this.getCursorCandidates(x, y)) {
-      if (!node.active || !node.visible || !node.containsPoint(x, y)) continue
-      if (!top || this.app.compareRenderOrder(top, node) < 0) top = node
+      if (!node.active || !node.visible || !node.containsPoint(x, y)) {
+        continue
+      }
+      if (!top || this.app.compareRenderOrder(top, node) < 0) {
+        top = node
+      }
     }
 
     return top
@@ -292,12 +314,15 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
       return
     }
 
-    if (this._spatialDirtyNodes.size === 0) return
+    if (this._spatialDirtyNodes.size === 0) {
+      return
+    }
 
     for (const node of this._spatialDirtyNodes) {
       if (this.cursorNodes.has(node)) {
         this._spatialIndex.update(node)
-      } else {
+      }
+      else {
         this._spatialIndex.remove(node)
       }
     }
@@ -368,7 +393,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    */
   private resolveComponentNode(surface: NovaSurface<E>, value: NovaComponentCursorValue, key: string): NovaNode<E> {
     const existing = this._componentNodes.get(key)
-    if (existing) return existing
+    if (existing) {
+      return existing
+    }
 
     const node = this.app.schema.createNode(surface, {
       type: value.component,
@@ -384,7 +411,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Нормализует и возвращает итоговое значение NovaCursorManager.
    */
   private resolveOverlaySurface(): NovaSurface<E> {
-    if (this._overlaySurface) return this._overlaySurface
+    if (this._overlaySurface) {
+      return this._overlaySurface
+    }
 
     const surface = this.app.createSurface('nova-cursor-overlay')
     surface.options({
@@ -399,7 +428,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Выполняет внутренний шаг hideActiveComponent для NovaCursorManager.
    */
   private hideActiveComponent(): void {
-    if (!this._activeComponentKey) return
+    if (!this._activeComponentKey) {
+      return
+    }
 
     const node = this._componentNodes.get(this._activeComponentKey)
     this.hideComponentNode(node ?? null)
@@ -410,7 +441,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Выполняет внутренний шаг hideComponentNode для NovaCursorManager.
    */
   private hideComponentNode(node: NovaNode<E> | null): void {
-    if (!node) return
+    if (!node) {
+      return
+    }
 
     node.visible = false
     node.dirty({ matrix: true, render: true })
@@ -421,7 +454,9 @@ export class NovaCursorManager<E extends EventList = Record<string, any>> {
    * Применяет подготовленное состояние NovaCursorManager.
    */
   private applyNativeCursor(value: string): void {
-    if (this._lastDomCursor === value && this.app.canvas.element.style.cursor === value) return
+    if (this._lastDomCursor === value && this.app.canvas.element.style.cursor === value) {
+      return
+    }
 
     this.app.canvas.element.style.cursor = value
     this._lastDomCursor = value
@@ -435,15 +470,29 @@ export function resolveNovaCursorValue<E extends EventList>(
   declaration: NovaCursorDeclaration | null | undefined,
   state: NovaCursorRuntimeState<E>,
 ): NovaCursorValue | null {
-  if (!declaration) return null
-  if (Array.isArray(declaration)) return resolveRuleCursor(declaration, state)
-  if (isCursorValue(declaration)) return declaration
+  if (!declaration) {
+    return null
+  }
+  if (Array.isArray(declaration)) {
+    return resolveRuleCursor(declaration, state)
+  }
+  if (isCursorValue(declaration)) {
+    return declaration
+  }
 
   const stateMap = declaration as NovaCursorStateMap
-  if (state.disabled && stateMap.disabled !== undefined) return stateMap.disabled
-  if (state.dragging && stateMap.dragging !== undefined) return stateMap.dragging
-  if (state.pressed && stateMap.pressed !== undefined) return stateMap.pressed
-  if (state.hover && stateMap.hover !== undefined) return stateMap.hover
+  if (state.disabled && stateMap.disabled !== undefined) {
+    return stateMap.disabled
+  }
+  if (state.dragging && stateMap.dragging !== undefined) {
+    return stateMap.dragging
+  }
+  if (state.pressed && stateMap.pressed !== undefined) {
+    return stateMap.pressed
+  }
+  if (state.hover && stateMap.hover !== undefined) {
+    return stateMap.hover
+  }
   return stateMap.default ?? null
 }
 
@@ -452,7 +501,9 @@ function resolveRuleCursor<E extends EventList>(
   state: NovaCursorRuntimeState<E>,
 ): NovaCursorValue | null {
   for (const rule of rules) {
-    if (cursorRuleMatches(rule.when, state)) return rule.use
+    if (cursorRuleMatches(rule.when, state)) {
+      return rule.use
+    }
   }
   return null
 }
@@ -461,14 +512,22 @@ function cursorRuleMatches<E extends EventList>(
   condition: NovaCursorRule['when'],
   state: NovaCursorRuntimeState<E>,
 ): boolean {
-  if (!condition) return true
+  if (!condition) {
+    return true
+  }
 
   const { state: requiredState, ...contextConditions } = condition
-  if (requiredState !== undefined && !stateMatches(requiredState, state)) return false
+  if (requiredState !== undefined && !stateMatches(requiredState, state)) {
+    return false
+  }
 
   for (const [key, expected] of Object.entries(contextConditions)) {
-    if (expected === undefined) continue
-    if (state.context[key] !== expected) return false
+    if (expected === undefined) {
+      continue
+    }
+    if (state.context[key] !== expected) {
+      return false
+    }
   }
 
   return true
@@ -479,22 +538,34 @@ function stateMatches<E extends EventList>(
   state: NovaCursorRuntimeState<E>,
 ): boolean {
   const states = Array.isArray(required) ? required : [required]
-  return states.some(item => {
-    if (item === 'default') return !state.disabled && !state.dragging && !state.pressed && !state.hover
+  return states.some((item) => {
+    if (item === 'default') {
+      return !state.disabled && !state.dragging && !state.pressed && !state.hover
+    }
     return state[item] === true
   })
 }
 
 function isCursorValue(value: NovaCursorDeclaration): value is NovaCursorValue {
-  if (typeof value === 'string') return true
-  if (Array.isArray(value)) return false
-  if (!value || typeof value !== 'object') return false
+  if (typeof value === 'string') {
+    return true
+  }
+  if (Array.isArray(value)) {
+    return false
+  }
+  if (!value || typeof value !== 'object') {
+    return false
+  }
   return 'type' in value && (value.type === 'url' || value.type === 'component')
 }
 
 function resolveCssCursor(value: NovaCursorValue): string {
-  if (typeof value === 'string') return value
-  if (value.type === 'url') return formatUrlCursor(value)
+  if (typeof value === 'string') {
+    return value
+  }
+  if (value.type === 'url') {
+    return formatUrlCursor(value)
+  }
   return value.fallback ?? 'default'
 }
 
@@ -504,13 +575,19 @@ function formatUrlCursor(value: NovaUrlCursorValue): string {
 }
 
 function cursorValueKey(value: NovaCursorValue): string {
-  if (typeof value === 'string') return `native:${value}`
+  if (typeof value === 'string') {
+    return `native:${value}`
+  }
   return `${value.type}:${stableStringify(value)}`
 }
 
 function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value)
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`
+  }
 
   const objectValue = value as Record<string, unknown>
   return `{${Object.keys(objectValue)
@@ -520,7 +597,9 @@ function stableStringify(value: unknown): string {
 }
 
 function readDisabled(node: NovaNode<any>, context: NovaCursorContext): boolean {
-  if (context.disabled === true) return true
+  if (context.disabled === true) {
+    return true
+  }
   const maybeComponent = node as unknown as { getProps?: () => Record<string, unknown> }
   return maybeComponent.getProps?.().disabled === true
 }

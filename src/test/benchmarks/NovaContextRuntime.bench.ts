@@ -1,11 +1,12 @@
-import { bench, describe, vi } from 'vitest'
+import type { NovaApp, NovaSurface } from '@/index'
 import { RaphKernel } from '@endge/raph'
+import { bench, describe, vi } from 'vitest'
 import {
   Nova,
+
   NovaNode,
   NovaPhase,
-  type NovaApp,
-  type NovaSurface,
+
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
@@ -48,7 +49,7 @@ const reparentFixture = createReparentFixture(REPARENT_NODE_COUNT)
 const observeDataFixture = createObserveDataFixture()
 const localPropertyFixture = createLocalPropertyFixture()
 
-describe('Nova context/runtime benchmarks', () => {
+describe('nova context/runtime benchmarks', () => {
   bench('provide/inject: 20k cached lookups', () => {
     for (const node of injectFixture.nodes) {
       node.inject(injectFixture.token)

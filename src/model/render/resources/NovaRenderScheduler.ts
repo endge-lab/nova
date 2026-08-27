@@ -36,7 +36,9 @@ export class NovaRenderScheduler {
     let executed = 0
 
     while (this._queue.length > 0) {
-      if (performance.now() - startedAt >= budgetMs) break
+      if (performance.now() - startedAt >= budgetMs) {
+        break
+      }
       const task = this._queue.shift()!
       task.run()
       executed += 1

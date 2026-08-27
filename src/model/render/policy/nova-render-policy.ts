@@ -1,10 +1,10 @@
 import type {
-  NovaRenderPolicy,
-  NovaRenderPolicyInput,
+  NovaRenderDirtyFlags,
   NovaRendererConfig,
   NovaRendererConfigInput,
   NovaRendererTextConfig,
-  NovaRenderDirtyFlags,
+  NovaRenderPolicy,
+  NovaRenderPolicyInput,
   NovaRenderVersions,
 } from '@/domain/types/rendering/index'
 
@@ -31,44 +31,44 @@ export const DEFAULT_NOVA_RENDERER_CONFIG: NovaRendererConfig = Object.freeze({
     roundedRectStream: true,
     fullUploadDirtyRatio: 0.6,
   }),
-	  text: Object.freeze({
-	    quality: 'balanced',
-	    mode: 'auto',
-	    modes: Object.freeze({
-	      timeScale: 'run-atlas',
-	      taskLabels: 'run-atlas',
-	      uiLabels: 'run-atlas',
-	    }),
-	    interaction: Object.freeze({
-	      mode: 'balanced',
-	      idleMs: 120,
-	      rasterBudgetMs: 2,
-	      maxRasterScale: 3,
-	      freezeBuckets: true,
-	      prewarm: false,
-	    }),
-	    lod: Object.freeze({
-	      enabled: true,
-	      minScreenWidthPx: 8,
-	      minScreenHeightPx: 8,
-	      maxVisibleRuns: 10_000,
-	      hysteresisPx: 4,
-	    }),
-	    glyphs: Object.freeze({
-	      retainedBatches: true,
-	      shapeCacheEntries: 20_000,
-	      runCacheEntries: 10_000,
-	    }),
-	    sdf: Object.freeze({
-	      enabled: true,
-	      pxRange: 8,
-	      source: 'runtime-sdf',
-	      minPaddingPx: 2,
-	      edgeSoftness: 1,
-	    }),
-	    maxAtlasMemoryMB: 128,
-	    maxGlyphAtlasMemoryMB: 64,
-	    zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as Array<number>,
+  text: Object.freeze({
+    quality: 'balanced',
+    mode: 'auto',
+    modes: Object.freeze({
+      timeScale: 'run-atlas',
+      taskLabels: 'run-atlas',
+      uiLabels: 'run-atlas',
+    }),
+    interaction: Object.freeze({
+      mode: 'balanced',
+      idleMs: 120,
+      rasterBudgetMs: 2,
+      maxRasterScale: 3,
+      freezeBuckets: true,
+      prewarm: false,
+    }),
+    lod: Object.freeze({
+      enabled: true,
+      minScreenWidthPx: 8,
+      minScreenHeightPx: 8,
+      maxVisibleRuns: 10_000,
+      hysteresisPx: 4,
+    }),
+    glyphs: Object.freeze({
+      retainedBatches: true,
+      shapeCacheEntries: 20_000,
+      runCacheEntries: 10_000,
+    }),
+    sdf: Object.freeze({
+      enabled: true,
+      pxRange: 8,
+      source: 'runtime-sdf',
+      minPaddingPx: 2,
+      edgeSoftness: 1,
+    }),
+    maxAtlasMemoryMB: 128,
+    maxGlyphAtlasMemoryMB: 64,
+    zoomBuckets: Object.freeze([0.5, 0.75, 1, 1.5, 2, 3, 4]) as unknown as Array<number>,
     dynamicBuckets: true,
     prewarmAdjacentBuckets: true,
     rasterBudgetMs: 4,
@@ -114,31 +114,31 @@ export function resolveNovaRendererConfig(
       ...base.batching,
       ...input.batching,
     },
-	    text: {
-	      ...base.text,
-	      ...input.text,
-	      modes: {
-	        ...base.text.modes,
-	        ...input.text?.modes,
-	      },
-	      interaction: {
-	        ...base.text.interaction,
-	        ...input.text?.interaction,
-	      },
-	      lod: {
-	        ...base.text.lod,
-	        ...input.text?.lod,
-	      },
-	      glyphs: {
-	        ...base.text.glyphs,
-	        ...input.text?.glyphs,
-	      },
-	      sdf: {
-	        ...base.text.sdf,
-	        ...input.text?.sdf,
-	      },
-	      zoomBuckets: [...(input.text?.zoomBuckets ?? base.text.zoomBuckets)],
-	    },
+    text: {
+      ...base.text,
+      ...input.text,
+      modes: {
+        ...base.text.modes,
+        ...input.text?.modes,
+      },
+      interaction: {
+        ...base.text.interaction,
+        ...input.text?.interaction,
+      },
+      lod: {
+        ...base.text.lod,
+        ...input.text?.lod,
+      },
+      glyphs: {
+        ...base.text.glyphs,
+        ...input.text?.glyphs,
+      },
+      sdf: {
+        ...base.text.sdf,
+        ...input.text?.sdf,
+      },
+      zoomBuckets: [...(input.text?.zoomBuckets ?? base.text.zoomBuckets)],
+    },
     cache: {
       ...base.cache,
       ...input.cache,
@@ -264,7 +264,9 @@ export function bumpRenderVersions(
   flags: Partial<NovaRenderDirtyFlags>,
 ): NovaRenderVersions {
   for (const key of Object.keys(flags) as Array<keyof NovaRenderDirtyFlags>) {
-    if (flags[key]) versions[key] += 1
+    if (flags[key]) {
+      versions[key] += 1
+    }
   }
 
   return versions

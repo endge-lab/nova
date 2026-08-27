@@ -1,7 +1,7 @@
 import type { EventList } from '@endge/utils'
+import type { NovaLifecycleState } from '@/domain/types/renderer.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaLifecycleState } from '@/domain/types/renderer.types'
 
 /**
  * Описывает монтируемую сцену Nova и управляет ее жизненным циклом.
@@ -22,7 +22,9 @@ export class NovaScene<E extends EventList> {
     if (this._state === 'destroyed') {
       throw new Error('Нельзя смонтировать уничтоженную Nova-сцену')
     }
-    if (this._state === 'mounted') return
+    if (this._state === 'mounted') {
+      return
+    }
 
     this._state = 'mounted'
     this.onMount()
@@ -38,7 +40,9 @@ export class NovaScene<E extends EventList> {
    * Выполняет внутреннюю операцию pause.
    */
   pause(): void {
-    if (this._state !== 'mounted') return
+    if (this._state !== 'mounted') {
+      return
+    }
 
     this._state = 'paused'
     this.onPause()
@@ -52,7 +56,9 @@ export class NovaScene<E extends EventList> {
    * Выполняет внутреннюю операцию resume.
    */
   resume(): void {
-    if (this._state !== 'paused') return
+    if (this._state !== 'paused') {
+      return
+    }
 
     this._state = 'mounted'
     this.onResume()
@@ -68,7 +74,9 @@ export class NovaScene<E extends EventList> {
    * Выполняет внутреннюю операцию unmount.
    */
   unmount(): void {
-    if (this._state === 'created' || this._state === 'destroyed') return
+    if (this._state === 'created' || this._state === 'destroyed') {
+      return
+    }
 
     this.onUnmount()
 
@@ -85,7 +93,9 @@ export class NovaScene<E extends EventList> {
    * Освобождает runtime resources и снимает связанные ссылки.
    */
   destroy(): void {
-    if (this._state === 'destroyed') return
+    if (this._state === 'destroyed') {
+      return
+    }
 
     this.unmount()
     this.onDestroy()
@@ -111,7 +121,9 @@ export class NovaScene<E extends EventList> {
    * Удаляет root.
    */
   protected removeRoot(root: NovaNode<E>): void {
-    if (!this._roots.delete(root)) return
+    if (!this._roots.delete(root)) {
+      return
+    }
 
     root.remove()
     this.app.invalidate()

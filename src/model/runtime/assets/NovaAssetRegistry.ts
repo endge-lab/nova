@@ -204,19 +204,19 @@ export interface NovaFontAssetDescriptor {
 /**
  * Описывает asset descriptor.
  */
-export type NovaAssetDescriptor =
-  | NovaSvgAssetDescriptor
-  | NovaImageAssetDescriptor
-  | NovaCanvasAssetDescriptor
-  | NovaPatternAssetDescriptor
-  | NovaStripeAssetDescriptor
-  | NovaLinearGradientAssetDescriptor
-  | NovaRadialGradientAssetDescriptor
-  | NovaConicGradientAssetDescriptor
-  | NovaNoiseAssetDescriptor
-  | NovaMeshGradientAssetDescriptor
-  | NovaNineSliceImageAssetDescriptor
-  | NovaFontAssetDescriptor
+export type NovaAssetDescriptor
+  = | NovaSvgAssetDescriptor
+    | NovaImageAssetDescriptor
+    | NovaCanvasAssetDescriptor
+    | NovaPatternAssetDescriptor
+    | NovaStripeAssetDescriptor
+    | NovaLinearGradientAssetDescriptor
+    | NovaRadialGradientAssetDescriptor
+    | NovaConicGradientAssetDescriptor
+    | NovaNoiseAssetDescriptor
+    | NovaMeshGradientAssetDescriptor
+    | NovaNineSliceImageAssetDescriptor
+    | NovaFontAssetDescriptor
 
 /**
  * Описывает input bundle assets.
@@ -343,7 +343,9 @@ export class NovaAssetRegistry {
    * Возвращает asset record по ref или id.
    */
   resolveRecord(input: NovaAssetRef | string | undefined | null): NovaAssetRecord | undefined {
-    if (!input) return undefined
+    if (!input) {
+      return undefined
+    }
     const id = isNovaAssetRef(input) ? input.id : input
     return this._records.get(id) ?? this._parent?.resolveRecord(id)
   }
@@ -353,7 +355,9 @@ export class NovaAssetRegistry {
    */
   resolve(input: NovaAssetRef | string | undefined | null): NovaResolvedAsset | undefined {
     const record = this.resolveRecord(input)
-    if (!record) return undefined
+    if (!record) {
+      return undefined
+    }
 
     const materialized = this.resolveMaterialization(record)
     return {
@@ -368,7 +372,9 @@ export class NovaAssetRegistry {
    * Возвращает drawable source для ref/source.
    */
   resolveDrawable(input: NovaAssetDrawableInput): CanvasImageSource | undefined {
-    if (!input) return undefined
+    if (!input) {
+      return undefined
+    }
     if (typeof input === 'string' || isNovaAssetRef(input)) {
       return this.resolve(input)?.source
     }
@@ -379,9 +385,13 @@ export class NovaAssetRegistry {
    * Возвращает fill mode для drawable asset.
    */
   resolveDrawableFillMode(input: NovaAssetDrawableInput): NovaAssetFillMode {
-    if (!input || !(typeof input === 'string' || isNovaAssetRef(input))) return 'repeat'
+    if (!input || !(typeof input === 'string' || isNovaAssetRef(input))) {
+      return 'repeat'
+    }
     const descriptor = this.resolveRecord(input)?.descriptor
-    if (!descriptor) return 'repeat'
+    if (!descriptor) {
+      return 'repeat'
+    }
     return resolveNovaAssetFillMode(descriptor)
   }
 
@@ -400,10 +410,14 @@ export class NovaAssetRegistry {
     if (typeof input === 'string' || isNovaAssetRef(input)) {
       const id = isNovaAssetRef(input) ? input.id : input
       const record = this.resolveRecord(input)
-      if (!record) return `${prefix}:${id}`
+      if (!record) {
+        return `${prefix}:${id}`
+      }
       return `${prefix}:${id}:v${this.resolveMaterializationVersion(record)}`
     }
-    if (input) return `${prefix}:${fallback(input)}`
+    if (input) {
+      return `${prefix}:${fallback(input)}`
+    }
     return `${prefix}:missing`
   }
 
@@ -412,7 +426,9 @@ export class NovaAssetRegistry {
    */
   private resolveMaterialization(record: NovaAssetRecord): AssetMaterialization {
     const cached = this._materialized.get(record.ref.id)
-    if (cached) return cached
+    if (cached) {
+      return cached
+    }
 
     const descriptor = record.descriptor
     let materialized: AssetMaterialization
@@ -502,7 +518,9 @@ export class NovaAssetRegistry {
     canvas.width = patternSize
     canvas.height = patternSize
 
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     ctx.fillStyle = descriptor.bgColor
     ctx.fillRect(0, 0, patternSize, patternSize)
@@ -528,7 +546,9 @@ export class NovaAssetRegistry {
     canvas.width = size
     canvas.height = size
 
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     const angle = (descriptor.angle * Math.PI) / 180
     const radius = Math.sqrt(2) * size / 2
@@ -558,7 +578,9 @@ export class NovaAssetRegistry {
     canvas.width = size
     canvas.height = size
 
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     const cx = descriptor.centerX * size
     const cy = descriptor.centerY * size
@@ -592,14 +614,18 @@ export class NovaAssetRegistry {
     canvas.width = size
     canvas.height = size
 
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     const cx = descriptor.centerX * size
     const cy = descriptor.centerY * size
     const stops = normalizeGradientStops(descriptor.stops, descriptor.from, descriptor.to)
     if ('createConicGradient' in ctx && typeof ctx.createConicGradient === 'function') {
       const gradient = ctx.createConicGradient((descriptor.startAngle * Math.PI) / 180, cx, cy)
-      for (const stop of stops) gradient.addColorStop(stop.offset, stop.color)
+      for (const stop of stops) {
+        gradient.addColorStop(stop.offset, stop.color)
+      }
       ctx.fillStyle = gradient
       ctx.fillRect(0, 0, size, size)
       return canvas
@@ -633,7 +659,9 @@ export class NovaAssetRegistry {
     canvas.width = size
     canvas.height = size
 
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     const base = parseAssetColor(descriptor.baseColor)
     const noise = parseAssetColor(descriptor.noiseColor)
@@ -644,7 +672,7 @@ export class NovaAssetRegistry {
 
     for (let index = 0; index < image.data.length; index += 4) {
       seed = seededRandom(seed)
-      const random = seed / 0x7fffffff
+      const random = seed / 0x7FFFFFFF
       const mix = random < density ? opacity * random : 0
       image.data[index] = mixChannel(base.r, noise.r, mix)
       image.data[index + 1] = mixChannel(base.g, noise.g, mix)
@@ -666,7 +694,9 @@ export class NovaAssetRegistry {
     canvas.width = size
     canvas.height = size
 
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     ctx.fillStyle = descriptor.background
     ctx.fillRect(0, 0, size, size)
@@ -726,7 +756,7 @@ export class NovaAssetRegistry {
     })
     this._fontFaces.set(record.ref.id, face)
     face.load()
-      .then(loaded => {
+      .then((loaded) => {
         fonts.add(loaded)
         materialized.ready = true
         materialized.loading = false
@@ -787,7 +817,7 @@ export class NovaAssetRegistry {
   /**
    * Создает browser-loadable SVG image source из raw svg или data URL.
    */
-  private createSvgImageSource(descriptor: NovaSvgAssetDescriptor): { url: string; revoke?: () => void } {
+  private createSvgImageSource(descriptor: NovaSvgAssetDescriptor): { url: string, revoke?: () => void } {
     const svg = this.resolveSvgSource(descriptor)
     const blob = new Blob([svg], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
@@ -821,7 +851,9 @@ export class NovaAssetRegistry {
     canvas.width = width
     canvas.height = height
 
-    if (!ctx) return canvas
+    if (!ctx) {
+      return canvas
+    }
 
     ctx.clearRect(0, 0, width, height)
     ctx.drawImage(
@@ -875,11 +907,14 @@ export class NovaAssetRegistry {
    */
   private unuseFontFace(id: string): void {
     const face = this._fontFaces.get(id)
-    if (!face) return
+    if (!face) {
+      return
+    }
     this._fontFaces.delete(id)
     try {
       document.fonts?.delete(face)
-    } catch {
+    }
+    catch {
       // document.fonts может отсутствовать в тестовой или серверной среде.
     }
   }
@@ -960,7 +995,7 @@ export function defineNovaAssets<
  */
 export function createNovaSvgAsset(
   source: string,
-  options: { width: number; height: number; color?: string; pixelRatio?: NovaSvgAssetPixelRatio },
+  options: { width: number, height: number, color?: string, pixelRatio?: NovaSvgAssetPixelRatio },
 ): NovaSvgAssetDescriptor {
   return Object.freeze({
     type: 'svg',
@@ -988,7 +1023,7 @@ function resolveSvgAssetPixelRatio(pixelRatio: NovaSvgAssetPixelRatio | undefine
  */
 export function createNovaImageAsset(
   source: CanvasImageSource | string,
-  options: { width?: number; height?: number } = {},
+  options: { width?: number, height?: number } = {},
 ): NovaImageAssetDescriptor {
   return Object.freeze({
     type: 'image',
@@ -1003,7 +1038,7 @@ export function createNovaImageAsset(
  */
 export function createNovaCanvasAsset(
   source: HTMLCanvasElement | OffscreenCanvas,
-  options: { width?: number; height?: number } = {},
+  options: { width?: number, height?: number } = {},
 ): NovaCanvasAssetDescriptor {
   return Object.freeze({
     type: 'canvas',
@@ -1278,7 +1313,9 @@ function normalizeNineSliceInsets(input: number | Partial<NovaNineSliceInsets>):
  */
 function decodeSvgDataUrl(source: string): string {
   const commaIndex = source.indexOf(',')
-  if (commaIndex < 0) return source
+  if (commaIndex < 0) {
+    return source
+  }
 
   const metadata = source.slice(0, commaIndex).toLowerCase()
   const payload = source.slice(commaIndex + 1)
@@ -1378,7 +1415,9 @@ function withAlpha(color: string, alpha: number): string {
  * Ограничивает число диапазоном 0..1.
  */
 function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0
+  if (!Number.isFinite(value)) {
+    return 0
+  }
   return Math.max(0, Math.min(1, value))
 }
 
@@ -1386,7 +1425,9 @@ function clamp01(value: number): number {
  * Ограничивает число byte диапазоном.
  */
 function clampByte(value: number): number {
-  if (!Number.isFinite(value)) return 0
+  if (!Number.isFinite(value)) {
+    return 0
+  }
   return Math.max(0, Math.min(255, Math.round(value)))
 }
 
@@ -1408,15 +1449,19 @@ function positiveModulo(value: number, modulo: number): number {
  * Генерирует deterministic pseudo-random seed.
  */
 function seededRandom(seed: number): number {
-  return (seed * 1103515245 + 12345) & 0x7fffffff
+  return (seed * 1103515245 + 12345) & 0x7FFFFFFF
 }
 
 /**
  * Возвращает width drawable source.
  */
 function resolveAssetSourceWidth(source: CanvasImageSource): number {
-  if ('naturalWidth' in source) return Math.max(1, Number(source.naturalWidth) || 1)
-  if ('width' in source) return Math.max(1, Number(source.width) || 1)
+  if ('naturalWidth' in source) {
+    return Math.max(1, Number(source.naturalWidth) || 1)
+  }
+  if ('width' in source) {
+    return Math.max(1, Number(source.width) || 1)
+  }
   return Math.max(1, Number(source.displayWidth) || 1)
 }
 
@@ -1424,7 +1469,11 @@ function resolveAssetSourceWidth(source: CanvasImageSource): number {
  * Возвращает height drawable source.
  */
 function resolveAssetSourceHeight(source: CanvasImageSource): number {
-  if ('naturalHeight' in source) return Math.max(1, Number(source.naturalHeight) || 1)
-  if ('height' in source) return Math.max(1, Number(source.height) || 1)
+  if ('naturalHeight' in source) {
+    return Math.max(1, Number(source.naturalHeight) || 1)
+  }
+  if ('height' in source) {
+    return Math.max(1, Number(source.height) || 1)
+  }
   return Math.max(1, Number(source.displayHeight) || 1)
 }

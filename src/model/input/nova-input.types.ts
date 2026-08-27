@@ -4,7 +4,7 @@ type NovaResolvedTextFont = NonNullable<NovaTextFont>
 
 export type NovaInputEngine = 'canvas' | 'proxy' | 'auto'
 export type NovaInputState = 'idle' | 'hovered' | 'focused' | 'disabled' | 'invalid' | 'readonly'
-export type NovaInputValidationResult = true | string | { message: string; code?: string }
+export type NovaInputValidationResult = true | string | { message: string, code?: string }
 
 export interface NovaTextSelection {
   start: number
@@ -62,7 +62,7 @@ export interface NovaTextMeasureOptions {
   fontStyle?: NovaResolvedTextFont['style']
   charWidth?: number
   tabSize?: number
-  padding?: number | { top?: number; right?: number; bottom?: number; left?: number; horizontal?: number; vertical?: number }
+  padding?: number | { top?: number, right?: number, bottom?: number, left?: number, horizontal?: number, vertical?: number }
   measureText?: NovaTextMeasureFn
 }
 

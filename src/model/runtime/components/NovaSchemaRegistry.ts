@@ -7,14 +7,15 @@ import type {
   NovaElementSchema,
   NovaSchemaRenderMode,
 } from '@/domain/types/component.types'
-import type { NovaRenderer } from '@/domain/types/renderer.types'
-import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaNodeContextOptions } from '@/domain/types/context.types'
+import type { NovaRenderer } from '@/domain/types/renderer.types'
+import type { NovaDefinedComponentInput } from '@/model/runtime/components/nova-defined-component'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
 import {
   createDefinedComponentNode,
   normalizeDefinedComponent,
-  type NovaDefinedComponentInput,
+
 } from '@/model/runtime/components/nova-defined-component'
 import { registerNovaSceneComponents } from '@/model/runtime/scene/nova-scene-components'
 
@@ -81,7 +82,9 @@ export class NovaSchemaRegistry {
 
     this.register(descriptor, options)
 
-    if (!tag) return
+    if (!tag) {
+      return
+    }
     const existing = this._tagDescriptors.get(tag)
     if (existing && existing !== descriptor && !options.override) {
       throw new Error(`[NovaSchemaRegistry] Tag "${tag}" is already registered`)
@@ -132,13 +135,17 @@ export class NovaSchemaRegistry {
     depth = 0,
   ): boolean {
     const descriptor = this.resolve(item.type)
-    if (!descriptor || descriptor.kind === 'primitive' || !descriptor.renderSchema) return false
+    if (!descriptor || descriptor.kind === 'primitive' || !descriptor.renderSchema) {
+      return false
+    }
     if (depth > MAX_SCHEMA_COMPONENT_DEPTH) {
       throw new Error(`[NovaSchemaRegistry] Max schema component depth exceeded at "${item.type}"`)
     }
 
     const nested = descriptor.renderSchema({ renderer, registry: this, depth }, item)
-    if (!nested?.length) return true
+    if (!nested?.length) {
+      return true
+    }
 
     renderer.schema(nested)
 
@@ -217,7 +224,7 @@ export class NovaSchemaRegistry {
       } as NovaComponentCreateContext<E>,
       schema as NovaComponentSchema<any>,
     )
-    if (Object.prototype.hasOwnProperty.call(options, 'context')) {
+    if (Object.hasOwn(options, 'context')) {
       node.setContext(options.context)
     }
     return node

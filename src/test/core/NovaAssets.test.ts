@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { Nova, NovaAssetRegistry, isNovaAssetRef } from '@/index'
+import { isNovaAssetRef, Nova, NovaAssetRegistry } from '@/index'
 
-describe('Nova assets registry', () => {
+describe('nova assets registry', () => {
   it('creates deterministic refs for scoped assets', () => {
     const bundle = Nova.assets.define('test-assets', {
       icons: {
@@ -384,13 +384,19 @@ function restoreUrlObjectMethods(
   createObjectURL: typeof URL.createObjectURL | undefined,
   revokeObjectURL: typeof URL.revokeObjectURL | undefined,
 ): void {
-  if (createObjectURL) Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true })
-  else delete (URL as Partial<typeof URL>).createObjectURL
-  if (revokeObjectURL) Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true })
-  else delete (URL as Partial<typeof URL>).revokeObjectURL
+  if (createObjectURL) {
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true })
+  }
+  else { delete (URL as Partial<typeof URL>).createObjectURL }
+  if (revokeObjectURL) {
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true })
+  }
+  else { delete (URL as Partial<typeof URL>).revokeObjectURL }
 }
 
 function restoreWindowDevicePixelRatio(descriptor: PropertyDescriptor | undefined): void {
-  if (descriptor) Object.defineProperty(window, 'devicePixelRatio', descriptor)
-  else delete (window as Partial<Window>).devicePixelRatio
+  if (descriptor) {
+    Object.defineProperty(window, 'devicePixelRatio', descriptor)
+  }
+  else { delete (window as Partial<Window>).devicePixelRatio }
 }

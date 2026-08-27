@@ -17,7 +17,9 @@ export const NOVA_MOTION_EASING: Record<NovaMotionEasingName, (t: number) => num
  * Вычисляет nova motion easing.
  */
 export function resolveNovaMotionEasing(easing: NovaMotionOptions['easing']): (t: number) => number {
-  if (typeof easing === 'function') return easing
+  if (typeof easing === 'function') {
+    return easing
+  }
   return NOVA_MOTION_EASING[easing ?? 'linear'] ?? NOVA_MOTION_EASING.linear
 }
 
@@ -25,7 +27,11 @@ export function resolveNovaMotionEasing(easing: NovaMotionOptions['easing']): (t
  * Выполняет публичную операцию clamp motion progress.
  */
 export function clampMotionProgress(value: number): number {
-  if (value <= 0) return 0
-  if (value >= 1) return 1
+  if (value <= 0) {
+    return 0
+  }
+  if (value >= 1) {
+    return 1
+  }
   return value
 }

@@ -11,7 +11,7 @@ const benchOptions = {
 
 installAssetBenchCanvasMocks()
 
-describe('Nova assets benchmarks', () => {
+describe('nova assets benchmarks', () => {
   for (const size of [256, 512, 1024]) {
     bench(`materialize procedural fills / ${size}px`, () => {
       const registry = new NovaAssetRegistry()
@@ -70,7 +70,9 @@ describe('Nova assets benchmarks', () => {
     registry.use(bundle)
     const stretch = registry.resolveDrawable(bundle.fills.stretch)
     const repeat = registry.resolveDrawable(bundle.fills.repeat)
-    if (!stretch || !repeat) throw new Error('bench assets missing')
+    if (!stretch || !repeat) {
+      throw new Error('bench assets missing')
+    }
   }, benchOptions)
 })
 
@@ -79,7 +81,9 @@ describe('Nova assets benchmarks', () => {
  */
 function installAssetBenchCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type !== '2d') return null
+    if (type !== '2d') {
+      return null
+    }
     const context = create2DContextStub() as CanvasRenderingContext2D & Record<PropertyKey, any>
     context.createLinearGradient = vi.fn(() => ({ addColorStop: vi.fn() }))
     context.createRadialGradient = vi.fn(() => ({ addColorStop: vi.fn() }))

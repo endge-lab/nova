@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventList } from '@endge/utils'
-import { NovaNode, type NovaApp, type NovaSurface } from '@/index'
+import type { NovaApp, NovaSurface } from '@/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NovaNode } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
 type TestEvents = EventList
@@ -26,7 +27,7 @@ class RetainedAuditNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('Nova retained dirty lifecycle', () => {
+describe('nova retained dirty lifecycle', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

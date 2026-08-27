@@ -58,8 +58,8 @@ export interface NovaSoundHandle {
   readonly id: string
   readonly state: NovaSoundHandleState
   readonly ended: Promise<void>
-  stop(): void
-  fadeTo(volume: number, durationMs?: number): void
+  stop: () => void
+  fadeTo: (volume: number, durationMs?: number) => void
 }
 
 /**

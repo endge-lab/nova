@@ -18,7 +18,9 @@ export class NovaWebGLTextureManager {
    */
   destroy(): void {
     for (const entry of this.atlas.entries) {
-      if (entry.payload) this.gl.deleteTexture(entry.payload)
+      if (entry.payload) {
+        this.gl.deleteTexture(entry.payload)
+      }
     }
     this.atlas.clear()
   }

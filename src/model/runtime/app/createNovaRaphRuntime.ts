@@ -1,21 +1,20 @@
+import type { RaphKernel, RaphLocalPhaseContext, RaphLocalPhaseDefinition, RaphLocalPropertyDescriptor, RaphSchedulerType } from '@endge/raph'
+import type { EventList } from '@endge/utils'
+import type { NovaNodeProperties } from '@/domain/types/base.types'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import {
   extractRaphLocalAfterHandlers,
   extractRaphLocalPhases,
   extractRaphLocalProperties,
   Raph,
   RaphApp,
+
   RaphLocalPhaseRuntime,
+
   RaphLocalPropertyRuntime,
   RaphPropagation,
-  type RaphKernel,
-  type RaphLocalPhaseDefinition,
-  type RaphLocalPhaseContext,
-  type RaphLocalPropertyDescriptor,
-  type RaphSchedulerType,
+
 } from '@endge/raph'
-import type { EventList } from '@endge/utils'
-import type { NovaNodeProperties } from '@/domain/types/base.types'
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 /**

@@ -80,7 +80,9 @@ export class NovaRenderTargetManager {
    */
   delete(id: string): boolean {
     const current = this._targets.get(id)
-    if (!current) return false
+    if (!current) {
+      return false
+    }
     this._memoryBytes -= this.estimateTargetBytes(current)
     return this._targets.delete(id)
   }

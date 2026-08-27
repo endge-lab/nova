@@ -1,15 +1,16 @@
 // @vitest-environment jsdom
 
+import type { NovaApp, NovaSurface } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaExportError,
   NovaNode,
   NovaSemanticService,
+
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
-  type NovaSurface,
 } from '@/index'
 
 type TestEvents = Record<string, any>
@@ -20,7 +21,9 @@ function createContextStub(): CanvasRenderingContext2D {
   }
   return new Proxy(state, {
     get(target, prop) {
-      if (!(prop in target)) target[prop] = vi.fn()
+      if (!(prop in target)) {
+        target[prop] = vi.fn()
+      }
       return target[prop]
     },
     set(target, prop, value) {
@@ -33,7 +36,9 @@ function createContextStub(): CanvasRenderingContext2D {
 function installCanvasMocks(): void {
   Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true })
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type === RendererType.Web2D) return createContextStub()
+    if (type === RendererType.Web2D) {
+      return createContextStub()
+    }
     return null
   })
   vi.spyOn(HTMLCanvasElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
@@ -49,10 +54,10 @@ function installCanvasMocks(): void {
       toJSON: () => ({}),
     } as DOMRect
   })
-  vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation(function (mime?: string) {
+  vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation((mime?: string) => {
     return `data:${mime ?? 'image/png'};base64,ZmFrZQ==`
   })
-  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (callback: BlobCallback, mime?: string) {
+  vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback: BlobCallback, mime?: string) => {
     callback(new Blob(['fake'], { type: mime ?? 'image/png' }))
   })
 }
@@ -90,7 +95,6 @@ class SemanticNode extends NovaNode<TestEvents> {
       },
     ])
   }
-
 }
 
 beforeEach(() => {
@@ -99,7 +103,7 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('Nova engine export and semantic service', () => {
+describe('nova engine export and semantic service', () => {
   it('exports png/webp dataUrl and Blob without resizing the source canvas', async () => {
     const app = createApp()
     const before = { width: app.canvas.pixelWidth, height: app.canvas.pixelHeight }

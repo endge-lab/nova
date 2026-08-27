@@ -9,7 +9,9 @@ export class NovaWebGLBuffer {
    */
   constructor(private readonly _gl: WebGLRenderingContext) {
     const buffer = _gl.createBuffer()
-    if (!buffer) throw new Error('Failed to create WebGL buffer')
+    if (!buffer) {
+      throw new Error('Failed to create WebGL buffer')
+    }
     this.buffer = buffer
   }
 

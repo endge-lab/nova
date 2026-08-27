@@ -1,11 +1,11 @@
 import type { NovaCanvasCreateOptions, NovaCanvasOwnership, NovaSizeOptions } from '@/domain/types/base.types'
-import { RendererType } from '@/domain/types/renderer.types'
 import type {
   NovaExportFormat,
   NovaExportImageOptions,
   NovaExportImageResult,
 } from '@/domain/types/export.types'
 import { NovaExportError } from '@/domain/types/export.types'
+import { RendererType } from '@/domain/types/renderer.types'
 import { Telemetry } from '@/model/telemetry.ts'
 
 const CANVAS_2D_CONTEXT_TYPE = '2d'
@@ -135,7 +135,9 @@ export class NovaCanvas {
     this._element.style.width = `${width}px`
     this._element.style.height = `${height}px`
 
-    if (this._glId) Telemetry.event('canvas:resize', { w: width, h: height, dpr }, undefined, this._glId)
+    if (this._glId) {
+      Telemetry.event('canvas:resize', { w: width, h: height, dpr }, undefined, this._glId)
+    }
 
     if (this._ctx2D) {
       this._ctx2D.setTransform(1, 0, 0, 1, 0, 0)
@@ -150,7 +152,9 @@ export class NovaCanvas {
   getContext2D(): CanvasRenderingContext2D {
     if (!this._ctx2D) {
       const ctx = this._element.getContext(CANVAS_2D_CONTEXT_TYPE)
-      if (!ctx) throw new Error('2D context not supported')
+      if (!ctx) {
+        throw new Error('2D context not supported')
+      }
       this._ctx2D = ctx
       this._ctx2D.scale(this._dpr, this._dpr)
       this._ctx2D.imageSmoothingEnabled = false
@@ -162,10 +166,14 @@ export class NovaCanvas {
    * Освобождает runtime resources и снимает связанные ссылки.
    */
   destroy(): void {
-    if (this._destroyed) return
+    if (this._destroyed) {
+      return
+    }
     this._destroyed = true
 
-    if (this._glId) Telemetry.event('ctx:destroy', {}, undefined, this._glId)
+    if (this._glId) {
+      Telemetry.event('ctx:destroy', {}, undefined, this._glId)
+    }
 
     if (this._handlersInited) {
       this._element.removeEventListener('webglcontextlost', this._handleContextLost)
@@ -179,14 +187,18 @@ export class NovaCanvas {
         this._element.width = 0
         this._element.height = 0
       }
-    } catch {
+    }
+    catch {
       /* ignore */
     }
 
     if (this._ownership === 'internal') {
       const parent = this._element.parentNode
-      if (parent) parent.removeChild(this._element)
-    } else {
+      if (parent) {
+        parent.removeChild(this._element)
+      }
+    }
+    else {
       this._ctx2D?.clearRect(0, 0, this.width, this.height)
     }
 
@@ -277,7 +289,8 @@ export class NovaCanvas {
         dataUrl,
         byteLength: estimateDataUrlByteLength(dataUrl),
       }
-    } catch (error) {
+    }
+    catch (error) {
       throw normalizeExportError(error)
     }
   }
@@ -299,9 +312,11 @@ export class NovaCanvas {
 
     if (contextType === RendererType.Web2D) {
       instance.getContext2D()
-    } else if (contextType === RendererType.WebGL) {
+    }
+    else if (contextType === RendererType.WebGL) {
       // Целевой WebGL renderer сам создает WebGL2 context и не должен сначала привязывать WebGL1.
-    } else {
+    }
+    else {
       throw new Error(`Unsupported context type: ${contextType}`)
     }
 
@@ -320,7 +335,9 @@ export class NovaCanvas {
 
     const contextType = options.contextType ?? RendererType.Web2D
 
-    if (contextType === RendererType.Web2D) instance.getContext2D()
+    if (contextType === RendererType.Web2D) {
+      instance.getContext2D()
+    }
 
     return instance
   }
@@ -335,7 +352,7 @@ export class NovaCanvas {
 
   private createExportCanvas(
     source: HTMLCanvasElement,
-    rect: { x: number; y: number; width: number; height: number },
+    rect: { x: number, y: number, width: number, height: number },
     targetWidth: number,
     targetHeight: number,
     pixelRatio: number,
@@ -352,7 +369,9 @@ export class NovaCanvas {
       && targetHeight === source.height
       && Math.abs(pixelRatio - this.dpr) < 0.001
 
-    if (fullFrame) return source
+    if (fullFrame) {
+      return source
+    }
 
     const target = document.createElement('canvas')
     target.width = targetWidth
@@ -409,7 +428,9 @@ export class NovaCanvas {
 }
 
 function normalizeQuality(value: number | undefined): number | undefined {
-  if (value === undefined || !Number.isFinite(value)) return undefined
+  if (value === undefined || !Number.isFinite(value)) {
+    return undefined
+  }
   return Math.max(0, Math.min(1, value))
 }
 
@@ -419,12 +440,16 @@ function canvasToBlob(canvas: HTMLCanvasElement, mime: string, quality: number |
 
 function estimateDataUrlByteLength(dataUrl: string): number {
   const comma = dataUrl.indexOf(',')
-  if (comma < 0) return dataUrl.length
+  if (comma < 0) {
+    return dataUrl.length
+  }
   return Math.floor(dataUrl.slice(comma + 1).length * 0.75)
 }
 
 function normalizeExportError(error: unknown): NovaExportError {
-  if (error instanceof NovaExportError) return error
+  if (error instanceof NovaExportError) {
+    return error
+  }
   if (error instanceof DOMException && error.name === 'SecurityError') {
     return new NovaExportError('tainted-canvas', 'Cannot export a tainted Nova canvas', error)
   }

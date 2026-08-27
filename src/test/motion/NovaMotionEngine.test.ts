@@ -1,12 +1,12 @@
+import type { NovaApp, NovaComponentDescriptor, NovaSurface } from '@/index'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaComponentNode,
+
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaSurface,
 } from '@/index'
 
 type TestEvents = Record<string, any>
@@ -39,7 +39,7 @@ const COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, unknown, Record<
   },
 }
 
-describe('NovaMotionEngine', () => {
+describe('novaMotionEngine', () => {
   let app: NovaApp<TestEvents>
 
   beforeEach(() => {
@@ -120,7 +120,9 @@ function createApp(): NovaApp<TestEvents> {
 
 function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type !== RendererType.Web2D) return null
+    if (type !== RendererType.Web2D) {
+      return null
+    }
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
       /**
        * Возвращает значение состояния текущего класса.

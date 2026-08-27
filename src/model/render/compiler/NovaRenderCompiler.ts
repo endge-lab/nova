@@ -1,15 +1,15 @@
-import { mat3 } from 'gl-matrix'
 import type { EventList } from '@endge/utils'
-import type { NovaRenderFrame, NovaRendererConfig } from '@/domain/types/rendering/index'
-import { RendererType } from '@/domain/types/renderer.types'
-import { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaRendererConfig, NovaRenderFrame } from '@/domain/types/rendering/index'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { mat3 } from 'gl-matrix'
+import { RendererType } from '@/domain/types/renderer.types'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
-import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/nova-render-policy'
 import { collectVisibleNovaRenderGroups } from '@/model/render/graph/nova-render-culling'
+import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/nova-render-policy'
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 /**
  * Описывает контракт NovaRenderCompilerOptions.
@@ -121,27 +121,37 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
    */
   private updateRetainedTransforms(surface: NovaSurface<E>, frame: NovaRenderFrame): number {
     const graph = surface.renderGraph
-    if (!graph || graph.transformDirtyNodeIds.size === 0) return 0
+    if (!graph || graph.transformDirtyNodeIds.size === 0) {
+      return 0
+    }
 
     const matrices = new Map<string, mat3>()
     this.collectDirtyNodeMatrices(surface, graph.transformDirtyNodeIds, matrices)
 
     let updated = 0
     for (const command of frame.commands) {
-      if (command.type !== 'setTransform' || !command.nodeId) continue
+      if (command.type !== 'setTransform' || !command.nodeId) {
+        continue
+      }
 
       const matrix = matrices.get(command.nodeId)
-      if (!matrix) continue
+      if (!matrix) {
+        continue
+      }
 
       command.transform = matrix
       updated += 1
     }
 
     for (const item of frame.items) {
-      if (!item.nodeId) continue
+      if (!item.nodeId) {
+        continue
+      }
 
       const matrix = matrices.get(item.nodeId)
-      if (!matrix) continue
+      if (!matrix) {
+        continue
+      }
 
       item.transform = matrix
       updated += 1

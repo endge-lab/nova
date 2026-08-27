@@ -1,21 +1,22 @@
 // @vitest-environment jsdom
 
+import type { NovaInputValidationResult } from '@/index'
 import { describe, expect, it, vi } from 'vitest'
 import {
-  NovaCaretBlinkController,
-  NovaClipboardService,
-  NovaInputProxyService,
-  NovaInputValidationController,
-  NovaTextInputController,
   layoutNovaTextInput,
+  NovaCaretBlinkController,
   novaCaretRectAtIndex,
+  NovaClipboardService,
+  NovaInputProxy_Adapter,
+  NovaInputValidationController,
+
   novaSelectionRects,
   novaTextIndexAtPoint,
+  NovaTextInputController,
   splitGraphemes,
-  type NovaInputValidationResult,
 } from '@/index'
 
-describe('Nova input core', () => {
+describe('nova input core', () => {
   it('edits text, moves caret by grapheme and commits values', () => {
     const commits: Array<string> = []
     const controller = new NovaTextInputController({
@@ -82,7 +83,7 @@ describe('Nova input core', () => {
   })
 
   it('aligns caret and hit-test geometry to measured proportional glyphs', () => {
-    const measureText = createMeasuredText({ W: 12, i: 3, '.': 4 })
+    const measureText = createMeasuredText({ 'W': 12, 'i': 3, '.': 4 })
     const layout = layoutNovaTextInput({
       text: 'Wi.',
       width: 120,
@@ -144,7 +145,7 @@ describe('Nova input core', () => {
   })
 
   it('roundtrips caret indexes through wrapped lines and grapheme widths', () => {
-    const measureText = createMeasuredText({ A: 8, '🙂': 14, B: 8, C: 8 })
+    const measureText = createMeasuredText({ 'A': 8, '🙂': 14, 'B': 8, 'C': 8 })
     const layout = layoutNovaTextInput({
       text: 'A🙂BC',
       width: 34,
@@ -188,9 +189,11 @@ describe('Nova input core', () => {
 
   it('cancels stale async validation results', async () => {
     let resolveFirst: (value: NovaInputValidationResult) => void = () => {}
-    const validator = new NovaInputValidationController<string, string>(value => {
+    const validator = new NovaInputValidationController<string, string>((value) => {
       if (value === 'first') {
-        return new Promise<NovaInputValidationResult>(resolve => { resolveFirst = resolve })
+        return new Promise<NovaInputValidationResult>((resolve) => {
+          resolveFirst = resolve
+        })
       }
       return true
     })
@@ -226,10 +229,10 @@ describe('Nova input core', () => {
   })
 
   it('attaches hidden proxy only for proxy and auto engines', () => {
-    const canvasProxy = new NovaInputProxyService({ engine: 'canvas' })
+    const canvasProxy = new NovaInputProxy_Adapter({ engine: 'canvas' })
     expect(canvasProxy.attach()).toBeNull()
 
-    const autoProxy = new NovaInputProxyService({ engine: 'auto' })
+    const autoProxy = new NovaInputProxy_Adapter({ engine: 'auto' })
     const element = autoProxy.attach()
     expect(element?.tagName).toBe('TEXTAREA')
     autoProxy.sync('abc', 1, 2)

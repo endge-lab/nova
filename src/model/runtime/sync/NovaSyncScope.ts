@@ -1,4 +1,3 @@
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type {
   NovaSyncEndpointInput,
   NovaSyncLink,
@@ -10,6 +9,7 @@ import type {
   NovaSyncScopeOptions,
   NovaSyncTransaction,
 } from '@/model/runtime/sync/nova-sync.types'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 interface InternalLink extends NovaSyncLink {
   config: NovaSyncLinkConfig<any, any>
@@ -76,7 +76,9 @@ export class NovaSyncScope {
    */
   unregisterNode(node: NovaNode<any>): void {
     const endpoints = this.nodeEndpoints.get(node)
-    if (!endpoints) return
+    if (!endpoints) {
+      return
+    }
 
     for (const endpoint of endpoints) {
       this.ports.delete(endpoint)
@@ -135,7 +137,9 @@ export class NovaSyncScope {
    * Выполняет действие notify в рамках ответственности NovaSyncScope.
    */
   notify(endpoint: NovaSyncEndpointInput, value?: unknown, transaction?: NovaSyncTransaction): void {
-    if (this.applyDepth > 0) return
+    if (this.applyDepth > 0) {
+      return
+    }
 
     const sourceEndpoint = this.resolveEndpoint(endpoint)
     const source = this.requirePort(sourceEndpoint)
@@ -149,9 +153,13 @@ export class NovaSyncScope {
    */
   notifyPortChanged(node: NovaNode<any>, name: string, value?: unknown): void {
     const endpoint = this.endpointFor(node, name)
-    if (!this.ports.has(endpoint)) return
-    if (arguments.length >= 3) this.notify(endpoint, value)
-    else this.notify(endpoint)
+    if (!this.ports.has(endpoint)) {
+      return
+    }
+    if (arguments.length >= 3) {
+      this.notify(endpoint, value)
+    }
+    else { this.notify(endpoint) }
   }
 
   /**
@@ -170,13 +178,16 @@ export class NovaSyncScope {
    * Выполняет внутренний шаг propagate для NovaSyncScope.
    */
   private propagate(sourceEndpoint: string, value: unknown, transaction: NovaSyncTransaction): void {
-    if (transaction.path.has(sourceEndpoint)) return
+    if (transaction.path.has(sourceEndpoint)) {
+      return
+    }
     transaction.path.add(sourceEndpoint)
 
     for (const link of this.links.values()) {
       if (link.from === sourceEndpoint) {
         this.queueLinkedWrite(link, sourceEndpoint, link.to, value, transaction)
-      } else if (link.bidirectional && link.to === sourceEndpoint) {
+      }
+      else if (link.bidirectional && link.to === sourceEndpoint) {
         this.queueLinkedWrite(link, sourceEndpoint, link.from, value, transaction)
       }
     }
@@ -192,8 +203,12 @@ export class NovaSyncScope {
     value: unknown,
     transaction: NovaSyncTransaction,
   ): void {
-    if (transaction.path.has(targetEndpoint)) return
-    if (link.config.filter && !link.config.filter(value, transaction)) return
+    if (transaction.path.has(targetEndpoint)) {
+      return
+    }
+    if (link.config.filter && !link.config.filter(value, transaction)) {
+      return
+    }
 
     const nextValue = link.config.transform ? link.config.transform(value, transaction) : value
     const schedule = link.config.schedule ?? link.schedule
@@ -219,18 +234,23 @@ export class NovaSyncScope {
    */
   private applyQueuedWrite(write: QueuedWrite): void {
     const target = this.ports.get(write.targetEndpoint)
-    if (!target) return
+    if (!target) {
+      return
+    }
     if (target.port.writable === false) {
       throw new Error(`[NovaSyncScope] Port "${write.targetEndpoint}" is readonly`)
     }
 
     const equals = write.link.config.equals ?? target.port.equals ?? Object.is
-    if (equals(target.port.read(), write.value)) return
+    if (equals(target.port.read(), write.value)) {
+      return
+    }
 
     this.applyDepth += 1
     try {
       target.port.write(write.value, write.transaction)
-    } finally {
+    }
+    finally {
       this.applyDepth -= 1
     }
 
@@ -241,7 +261,9 @@ export class NovaSyncScope {
    * Планирует отложенное выполнение NovaSyncScope.
    */
   private scheduleMicrotaskFlush(): void {
-    if (this.microtaskScheduled) return
+    if (this.microtaskScheduled) {
+      return
+    }
     this.microtaskScheduled = true
     queueMicrotask(() => {
       this.microtaskScheduled = false
@@ -253,7 +275,9 @@ export class NovaSyncScope {
    * Планирует отложенное выполнение NovaSyncScope.
    */
   private scheduleFrameFlush(): void {
-    if (this.frameScheduled) return
+    if (this.frameScheduled) {
+      return
+    }
     this.frameScheduled = true
     const requestFrame = globalThis.requestAnimationFrame ?? ((callback: FrameRequestCallback) => {
       return globalThis.setTimeout(() => callback(performance.now()), 16) as unknown as number
@@ -302,7 +326,9 @@ export class NovaSyncScope {
    */
   private resolveEndpoint(endpoint: NovaSyncEndpointInput): string {
     if (typeof endpoint !== 'string') {
-      if (!endpoint.id) throw new Error('[NovaSyncScope] Anonymous port cannot be used as an endpoint')
+      if (!endpoint.id) {
+        throw new Error('[NovaSyncScope] Anonymous port cannot be used as an endpoint')
+      }
       return endpoint.id
     }
     return endpoint.startsWith('#') ? endpoint.slice(1) : endpoint

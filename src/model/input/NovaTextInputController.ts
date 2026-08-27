@@ -21,7 +21,7 @@ export class NovaTextInputController {
   private readonly multiline: boolean
   private readonly maxLength?: number
   private readonly historyLimit: number
-  private history: Array<{ draft: string; selectionStart: number; selectionEnd: number }> = []
+  private history: Array<{ draft: string, selectionStart: number, selectionEnd: number }> = []
 
   /**
    * Создает экземпляр NovaTextInputController и подготавливает базовое состояние.
@@ -68,7 +68,9 @@ export class NovaTextInputController {
    * Обновляет значение состояния NovaTextInputController.
    */
   setDraft(value: string | number, context: NovaTextInputContext = {}): void {
-    if (!this.canEdit()) return
+    if (!this.canEdit()) {
+      return
+    }
     this.pushHistory()
     this.draft = this.clampValue(stringify(value))
     this.dirty = this.draft !== this.value
@@ -80,7 +82,9 @@ export class NovaTextInputController {
    * Переводит focus в целевое состояние NovaTextInputController.
    */
   focus(): void {
-    if (this.options.disabled) return
+    if (this.options.disabled) {
+      return
+    }
     this.focused = true
   }
 
@@ -125,7 +129,9 @@ export class NovaTextInputController {
    * Добавляет сущность в runtime-коллекцию NovaTextInputController.
    */
   insertText(text: string, context: NovaTextInputContext = {}): void {
-    if (!this.canEdit() || text.length === 0) return
+    if (!this.canEdit() || text.length === 0) {
+      return
+    }
     const normalized = this.multiline ? text : text.replace(/\r?\n/g, ' ')
     const [start, end] = this.selectionBounds()
     const next = this.clampValue(this.draft.slice(0, start) + normalized + this.draft.slice(end))
@@ -141,13 +147,17 @@ export class NovaTextInputController {
    * Удаляет сущность из runtime-коллекции NovaTextInputController.
    */
   deleteBackward(context: NovaTextInputContext = {}): void {
-    if (!this.canEdit()) return
+    if (!this.canEdit()) {
+      return
+    }
     const [start, end] = this.selectionBounds()
     if (start !== end) {
       this.replaceRange(start, end, '', context)
       return
     }
-    if (start <= 0) return
+    if (start <= 0) {
+      return
+    }
     const previous = previousGraphemeIndex(this.draft, start)
     this.replaceRange(previous, start, '', context)
   }
@@ -156,13 +166,17 @@ export class NovaTextInputController {
    * Удаляет сущность из runtime-коллекции NovaTextInputController.
    */
   deleteForward(context: NovaTextInputContext = {}): void {
-    if (!this.canEdit()) return
+    if (!this.canEdit()) {
+      return
+    }
     const [start, end] = this.selectionBounds()
     if (start !== end) {
       this.replaceRange(start, end, '', context)
       return
     }
-    if (start >= this.draft.length) return
+    if (start >= this.draft.length) {
+      return
+    }
     const next = nextGraphemeIndex(this.draft, start)
     this.replaceRange(start, next, '', context)
   }
@@ -170,14 +184,24 @@ export class NovaTextInputController {
   /**
    * Выполняет действие moveCaret в рамках ответственности NovaTextInputController.
    */
-  moveCaret(direction: 'left' | 'right' | 'home' | 'end' | 'up' | 'down', options: { shift?: boolean; word?: boolean; layout?: NovaTextInputLayoutResult } = {}): void {
+  moveCaret(direction: 'left' | 'right' | 'home' | 'end' | 'up' | 'down', options: { shift?: boolean, word?: boolean, layout?: NovaTextInputLayoutResult } = {}): void {
     const anchor = options.shift ? this.selectionStart : this.selectionEnd
     let next = this.selectionEnd
-    if (direction === 'left') next = options.word ? previousWordIndex(this.draft, next) : previousGraphemeIndex(this.draft, next)
-    if (direction === 'right') next = options.word ? nextWordIndex(this.draft, next) : nextGraphemeIndex(this.draft, next)
-    if (direction === 'home') next = lineBoundary(this.draft, next, 'start')
-    if (direction === 'end') next = lineBoundary(this.draft, next, 'end')
-    if (direction === 'up' || direction === 'down') next = verticalMoveIndex(this.selectionEnd, direction, options.layout)
+    if (direction === 'left') {
+      next = options.word ? previousWordIndex(this.draft, next) : previousGraphemeIndex(this.draft, next)
+    }
+    if (direction === 'right') {
+      next = options.word ? nextWordIndex(this.draft, next) : nextGraphemeIndex(this.draft, next)
+    }
+    if (direction === 'home') {
+      next = lineBoundary(this.draft, next, 'start')
+    }
+    if (direction === 'end') {
+      next = lineBoundary(this.draft, next, 'end')
+    }
+    if (direction === 'up' || direction === 'down') {
+      next = verticalMoveIndex(this.selectionEnd, direction, options.layout)
+    }
     this.select(options.shift ? anchor : next, next)
   }
 
@@ -185,7 +209,9 @@ export class NovaTextInputController {
    * Обрабатывает runtime-событие NovaTextInputController.
    */
   handleKeydown(event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'preventDefault'>, context: NovaTextInputContext = {}): boolean {
-    if (this.options.disabled) return false
+    if (this.options.disabled) {
+      return false
+    }
     const command = event.metaKey || event.ctrlKey
     if (command && event.key.toLowerCase() === 'a') {
       this.selectAll()
@@ -215,7 +241,8 @@ export class NovaTextInputController {
     if (event.key === 'Enter') {
       if (this.multiline && !event.metaKey && !event.ctrlKey) {
         this.insertText('\n', context)
-      } else {
+      }
+      else {
         this.commit(context)
       }
       event.preventDefault?.()
@@ -264,7 +291,9 @@ export class NovaTextInputController {
    * Обновляет runtime-состояние NovaTextInputController.
    */
   updateComposition(text: string, context: NovaTextInputContext = {}): void {
-    if (!this.composing) this.startComposition()
+    if (!this.composing) {
+      this.startComposition()
+    }
     this.insertText(text, context)
   }
 
@@ -280,7 +309,9 @@ export class NovaTextInputController {
    */
   undo(): void {
     const previous = this.history.pop()
-    if (!previous) return
+    if (!previous) {
+      return
+    }
     this.draft = previous.draft
     this.select(previous.selectionStart, previous.selectionEnd)
     this.dirty = this.draft !== this.value
@@ -316,7 +347,9 @@ export class NovaTextInputController {
    * Ограничивает значение допустимым диапазоном NovaTextInputController.
    */
   private clampValue(value: string): string {
-    if (this.maxLength === undefined) return value
+    if (this.maxLength === undefined) {
+      return value
+    }
     return value.slice(0, Math.max(0, this.maxLength))
   }
 
@@ -324,9 +357,13 @@ export class NovaTextInputController {
    * Выполняет внутренний шаг pushHistory для NovaTextInputController.
    */
   private pushHistory(): void {
-    if (this.historyLimit <= 0) return
+    if (this.historyLimit <= 0) {
+      return
+    }
     this.history.push({ draft: this.draft, selectionStart: this.selectionStart, selectionEnd: this.selectionEnd })
-    if (this.history.length > this.historyLimit) this.history.shift()
+    if (this.history.length > this.historyLimit) {
+      this.history.shift()
+    }
   }
 }
 
@@ -357,24 +394,34 @@ function previousWordIndex(text: string, index: number): number {
 function nextWordIndex(text: string, index: number): number {
   const after = text.slice(index)
   const match = after.match(/\s+\S|\s*$/)
-  if (!match) return text.length
+  if (!match) {
+    return text.length
+  }
   return Math.min(text.length, index + (match.index ?? 0) + match[0].length)
 }
 
 function lineBoundary(text: string, index: number, edge: 'start' | 'end'): number {
-  if (edge === 'start') return text.lastIndexOf('\n', Math.max(0, index - 1)) + 1
+  if (edge === 'start') {
+    return text.lastIndexOf('\n', Math.max(0, index - 1)) + 1
+  }
   const next = text.indexOf('\n', index)
   return next === -1 ? text.length : next
 }
 
 function verticalMoveIndex(index: number, direction: 'up' | 'down', layout?: NovaTextInputLayoutResult): number {
-  if (!layout) return index
+  if (!layout) {
+    return index
+  }
   const caretGlyph = layout.glyphs.find(glyph => index >= glyph.index && index <= glyph.end)
   const lineIndex = caretGlyph?.line ?? layout.lines.findIndex(line => index >= line.start && index <= line.end)
   const targetLine = layout.lines[(lineIndex < 0 ? 0 : lineIndex) + (direction === 'up' ? -1 : 1)]
-  if (!targetLine) return index
+  if (!targetLine) {
+    return index
+  }
   const currentX = caretGlyph ? caretGlyph.x : layout.contentX
   const candidates = layout.glyphs.filter(glyph => glyph.line === targetLine.index)
-  if (candidates.length === 0) return targetLine.start
+  if (candidates.length === 0) {
+    return targetLine.start
+  }
   return candidates.reduce((best, glyph) => Math.abs(glyph.x - currentX) < Math.abs(best.x - currentX) ? glyph : best, candidates[0]).index
 }

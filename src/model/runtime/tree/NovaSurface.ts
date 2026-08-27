@@ -1,10 +1,5 @@
 import type { ConstructorOrFactory, EventList } from '@endge/utils'
-import { createInstance } from '@endge/utils'
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import type { NovaCanvas } from '@/model/platform/NovaCanvas'
-import { createNovaRenderLayer } from '@/model/render/graph/nova-render-layer'
-import { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
-import { NovaRenderCompiler } from '@/model/render/compiler/NovaRenderCompiler'
+import type { NovaNodeProperties } from '@/domain/types/base.types'
 import type {
   NovaRenderCompileStats,
   NovaRenderCullingMode,
@@ -12,7 +7,12 @@ import type {
   NovaRenderer,
 } from '@/domain/types/renderer.types'
 import type { NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
-import type { NovaNodeProperties } from '@/domain/types/base.types'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import { createInstance } from '@endge/utils'
+import { NovaRenderCompiler } from '@/model/render/compiler/NovaRenderCompiler'
+import { createNovaRenderLayer } from '@/model/render/graph/nova-render-layer'
+import { NovaRenderGraph } from '@/model/render/graph/NovaRenderGraph'
 import { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 /**
@@ -32,6 +32,7 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     rebuiltNodes: 0,
     cachedNodes: 0,
   }
+
   private _renderCullingStats: NovaRenderCullingStats = {
     testedNodes: 0,
     culledNodes: 0,
@@ -66,8 +67,12 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
   override options(opts: Partial<NovaNodeProperties>): this {
     const { width, height } = opts
 
-    if (width !== undefined) this.width = width
-    if (height !== undefined) this.height = height
+    if (width !== undefined) {
+      this.width = width
+    }
+    if (height !== undefined) {
+      this.height = height
+    }
 
     super.options(opts)
     return this
@@ -97,7 +102,8 @@ export class NovaSurface<E extends EventList> extends NovaNode<E> {
     this._activeRenderContext = renderer
     try {
       super.doRender()
-    } finally {
+    }
+    finally {
       this._activeRenderContext = previous
     }
   }

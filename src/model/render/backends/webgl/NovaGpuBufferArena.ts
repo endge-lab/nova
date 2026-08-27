@@ -52,7 +52,9 @@ export class NovaGpuBufferArena {
    * Выполняет внутреннюю операцию configure slot byte length.
    */
   configureSlotByteLength(byteLength: number): void {
-    if (byteLength <= 0) return
+    if (byteLength <= 0) {
+      return
+    }
     this._slotByteLength = byteLength
   }
 
@@ -60,7 +62,9 @@ export class NovaGpuBufferArena {
    * Выполняет внутреннюю операцию ensure capacity.
    */
   ensureCapacity(byteLength: number): boolean {
-    if (byteLength <= this._capacityBytes) return false
+    if (byteLength <= this._capacityBytes) {
+      return false
+    }
 
     this._capacityBytes = Math.max(byteLength, this._capacityBytes * 2)
     return true
@@ -111,7 +115,9 @@ export class NovaGpuBufferArena {
    * Помечает dirty range.
    */
   markDirtyRange(start: number, end: number): void {
-    if (end <= start) return
+    if (end <= start) {
+      return
+    }
     this._dirtyRanges.push({ start, end })
   }
 
@@ -128,7 +134,9 @@ export class NovaGpuBufferArena {
    * Проверяет, нужно ли выполнить upload full.
    */
   shouldUploadFull(byteLength: number, dirtyRanges: Array<NovaGpuDirtyByteRange>): boolean {
-    if (byteLength <= 0 || dirtyRanges.length === 0) return false
+    if (byteLength <= 0 || dirtyRanges.length === 0) {
+      return false
+    }
     const dirtyBytes = dirtyRanges.reduce((sum, range) => sum + Math.max(0, range.end - range.start), 0)
     return dirtyBytes / byteLength >= this._fullUploadDirtyRatio
   }
@@ -137,7 +145,9 @@ export class NovaGpuBufferArena {
    * Объединяет dirty ranges.
    */
   mergeDirtyRanges(ranges: Array<NovaGpuDirtyByteRange>): Array<NovaGpuDirtyByteRange> {
-    if (ranges.length <= 1) return ranges
+    if (ranges.length <= 1) {
+      return ranges
+    }
 
     const sorted = [...ranges].sort((a, b) => a.start - b.start)
     const merged: Array<NovaGpuDirtyByteRange> = []

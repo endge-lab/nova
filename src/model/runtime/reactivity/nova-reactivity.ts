@@ -3,13 +3,13 @@ import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 type NovaReactiveSubscriber = NovaNode<any> | NovaComputedSubscriber
 
 interface NovaReactiveSource {
-  addSubscriber(subscriber: NovaReactiveSubscriber): void
-  removeSubscriber(subscriber: NovaReactiveSubscriber): void
+  addSubscriber: (subscriber: NovaReactiveSubscriber) => void
+  removeSubscriber: (subscriber: NovaReactiveSubscriber) => void
 }
 
 interface NovaComputedSubscriber extends NovaReactiveSource {
-  addDependency(source: NovaReactiveSource): void
-  markDirty(): void
+  addDependency: (source: NovaReactiveSource) => void
+  markDirty: () => void
 }
 
 interface NovaTrackingFrame {
@@ -63,14 +63,17 @@ export function trackNovaNode<T>(node: NovaNode<any>, callback: () => T, options
   trackingStack.push({ subscriber: node })
   try {
     return callback()
-  } finally {
+  }
+  finally {
     trackingStack.pop()
   }
 }
 
 function registerDependency(source: NovaReactiveSource): void {
   const frame = trackingStack[trackingStack.length - 1]
-  if (!frame) return
+  if (!frame) {
+    return
+  }
 
   source.addSubscriber(frame.subscriber)
   if (isComputedSubscriber(frame.subscriber)) {
@@ -88,7 +91,9 @@ function registerDependency(source: NovaReactiveSource): void {
 
 function cleanupNodeDependencies(node: NovaNode<any>): void {
   const dependencies = nodeDependencies.get(node)
-  if (!dependencies) return
+  if (!dependencies) {
+    return
+  }
 
   for (const dependency of dependencies) {
     dependency.removeSubscriber(node)
@@ -130,7 +135,9 @@ class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
    * Updates the signal and invalidates dependent Nova nodes/computeds.
    */
   set value(nextValue: T) {
-    if (Object.is(this.currentValue, nextValue)) return
+    if (Object.is(this.currentValue, nextValue)) {
+      return
+    }
     this.currentValue = nextValue
     this.notify()
   }
@@ -175,7 +182,9 @@ class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
    */
   get value(): T {
     registerDependency(this)
-    if (this.dirty) this.recompute()
+    if (this.dirty) {
+      this.recompute()
+    }
     return this.currentValue
   }
 
@@ -204,7 +213,9 @@ class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
    * Marks this computed as dirty and invalidates downstream dependents.
    */
   markDirty(): void {
-    if (this.dirty) return
+    if (this.dirty) {
+      return
+    }
     this.dirty = true
     for (const subscriber of [...this.subscribers]) {
       notifySubscriber(subscriber)
@@ -216,7 +227,8 @@ class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
     trackingStack.push({ subscriber: this })
     try {
       this.currentValue = this.compute()
-    } finally {
+    }
+    finally {
       trackingStack.pop()
       this.dirty = false
     }

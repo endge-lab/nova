@@ -14,6 +14,8 @@ import type {
 import type { NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { DiagnosticsPerformance } from '@/model/runtime/diagnostics/adapters/NovaDiagnosticsBrowser_Adapter'
+import { NovaDiagnosticsBrowser_Adapter } from '@/model/runtime/diagnostics/adapters/NovaDiagnosticsBrowser_Adapter'
 
 const DEFAULT_SAMPLE_INTERVAL_MS = 1000
 const DEFAULT_HISTORY_LIMIT = 120
@@ -32,23 +34,6 @@ const ALL_CATEGORIES: Array<NovaDiagnosticsCategory> = [
  */
 export interface NovaDiagnosticsRuntimeHooks {
   setRendererDiagnosticsEnabled: (enabled: boolean) => void
-}
-
-/**
- * Описывает browser memory API Chromium.
- */
-interface BrowserPerformanceMemory {
-  usedJSHeapSize: number
-  totalJSHeapSize?: number
-  jsHeapSizeLimit?: number
-}
-
-/**
- * Описывает расширенный Performance API для browser diagnostics.
- */
-interface DiagnosticsPerformance extends Performance {
-  memory?: BrowserPerformanceMemory
-  measureUserAgentSpecificMemory?: () => Promise<{ bytes: number }>
 }
 
 /**
@@ -79,6 +64,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   constructor(
     private readonly _app: NovaApp<E>,
     private readonly _hooks: NovaDiagnosticsRuntimeHooks,
+    private readonly _browserAdapter: NovaDiagnosticsBrowser_Adapter = new NovaDiagnosticsBrowser_Adapter(),
   ) {}
 
   /**
@@ -110,17 +96,21 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
     const next = this.resolveOptions(options, this._options)
 
     this._categories.clear()
-    for (const category of next.categories) this._categories.add(category)
+    for (const category of next.categories) {
+      this._categories.add(category)
+    }
 
     this._options = next
     this._hooks.setRendererDiagnosticsEnabled(this.enabled && this.hasCategory('render'))
 
     if (!wasEnabled && this.enabled) {
       this.startCollectors()
-    } else if (wasEnabled && !this.enabled) {
+    }
+    else if (wasEnabled && !this.enabled) {
       this.stopCollectors()
       this.resetRuntimeState()
-    } else if (this.enabled) {
+    }
+    else if (this.enabled) {
       this.restartBrowserCollectors()
     }
   }
@@ -135,19 +125,25 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Помечает начало frame diagnostics.
    */
-  frameStart(now = performance.now()): void {
-    if (!this.enabled) return
+  frameStart(now = this._browserAdapter.now()): void {
+    if (!this.enabled) {
+      return
+    }
     this._frameStartedAt = now
     this._dirtyNodes = 0
     this._dirtyRenderNodes = 0
-    for (const key of Object.keys(this._phaseDurations)) delete this._phaseDurations[key]
+    for (const key of Object.keys(this._phaseDurations)) {
+      delete this._phaseDurations[key]
+    }
   }
 
   /**
    * Помечает конец frame diagnostics и сохраняет snapshot.
    */
-  frameEnd(now = performance.now()): void {
-    if (!this.enabled) return
+  frameEnd(now = this._browserAdapter.now()): void {
+    if (!this.enabled) {
+      return
+    }
 
     this._lastFrame = {
       index: ++this._frameIndex,
@@ -160,15 +156,19 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
 
     if (this.hasCategory('history')) {
       this._history.push(this.snapshot(now))
-      while (this._history.length > this._options.historyLimit) this._history.shift()
+      while (this._history.length > this._options.historyLimit) {
+        this._history.shift()
+      }
     }
   }
 
   /**
    * Помечает начало runtime phase.
    */
-  phaseStart(name: string, now = performance.now()): void {
-    if (!this.enabled || !this.hasCategory('frame')) return
+  phaseStart(name: string, now = this._browserAdapter.now()): void {
+    if (!this.enabled || !this.hasCategory('frame')) {
+      return
+    }
     this._phaseName = name
     this._phaseStartedAt = now
   }
@@ -176,8 +176,10 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Помечает конец runtime phase.
    */
-  phaseEnd(now = performance.now()): void {
-    if (!this.enabled || !this.hasCategory('frame') || !this._phaseName) return
+  phaseEnd(now = this._browserAdapter.now()): void {
+    if (!this.enabled || !this.hasCategory('frame') || !this._phaseName) {
+      return
+    }
     const duration = Math.max(0, now - this._phaseStartedAt)
     this._phaseDurations[this._phaseName] = (this._phaseDurations[this._phaseName] ?? 0) + duration
     this._phaseName = ''
@@ -188,7 +190,9 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
    * Сохраняет размер dirty workload для текущей Raph phase.
    */
   recordDirtyNodes(count: number): void {
-    if (!this.enabled || !this.hasCategory('frame')) return
+    if (!this.enabled || !this.hasCategory('frame')) {
+      return
+    }
     this._dirtyNodes = Math.max(this._dirtyNodes, count)
   }
 
@@ -196,14 +200,16 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
    * Сохраняет размер render dirty workload для текущего frame.
    */
   recordDirtyRenderNodes(count: number): void {
-    if (!this.enabled || !this.hasCategory('frame')) return
+    if (!this.enabled || !this.hasCategory('frame')) {
+      return
+    }
     this._dirtyRenderNodes = Math.max(this._dirtyRenderNodes, count)
   }
 
   /**
    * Возвращает текущий diagnostics snapshot.
    */
-  snapshot(now = performance.now()): NovaDiagnosticsSnapshot {
+  snapshot(now = this._browserAdapter.now()): NovaDiagnosticsSnapshot {
     return {
       runtime: this.collectRuntime(now),
       frame: this.enabled ? this._lastFrame : createEmptyFrameSnapshot(),
@@ -246,7 +252,9 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
    */
   private restartBrowserCollectors(): void {
     this.stopBrowserCollectors()
-    if (!this.enabled || !this._options.browser || !this.hasCategory('browser')) return
+    if (!this.enabled || !this._options.browser || !this.hasCategory('browser')) {
+      return
+    }
 
     this.sampleBrowser()
     this.startLongTaskObserver()
@@ -282,19 +290,21 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
     this._history = []
     this._longTasks = 0
     this._longTaskMs = 0
-    for (const key of Object.keys(this._phaseDurations)) delete this._phaseDurations[key]
+    for (const key of Object.keys(this._phaseDurations)) {
+      delete this._phaseDurations[key]
+    }
   }
 
   /**
    * Читает browser-level метрики, если runtime API доступны.
    */
   private sampleBrowser(): void {
-    if (this._samplingBrowser) return
+    if (this._samplingBrowser) {
+      return
+    }
     this._samplingBrowser = true
 
-    const perf = typeof performance !== 'undefined'
-      ? performance as DiagnosticsPerformance
-      : undefined
+    const perf: DiagnosticsPerformance | undefined = this._browserAdapter.performance()
     const browser: NovaDiagnosticsBrowserSnapshot = {
       lastSampledAt: perf?.now() ?? Date.now(),
       longTasks: this._longTasks,
@@ -309,18 +319,19 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
       browser.jsHeapLimitMB = memory.jsHeapSizeLimit !== undefined ? bytesToMB(memory.jsHeapSizeLimit) : undefined
     }
 
-    if (typeof document !== 'undefined') {
-      browser.domNodes = document.getElementsByTagName('*').length
-      browser.documents = 1
-      browser.frames = typeof window !== 'undefined' ? window.frames.length : 0
+    const dom = this._browserAdapter.sampleDom()
+    if (dom) {
+      Object.assign(browser, dom)
     }
 
     this._browser = browser
 
     if (perf?.measureUserAgentSpecificMemory) {
       void perf.measureUserAgentSpecificMemory()
-        .then(result => {
-          if (!this.enabled) return undefined
+        .then((result) => {
+          if (!this.enabled) {
+            return undefined
+          }
           this._browser = {
             ...this._browser,
             userAgentMemoryMB: bytesToMB(result.bytes),
@@ -341,19 +352,10 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
    * Запускает observer long task API, если браузер его поддерживает.
    */
   private startLongTaskObserver(): void {
-    if (typeof PerformanceObserver === 'undefined') return
-
-    try {
-      this._longTaskObserver = new PerformanceObserver(entries => {
-        for (const entry of entries.getEntries()) {
-          this._longTasks += 1
-          this._longTaskMs += entry.duration
-        }
-      })
-      this._longTaskObserver.observe({ entryTypes: ['longtask'] })
-    } catch {
-      this._longTaskObserver = null
-    }
+    this._longTaskObserver = this._browserAdapter.observeLongTasks((duration) => {
+      this._longTasks += 1
+      this._longTaskMs += duration
+    })
   }
 
   /**
@@ -412,14 +414,14 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
       rebuiltNodes: compileStats.rebuiltNodes,
       cachedNodes: compileStats.cachedNodes,
       culledNodes: compileStats.culledNodes,
-	      cullingTests: compileStats.cullingTests,
-	      textRasterCount: stats.textRasterCount ?? 0,
-	      textRasterPixels: stats.textRasterPixels ?? 0,
-	      textRasterBytes: stats.textRasterBytes ?? 0,
-	      textRasterBoxPixels: stats.textRasterBoxPixels ?? 0,
-	      textRasterSavedPixels: stats.textRasterSavedPixels ?? 0,
-	      textRasterMs: stats.textRasterMs,
-	    }
+      cullingTests: compileStats.cullingTests,
+      textRasterCount: stats.textRasterCount ?? 0,
+      textRasterPixels: stats.textRasterPixels ?? 0,
+      textRasterBytes: stats.textRasterBytes ?? 0,
+      textRasterBoxPixels: stats.textRasterBoxPixels ?? 0,
+      textRasterSavedPixels: stats.textRasterSavedPixels ?? 0,
+      textRasterMs: stats.textRasterMs,
+    }
   }
 
   /**
@@ -468,9 +470,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
    */
   private collectAvailability(): NovaDiagnosticsAvailability {
     const browserEnabled = this.enabled && this.hasCategory('browser')
-    const perf = typeof performance !== 'undefined'
-      ? performance as DiagnosticsPerformance
-      : undefined
+    const perf: DiagnosticsPerformance | undefined = this._browserAdapter.performance()
 
     return {
       runtime: this.enabled && this.hasCategory('runtime') ? 'exact' : 'unavailable',
@@ -479,8 +479,8 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
       resources: this.enabled && this.hasCategory('resources') ? 'estimated' : 'unavailable',
       browserHeap: browserEnabled && perf?.memory ? 'observed' : 'unavailable',
       browserMemory: browserEnabled && perf?.measureUserAgentSpecificMemory ? 'observed' : 'unavailable',
-      browserDom: browserEnabled && typeof document !== 'undefined' ? 'observed' : 'unavailable',
-      browserLongTasks: browserEnabled && typeof PerformanceObserver !== 'undefined' ? 'observed' : 'unavailable',
+      browserDom: browserEnabled && this._browserAdapter.hasDom() ? 'observed' : 'unavailable',
+      browserLongTasks: browserEnabled && this._browserAdapter.hasLongTaskObserver() ? 'observed' : 'unavailable',
       gpuProcessMemory: 'unavailable',
     }
   }
@@ -544,13 +544,13 @@ function createEmptyRenderSnapshot(): NovaDiagnosticsRenderSnapshot {
     cachedNodes: 0,
     culledNodes: 0,
     cullingTests: 0,
-	    textRasterCount: 0,
-	    textRasterPixels: 0,
-	    textRasterBytes: 0,
-	    textRasterBoxPixels: 0,
-	    textRasterSavedPixels: 0,
-	    textRasterMs: 0,
-	  }
+    textRasterCount: 0,
+    textRasterPixels: 0,
+    textRasterBytes: 0,
+    textRasterBoxPixels: 0,
+    textRasterSavedPixels: 0,
+    textRasterMs: 0,
+  }
 }
 
 /**
@@ -593,9 +593,13 @@ function collectSurfaceMetrics(metrics: Array<NovaRenderMetrics | null>): NovaRe
   } as NovaRenderMetrics
 
   for (const item of metrics) {
-    if (!item) continue
+    if (!item) {
+      continue
+    }
     for (const [key, value] of Object.entries(item)) {
-      if (typeof value !== 'number') continue
+      if (typeof value !== 'number') {
+        continue
+      }
       const metricKey = key as keyof NovaRenderMetrics
       const current = typeof result[metricKey] === 'number' ? result[metricKey] : 0
       ;(result as unknown as Record<string, number>)[key] = current + value
@@ -609,7 +613,9 @@ function collectSurfaceMetrics(metrics: Array<NovaRenderMetrics | null>): NovaRe
  * Считает количество nodes в runtime tree.
  */
 function countNodes(node: NovaNode<any> | null | undefined): number {
-  if (!node) return 0
+  if (!node) {
+    return 0
+  }
   let total = 1
   for (const child of node.children as Array<NovaNode<any>>) {
     total += countNodes(child)

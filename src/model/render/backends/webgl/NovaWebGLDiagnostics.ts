@@ -44,7 +44,9 @@ export class NovaWebGLDiagnostics {
    * Выполняет внутреннюю операцию capture.
    */
   capture(frame: NovaRenderFrame, metrics: NovaRenderMetrics): void {
-    if (!this._enabled) return
+    if (!this._enabled) {
+      return
+    }
     this._lastFrame = frame
     this._lastMetrics = metrics
   }

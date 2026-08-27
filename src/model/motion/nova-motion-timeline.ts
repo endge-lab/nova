@@ -1,9 +1,9 @@
 import type {
   NovaMotionPatch,
+  NovaMotionPlayback,
   NovaMotionSegment,
   NovaMotionTimelineOptions,
   NovaMotionValue,
-  NovaMotionPlayback,
 } from '@/domain/types/motion.types'
 
 /**
@@ -19,7 +19,9 @@ export function compileNovaMotionTimeline(
   for (const track of options.tracks ?? []) {
     const baseAt = track.at ?? 0
     const sorted = [...track.keyframes].sort((a, b) => (a.at ?? 0) - (b.at ?? 0))
-    if (sorted.length === 0) continue
+    if (sorted.length === 0) {
+      continue
+    }
 
     let previousAt = 0
     let previousPatch: NovaMotionPatch = {}
@@ -37,7 +39,9 @@ export function compileNovaMotionTimeline(
 
       const keys = new Set([...Object.keys(previousPatch), ...Object.keys(patch)])
       for (const key of keys) {
-        if (!(key in patch)) continue
+        if (!(key in patch)) {
+          continue
+        }
         segments.push({
           id: options.id,
           playback,

@@ -1,5 +1,5 @@
-import type { NovaRendererTextConfig } from '@/domain/types/rendering/index'
 import type { NovaText } from '@/domain/types/renderer.types'
+import type { NovaRendererTextConfig } from '@/domain/types/rendering/index'
 import { NovaTextAtlasManager } from '@/model/render/resources/NovaTextAtlasManager'
 
 /**

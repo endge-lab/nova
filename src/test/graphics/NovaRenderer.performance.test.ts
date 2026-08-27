@@ -1,22 +1,22 @@
+import type { NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NovaRenderer2D } from '@/model/render/backends/canvas2d/NovaRenderer2D'
 import { NovaRendererWebGL } from '@/model/render/backends/webgl/NovaRendererWebGL'
 import { NovaRenderBuilder } from '@/model/render/compiler/NovaRenderBuilder'
 import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
 import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
-import { NovaTextAtlasManager } from '@/model/render/resources/NovaTextAtlasManager'
 import { resolveNovaRendererConfig } from '@/model/render/policy/nova-render-policy'
+import { NovaTextAtlasManager } from '@/model/render/resources/NovaTextAtlasManager'
 import { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import type { NovaCanvas } from '@/model/platform/NovaCanvas'
-import type { NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
 
-type WebGLStats = {
+interface WebGLStats {
   bufferData: number
   bufferSubData: number
   drawArrays: number
 }
 
-type RendererMeasure = {
+interface RendererMeasure {
   fps: number
   frameMs: number
   elapsedMs: number
@@ -67,35 +67,35 @@ function createWebGLContextStub(): WebGL2RenderingContext & { __stats: WebGLStat
 
   const constants: Record<string, number> = {
     ARRAY_BUFFER: 0x8892,
-    BLEND: 0x0be2,
-    CLAMP_TO_EDGE: 0x812f,
+    BLEND: 0x0BE2,
+    CLAMP_TO_EDGE: 0x812F,
     COLOR_BUFFER_BIT: 0x4000,
-    COMPILE_STATUS: 0x8b81,
+    COMPILE_STATUS: 0x8B81,
     CONTEXT_LOST_WEBGL: 0x9242,
-    CULL_FACE: 0x0b44,
+    CULL_FACE: 0x0B44,
     DEPTH_BUFFER_BIT: 0x0100,
-    DEPTH_TEST: 0x0b71,
-    DYNAMIC_DRAW: 0x88e8,
+    DEPTH_TEST: 0x0B71,
+    DYNAMIC_DRAW: 0x88E8,
     FLOAT: 0x1406,
-    FRAGMENT_SHADER: 0x8b30,
+    FRAGMENT_SHADER: 0x8B30,
     INVALID_ENUM: 0x0500,
     INVALID_OPERATION: 0x0502,
     INVALID_VALUE: 0x0501,
     LINEAR: 0x2601,
-    LINK_STATUS: 0x8b82,
-    MAX_TEXTURE_SIZE: 0x0d33,
+    LINK_STATUS: 0x8B82,
+    MAX_TEXTURE_SIZE: 0x0D33,
     NEAREST: 0x2600,
     NO_ERROR: 0,
     ONE: 1,
     ONE_MINUS_SRC_ALPHA: 0x0303,
     OUT_OF_MEMORY: 0x0505,
     RGBA: 0x1908,
-    SCISSOR_TEST: 0x0c11,
+    SCISSOR_TEST: 0x0C11,
     SRC_ALPHA: 0x0302,
-    STATIC_DRAW: 0x88e4,
+    STATIC_DRAW: 0x88E4,
     STENCIL_BUFFER_BIT: 0x0400,
-    TEXTURE0: 0x84c0,
-    TEXTURE_2D: 0x0de1,
+    TEXTURE0: 0x84C0,
+    TEXTURE_2D: 0x0DE1,
     TEXTURE_MAG_FILTER: 0x2800,
     TEXTURE_MIN_FILTER: 0x2801,
     TEXTURE_WRAP_S: 0x2802,
@@ -103,7 +103,7 @@ function createWebGLContextStub(): WebGL2RenderingContext & { __stats: WebGLStat
     TRIANGLES: 0x0004,
     UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
     UNSIGNED_BYTE: 0x1401,
-    VERTEX_SHADER: 0x8b31,
+    VERTEX_SHADER: 0x8B31,
   }
 
   return {
@@ -176,8 +176,12 @@ function createCanvasStub(
   element.width = width
   element.height = height
   vi.spyOn(element, 'getContext').mockImplementation((type: string) => {
-    if (type === '2d') return context as CanvasRenderingContext2D
-    if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') return context as WebGL2RenderingContext
+    if (type === '2d') {
+      return context as CanvasRenderingContext2D
+    }
+    if (type === 'webgl2' || type === 'webgl' || type === 'experimental-webgl') {
+      return context as WebGL2RenderingContext
+    }
     return null
   })
 
@@ -251,7 +255,7 @@ function expectFastRenderer(name: string, result: RendererMeasure): void {
   expect(result.fps).toBeGreaterThan(MIN_MOCK_FPS)
 }
 
-describe('Nova renderer performance smoke tests', () => {
+describe('nova renderer performance smoke tests', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
@@ -355,5 +359,4 @@ describe('Nova renderer performance smoke tests', () => {
     expect(elapsedMs).toBeLessThan(120)
     expect(atlas.memoryMB).toBeLessThan(128)
   })
-
 })

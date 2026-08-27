@@ -1,11 +1,11 @@
 import type {
   NovaRectLike,
+  NovaTextInputAlign,
   NovaTextInputLayoutOptions,
   NovaTextInputLayoutResult,
-  NovaTextInputAlign,
-  NovaTextMeasureContext,
   NovaTextLayoutGlyph,
   NovaTextLayoutLine,
+  NovaTextMeasureContext,
 } from '@/model/input/nova-input.types'
 
 interface PaddingBox {
@@ -95,7 +95,9 @@ export function layoutNovaTextInput(options: NovaTextInputLayoutOptions): NovaTe
     const dx = lineX - (contentX - scrollX)
     if (dx !== 0) {
       for (const glyph of glyphs) {
-        if (glyph.line === lineIndex) glyph.x += dx
+        if (glyph.line === lineIndex) {
+          glyph.x += dx
+        }
       }
     }
     lines.push({
@@ -167,12 +169,20 @@ export function layoutNovaTextInput(options: NovaTextInputLayoutOptions): NovaTe
 export function novaTextIndexAtPoint(layout: NovaTextInputLayoutResult, x: number, y: number): number {
   const line = layout.lines.find(candidate => y >= candidate.y && y < candidate.y + candidate.height)
     ?? nearestLine(layout, y)
-  if (!line) return 0
+  if (!line) {
+    return 0
+  }
   const lineGlyphs = layout.glyphs.filter(glyph => glyph.line === line.index)
-  if (lineGlyphs.length === 0) return line.start
+  if (lineGlyphs.length === 0) {
+    return line.start
+  }
   for (const glyph of lineGlyphs) {
-    if (x < glyph.x + glyph.width / 2) return glyph.index
-    if (x < glyph.x + glyph.width) return glyph.end
+    if (x < glyph.x + glyph.width / 2) {
+      return glyph.index
+    }
+    if (x < glyph.x + glyph.width) {
+      return glyph.end
+    }
   }
   return line.end
 }
@@ -219,20 +229,26 @@ export function novaCaretRectAtIndex(layout: NovaTextInputLayoutResult, index: n
 export function novaSelectionRects(layout: NovaTextInputLayoutResult, start: number, end: number): Array<NovaRectLike> {
   const from = Math.min(clampIndex(start, layout.text.length), clampIndex(end, layout.text.length))
   const to = Math.max(clampIndex(start, layout.text.length), clampIndex(end, layout.text.length))
-  if (from === to) return []
+  if (from === to) {
+    return []
+  }
 
   const rects: Array<NovaRectLike> = []
   for (const line of layout.lines) {
     const lineFrom = Math.max(from, line.start)
     const lineTo = Math.min(to, line.end)
-    if (lineFrom >= lineTo) continue
+    if (lineFrom >= lineTo) {
+      continue
+    }
     const a = novaCaretRectAtIndex(layout, lineFrom)
     const b = novaCaretRectAtIndex(layout, lineTo)
     const x = Math.min(a.x, b.x)
     const width = Math.max(2, Math.abs(b.x - a.x))
     const clippedX = Math.max(layout.contentX, x)
     const clippedRight = Math.min(layout.contentX + layout.contentWidth, x + width)
-    if (clippedRight <= clippedX) continue
+    if (clippedRight <= clippedX) {
+      continue
+    }
     rects.push({
       x: clippedX,
       y: Math.max(layout.contentY, line.y + 2),
@@ -243,20 +259,20 @@ export function novaSelectionRects(layout: NovaTextInputLayoutResult, start: num
   return rects.filter(rect => rect.height > 0)
 }
 
-export function splitGraphemes(text: string): Array<{ value: string; index: number; end: number }> {
+export function splitGraphemes(text: string): Array<{ value: string, index: number, end: number }> {
   const Segmenter = typeof Intl !== 'undefined' ? (Intl as any).Segmenter : undefined
   const segmenter = Segmenter
     ? new Segmenter(undefined, { granularity: 'grapheme' })
     : null
   if (!segmenter) {
     let index = 0
-    return Array.from(text).map(value => {
+    return Array.from(text).map((value) => {
       const start = index
       index += value.length
       return { value, index: start, end: index }
     })
   }
-  return Array.from(segmenter.segment(text) as Iterable<{ segment: string; index: number }>, segment => ({
+  return Array.from(segmenter.segment(text) as Iterable<{ segment: string, index: number }>, segment => ({
     value: segment.segment,
     index: segment.index,
     end: segment.index + segment.segment.length,
@@ -264,8 +280,12 @@ export function splitGraphemes(text: string): Array<{ value: string; index: numb
 }
 
 function nearestLine(layout: NovaTextInputLayoutResult, y: number): NovaTextLayoutLine | undefined {
-  if (layout.lines.length === 0) return undefined
-  if (y <= layout.lines[0].y) return layout.lines[0]
+  if (layout.lines.length === 0) {
+    return undefined
+  }
+  if (y <= layout.lines[0].y) {
+    return layout.lines[0]
+  }
   return layout.lines[layout.lines.length - 1]
 }
 
@@ -274,9 +294,13 @@ function measureSegmentWidth(
   context: NovaTextMeasureContext,
   measureText?: NovaTextInputLayoutOptions['measureText'],
 ): number {
-  if (value === '\t') return context.charWidth * context.tabSize
+  if (value === '\t') {
+    return context.charWidth * context.tabSize
+  }
   const fallback = Math.max(0, value.length * context.charWidth)
-  if (!measureText) return fallback
+  if (!measureText) {
+    return fallback
+  }
   return Math.max(0, finite(measureText(value, context), fallback))
 }
 
@@ -286,20 +310,32 @@ function resolveAlignOffset(
   contentWidth: number,
   scrollX: number,
 ): number {
-  if (scrollX > 0) return 0
-  if (lineWidth > contentWidth) return 0
-  if (align === 'center') return (contentWidth - lineWidth) / 2
-  if (align === 'right') return contentWidth - lineWidth
+  if (scrollX > 0) {
+    return 0
+  }
+  if (lineWidth > contentWidth) {
+    return 0
+  }
+  if (align === 'center') {
+    return (contentWidth - lineWidth) / 2
+  }
+  if (align === 'right') {
+    return contentWidth - lineWidth
+  }
   return 0
 }
 
 function normalizeAlign(value: unknown): NovaTextInputAlign {
-  if (value === 'center' || value === 'right') return value
+  if (value === 'center' || value === 'right') {
+    return value
+  }
   return 'left'
 }
 
 function normalizePadding(value: NovaTextInputLayoutOptions['padding']): PaddingBox {
-  if (typeof value === 'number') return { top: value, right: value, bottom: value, left: value }
+  if (typeof value === 'number') {
+    return { top: value, right: value, bottom: value, left: value }
+  }
   return {
     top: value?.top ?? value?.vertical ?? 0,
     right: value?.right ?? value?.horizontal ?? 0,

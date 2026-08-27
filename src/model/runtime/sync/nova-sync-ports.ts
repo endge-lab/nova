@@ -13,7 +13,9 @@ export function createNovaComponentPropSyncPorts<
   node: NovaComponentNode<TProps, unknown, Record<string, unknown>, TProps, E>,
 ): NovaSyncPortMap {
   const fields = node.descriptor.fields
-  if (!fields || typeof fields !== 'object') return {}
+  if (!fields || typeof fields !== 'object') {
+    return {}
+  }
 
   const ports: NovaSyncPortMap = {}
   for (const name of Object.keys(fields)) {

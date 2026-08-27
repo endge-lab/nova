@@ -1,4 +1,3 @@
-import { randomString } from '@endge/utils'
 import type { mat3 } from 'gl-matrix'
 import type {
   NovaArc,
@@ -21,19 +20,20 @@ import type {
   NovaTextBatch,
   NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
-import { RendererType } from '@/domain/types/renderer.types'
-import type { NovaRenderFrame, NovaRenderMetrics, NovaRendererConfig } from '@/domain/types/rendering/index'
+import type { NovaRendererConfig, NovaRenderFrame, NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
-import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/nova-render-policy'
 import type { NovaRenderBackend } from '@/model/render/backends/nova-render-backend'
+import type { NovaAssetRegistry } from '@/model/runtime/assets/NovaAssetRegistry'
+import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import { randomString } from '@endge/utils'
+import { RendererType } from '@/domain/types/renderer.types'
 import { NovaWebGLDevice } from '@/model/render/backends/webgl/NovaWebGLDevice'
 import { NovaWebGLDiagnostics } from '@/model/render/backends/webgl/NovaWebGLDiagnostics'
 import { NovaWebGLFrameRenderer } from '@/model/render/backends/webgl/NovaWebGLFrameRenderer'
 import { NovaWebGLTargetManager } from '@/model/render/backends/webgl/NovaWebGLTargetManager'
 import { NovaWebGLTextRenderer } from '@/model/render/backends/webgl/NovaWebGLTextRenderer'
 import { NovaWebGLTextureManager } from '@/model/render/backends/webgl/NovaWebGLTextureManager'
-import type { NovaAssetRegistry } from '@/model/runtime/assets/NovaAssetRegistry'
+import { DEFAULT_NOVA_RENDERER_CONFIG } from '@/model/render/policy/nova-render-policy'
 import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
 
 /**
@@ -274,7 +274,7 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
   /**
    * Выполняет внутреннюю операцию measure text.
    */
-  measureText(params: NovaText): { width: number; height: number } {
+  measureText(params: NovaText): { width: number, height: number } {
     return this._frameRenderer.measureText(params)
   }
 

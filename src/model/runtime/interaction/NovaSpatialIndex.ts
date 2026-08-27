@@ -1,6 +1,6 @@
 import type { EventList } from '@endge/utils'
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaBounds } from '@/domain/types/renderer.types'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import { NovaHitIndex } from '@/model/runtime/interaction/NovaHitIndex'
 
 /**

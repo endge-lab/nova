@@ -9,31 +9,31 @@ export type NovaCursorStateName = 'default' | 'hover' | 'pressed' | 'dragging' |
 /**
  * Описывает встроенный CSS cursor.
  */
-export type NovaNativeCursor =
-  | 'auto'
-  | 'default'
-  | 'none'
-  | 'pointer'
-  | 'text'
-  | 'move'
-  | 'grab'
-  | 'grabbing'
-  | 'not-allowed'
-  | 'crosshair'
-  | 'ew-resize'
-  | 'ns-resize'
-  | 'col-resize'
-  | 'row-resize'
-  | 'e-resize'
-  | 'w-resize'
-  | 'n-resize'
-  | 's-resize'
-  | 'ne-resize'
-  | 'nw-resize'
-  | 'se-resize'
-  | 'sw-resize'
-  | 'nesw-resize'
-  | 'nwse-resize'
+export type NovaNativeCursor
+  = | 'auto'
+    | 'default'
+    | 'none'
+    | 'pointer'
+    | 'text'
+    | 'move'
+    | 'grab'
+    | 'grabbing'
+    | 'not-allowed'
+    | 'crosshair'
+    | 'ew-resize'
+    | 'ns-resize'
+    | 'col-resize'
+    | 'row-resize'
+    | 'e-resize'
+    | 'w-resize'
+    | 'n-resize'
+    | 's-resize'
+    | 'ne-resize'
+    | 'nw-resize'
+    | 'se-resize'
+    | 'sw-resize'
+    | 'nesw-resize'
+    | 'nwse-resize'
 
 /**
  * Описывает hotspot cursor относительно левого верхнего угла.
@@ -67,11 +67,11 @@ export interface NovaComponentCursorValue {
 /**
  * Описывает конкретное значение cursor.
  */
-export type NovaCursorValue =
-  | NovaNativeCursor
-  | (string & {})
-  | NovaUrlCursorValue
-  | NovaComponentCursorValue
+export type NovaCursorValue
+  = | NovaNativeCursor
+    | (string & {})
+    | NovaUrlCursorValue
+    | NovaComponentCursorValue
 
 /**
  * Описывает state-map форму cursor declaration.
@@ -107,10 +107,10 @@ export interface NovaCursorRule {
 /**
  * Описывает декларативный cursor для Nova node.
  */
-export type NovaCursorDeclaration =
-  | NovaCursorValue
-  | NovaCursorStateMap
-  | Array<NovaCursorRule>
+export type NovaCursorDeclaration
+  = | NovaCursorValue
+    | NovaCursorStateMap
+    | Array<NovaCursorRule>
 
 /**
  * Описывает контекст cursor rule на node.

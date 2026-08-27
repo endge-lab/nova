@@ -5,15 +5,16 @@ import type {
   NovaComponentSchema,
 } from '@/domain/types/component.types'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
-import { NovaScene } from '@/model/runtime/scene/NovaScene'
-import {
-  reconcileNovaTemplateChildren,
-  type NovaTemplateChildSchema,
-} from '@/model/runtime/template/NovaTemplateRuntime'
+import type { NovaTemplateChildSchema } from '@/model/runtime/template/NovaTemplateRuntime'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
+import { NovaScene } from '@/model/runtime/scene/NovaScene'
+import {
+
+  reconcileNovaTemplateChildren,
+} from '@/model/runtime/template/NovaTemplateRuntime'
 
 export const NOVA_SCENES_SCHEMA_TYPE = 'nova.scenes'
 export const NOVA_SCENE_SCHEMA_TYPE = 'nova.scene'
@@ -35,9 +36,9 @@ export interface NovaSceneDefinitionProps {
 }
 
 export interface NovaScenesApi {
-  setChildren(children: Array<NovaTemplateChildSchema>): void
-  getActiveSceneId(): string | null
-  getCachedSceneIds(): Array<string>
+  setChildren: (children: Array<NovaTemplateChildSchema>) => void
+  getActiveSceneId: () => string | null
+  getCachedSceneIds: () => Array<string>
 }
 
 type NovaScenesDescriptor = NovaComponentDescriptor<
@@ -75,7 +76,7 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
     app: NovaApp<E>,
     surface: NovaSurface<E>,
     props: NovaScenesProps = {},
-    options: { componentId?: string; children?: Array<NovaTemplateChildSchema> } = {},
+    options: { componentId?: string, children?: Array<NovaTemplateChildSchema> } = {},
     descriptor: NovaScenesDescriptor = NOVA_SCENES_DESCRIPTOR,
   ) {
     super(app, surface, descriptor, normalizeNovaScenesProps(props), options)
@@ -106,10 +107,14 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
     this.definitions.clear()
 
     for (const child of children) {
-      if (child.type !== NOVA_SCENE_SCHEMA_TYPE) continue
+      if (child.type !== NOVA_SCENE_SCHEMA_TYPE) {
+        continue
+      }
 
       const id = resolveSceneDefinitionId(child)
-      if (!id) continue
+      if (!id) {
+        continue
+      }
 
       this.definitions.set(id, {
         id,
@@ -152,7 +157,9 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
    * Синхронизирует состояние между слоями NovaScenesNode.
    */
   private syncActiveSceneIfReady(): void {
-    if (!this.ready || this.lifecycleState === 'created' || this.lifecycleState === 'destroyed') return
+    if (!this.ready || this.lifecycleState === 'created' || this.lifecycleState === 'destroyed') {
+      return
+    }
 
     this.syncActiveScene()
   }
@@ -182,10 +189,14 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
    * Выполняет внутренний шаг ensureActiveSceneMounted для NovaScenesNode.
    */
   private ensureActiveSceneMounted(id: string | null): void {
-    if (!id) return
+    if (!id) {
+      return
+    }
 
     const definition = this.definitions.get(id)
-    if (!definition) return
+    if (!definition) {
+      return
+    }
 
     const scene = this.resolveScene(definition)
     if (scene.state === 'created') {
@@ -202,7 +213,9 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
    */
   private resolveScene(definition: NovaTemplateSceneDefinition): NovaTemplateScene<E> {
     const existing = this.scenes.get(definition.id)
-    if (existing) return existing
+    if (existing) {
+      return existing
+    }
 
     const scene = new NovaTemplateScene(this.nova, this, definition.id, definition.children)
     this.scenes.set(definition.id, scene)
@@ -251,7 +264,9 @@ class NovaTemplateScene<E extends EventList> extends NovaScene<E> {
    */
   setChildren(children: Array<NovaTemplateChildSchema>): void {
     this.children = children
-    if (this.state === 'created' || this.state === 'destroyed') return
+    if (this.state === 'created' || this.state === 'destroyed') {
+      return
+    }
 
     this.reconcile()
     this.applyActiveState(this.state === 'mounted')

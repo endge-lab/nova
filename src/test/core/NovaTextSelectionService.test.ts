@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { NovaTextSelectionService } from '@/model/text-selection/NovaTextSelectionService'
 
-describe('NovaTextSelectionService', () => {
+describe('novaTextSelectionService', () => {
   it('selects text inside one target by pointer range', () => {
     const service = new NovaTextSelectionService({
       enabled: true,
@@ -29,7 +29,7 @@ describe('NovaTextSelectionService', () => {
   })
 
   it('builds multi-target copy text through formatter', () => {
-    const service = new NovaTextSelectionService<{ rowIndex: number; columnIndex: number }>({
+    const service = new NovaTextSelectionService<{ rowIndex: number, columnIndex: number }>({
       enabled: true,
       mode: 'all-text',
       copy: true,

@@ -47,7 +47,9 @@ export class NovaSemanticService {
 
   update(id: string, patch: Partial<Omit<NovaSemanticRegisterOptions, 'id'>>): NovaSemanticRegion | undefined {
     const previous = this.regions.get(id)
-    if (!previous) return undefined
+    if (!previous) {
+      return undefined
+    }
     const next = this.register({
       id,
       role: patch.role ?? previous.role,
@@ -66,10 +68,14 @@ export class NovaSemanticService {
 
   remove(id: string): boolean {
     const removed = this.regions.delete(id)
-    if (!removed) return false
+    if (!removed) {
+      return false
+    }
     this.removeFromSourceIndex(id)
     for (const [scope, focusedId] of this.focusedByScope) {
-      if (focusedId === id) this.focusedByScope.delete(scope)
+      if (focusedId === id) {
+        this.focusedByScope.delete(scope)
+      }
     }
     return true
   }
@@ -86,8 +92,12 @@ export class NovaSemanticService {
 
   clearSource(sourceKey: string): void {
     const ids = this.sourceIndex.get(sourceKey)
-    if (!ids) return
-    for (const id of [...ids]) this.remove(id)
+    if (!ids) {
+      return
+    }
+    for (const id of [...ids]) {
+      this.remove(id)
+    }
     this.sourceIndex.delete(sourceKey)
   }
 
@@ -110,7 +120,9 @@ export class NovaSemanticService {
     })
 
     for (const id of previousIds) {
-      if (!nextIds.has(id)) this.remove(id)
+      if (!nextIds.has(id)) {
+        this.remove(id)
+      }
     }
     this.sourceIndex.set(sourceKey, nextIds)
     return registered
@@ -119,7 +131,9 @@ export class NovaSemanticService {
   query(options: NovaSemanticQueryOptions = {}): Array<NovaSemanticRegion> {
     const result: Array<StoredSemanticRegion> = []
     for (const region of this.regions.values()) {
-      if (!matchesRegion(region, options)) continue
+      if (!matchesRegion(region, options)) {
+        continue
+      }
       result.push(region)
     }
     result.sort(compareRegions)
@@ -160,15 +174,21 @@ export class NovaSemanticService {
   setFocused(id: string | null, scope = 'default'): NovaSemanticRegion | undefined {
     if (id === null) {
       const previousId = this.focusedByScope.get(scope)
-      if (previousId) this.clearRegionFocused(previousId)
+      if (previousId) {
+        this.clearRegionFocused(previousId)
+      }
       this.focusedByScope.delete(scope)
       return undefined
     }
 
     const region = this.regions.get(id)
-    if (!region || region.state?.hidden || region.state?.disabled || region.focusable === false) return undefined
+    if (!region || region.state?.hidden || region.state?.disabled || region.focusable === false) {
+      return undefined
+    }
     const previousId = this.focusedByScope.get(scope)
-    if (previousId && previousId !== id) this.clearRegionFocused(previousId)
+    if (previousId && previousId !== id) {
+      this.clearRegionFocused(previousId)
+    }
     this.focusedByScope.set(scope, id)
     this.regions.set(id, {
       ...region,
@@ -200,7 +220,9 @@ export class NovaSemanticService {
       includeHidden: false,
       includeDisabled: false,
     })
-    if (candidates.length === 0) return undefined
+    if (candidates.length === 0) {
+      return undefined
+    }
 
     const currentId = this.focusedByScope.get(scope)
     const currentIndex = currentId ? candidates.findIndex(region => region.id === currentId) : -1
@@ -212,7 +234,9 @@ export class NovaSemanticService {
 
   private addToSourceIndex(region: StoredSemanticRegion): void {
     const sourceKey = semanticSourceKey(region)
-    if (!sourceKey) return
+    if (!sourceKey) {
+      return
+    }
     let ids = this.sourceIndex.get(sourceKey)
     if (!ids) {
       ids = new Set<string>()
@@ -224,18 +248,24 @@ export class NovaSemanticService {
   private removeFromSourceIndex(id: string): void {
     for (const [sourceKey, ids] of this.sourceIndex) {
       ids.delete(id)
-      if (ids.size === 0) this.sourceIndex.delete(sourceKey)
+      if (ids.size === 0) {
+        this.sourceIndex.delete(sourceKey)
+      }
     }
   }
 
   private findAnyFocusedId(): string | undefined {
-    for (const id of this.focusedByScope.values()) return id
+    for (const id of this.focusedByScope.values()) {
+      return id
+    }
     return undefined
   }
 
   private clearRegionFocused(id: string): void {
     const region = this.regions.get(id)
-    if (!region?.state?.focused) return
+    if (!region?.state?.focused) {
+      return
+    }
     this.regions.set(id, {
       ...region,
       state: {
@@ -247,19 +277,35 @@ export class NovaSemanticService {
 }
 
 function matchesRegion(region: StoredSemanticRegion, options: NovaSemanticQueryOptions): boolean {
-  if (options.id !== undefined && region.id !== options.id) return false
-  if (options.scope !== undefined && region.scope !== options.scope) return false
-  if (options.role !== undefined && region.role !== options.role) return false
-  if (options.roles !== undefined && !options.roles.includes(region.role)) return false
-  if (options.focusable !== undefined && region.focusable !== options.focusable) return false
-  if (!options.includeHidden && region.state?.hidden) return false
-  if (!options.includeDisabled && region.state?.disabled) return false
+  if (options.id !== undefined && region.id !== options.id) {
+    return false
+  }
+  if (options.scope !== undefined && region.scope !== options.scope) {
+    return false
+  }
+  if (options.role !== undefined && region.role !== options.role) {
+    return false
+  }
+  if (options.roles !== undefined && !options.roles.includes(region.role)) {
+    return false
+  }
+  if (options.focusable !== undefined && region.focusable !== options.focusable) {
+    return false
+  }
+  if (!options.includeHidden && region.state?.hidden) {
+    return false
+  }
+  if (!options.includeDisabled && region.state?.disabled) {
+    return false
+  }
   return true
 }
 
 function compareRegions(a: StoredSemanticRegion, b: StoredSemanticRegion): number {
   const orderDiff = a.order - b.order
-  if (orderDiff !== 0) return orderDiff
+  if (orderDiff !== 0) {
+    return orderDiff
+  }
   return a.insertionOrder - b.insertionOrder
 }
 
@@ -289,7 +335,9 @@ function cloneState(state: NovaSemanticRegion['state']): NovaSemanticRegion['sta
 
 function semanticSourceKey(region: NovaSemanticRegion): string | undefined {
   const source = region.source
-  if (!source) return undefined
+  if (!source) {
+    return undefined
+  }
   return [
     source.type ?? 'custom',
     source.nodeId ?? '',

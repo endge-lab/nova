@@ -26,19 +26,19 @@ const VUE_REACTIVITY_FLAGS = new Set<PropertyKey>([
  */
 export type NovaRef<T extends object> = T & {
   readonly $mounted: boolean
-  $ready(): Promise<T>
+  $ready: () => Promise<T>
 }
 
 /**
  * Коллекция refs для компонентов, созданных внутри repeat/list.
  */
 export interface NovaRefMap<T extends object> {
-  get(key: string | number): NovaRef<T>
-  has(key: string | number): boolean
-  delete(key: string | number): boolean
-  keys(): IterableIterator<string>
-  values(): IterableIterator<NovaRef<T>>
-  entries(): IterableIterator<[string, NovaRef<T>]>
+  get: (key: string | number) => NovaRef<T>
+  has: (key: string | number) => boolean
+  delete: (key: string | number) => boolean
+  keys: () => IterableIterator<string>
+  values: () => IterableIterator<NovaRef<T>>
+  entries: () => IterableIterator<[string, NovaRef<T>]>
   readonly size: number
 }
 
@@ -74,22 +74,34 @@ export function createNovaRef<T extends object>(name?: string): NovaRef<T> {
      * Возвращает значение состояния текущего класса.
      */
     get(_target, property) {
-      if (VUE_REACTIVITY_FLAGS.has(property)) return false
-      if (property === Symbol.toStringTag) return 'NovaRef'
-      if (property === '$mounted') return state.api !== null
+      if (VUE_REACTIVITY_FLAGS.has(property)) {
+        return false
+      }
+      if (property === Symbol.toStringTag) {
+        return 'NovaRef'
+      }
+      if (property === '$mounted') {
+        return state.api !== null
+      }
       if (property === '$ready') {
         return () => {
-          if (state.api) return Promise.resolve(state.api)
+          if (state.api) {
+            return Promise.resolve(state.api)
+          }
           return new Promise<T>(resolve => state.readyResolvers.push(resolve))
         }
       }
 
       const cached = state.methodCache.get(property)
-      if (cached) return cached
+      if (cached) {
+        return cached
+      }
 
       const api = requireNovaRefApi(state)
       const value = (api as Record<PropertyKey, unknown>)[property]
-      if (typeof value !== 'function') return value
+      if (typeof value !== 'function') {
+        return value
+      }
 
       const method = (...args: Array<any>) => {
         const current = requireNovaRefApi(state)
@@ -113,8 +125,12 @@ export function createNovaRef<T extends object>(name?: string): NovaRef<T> {
      * Выполняет действие has в рамках ответственности текущего класса.
      */
     has(_target, property) {
-      if (VUE_REACTIVITY_FLAGS.has(property)) return false
-      if (property === '$mounted' || property === '$ready') return true
+      if (VUE_REACTIVITY_FLAGS.has(property)) {
+        return false
+      }
+      if (property === '$mounted' || property === '$ready') {
+        return true
+      }
       return state.api !== null && property in state.api
     },
   }) as NovaRef<T>
@@ -211,7 +227,9 @@ export function bindNovaRef<T extends object>(ref: NovaRef<T>, api: T): void {
 
   state.api = api
   const resolvers = state.readyResolvers.splice(0)
-  for (const resolve of resolvers) resolve(api)
+  for (const resolve of resolvers) {
+    resolve(api)
+  }
 }
 
 /**
@@ -219,7 +237,9 @@ export function bindNovaRef<T extends object>(ref: NovaRef<T>, api: T): void {
  */
 export function unbindNovaRef<T extends object>(ref: NovaRef<T>, api?: T): void {
   const state = readNovaRefState(ref)
-  if (api && state.api !== api) return
+  if (api && state.api !== api) {
+    return
+  }
   state.api = null
 }
 

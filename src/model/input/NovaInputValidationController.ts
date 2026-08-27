@@ -65,7 +65,9 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
     }
     this.state.pending = true
     const result = await this.validateFn(value, context)
-    if (runToken !== this.token) return this.getState()
+    if (runToken !== this.token) {
+      return this.getState()
+    }
     this.applyResult(result)
     return this.getState()
   }

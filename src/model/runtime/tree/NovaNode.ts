@@ -1,30 +1,37 @@
-import { mat3 } from 'gl-matrix'
-import { RaphNode , RaphPropagation , RaphAfter, RaphProperty } from '@endge/raph'
-import type { DataPathDef , RaphApp } from '@endge/raph'
-import type { OneOrMany , EventList } from '@endge/utils'
+import type { DataPathDef, RaphApp } from '@endge/raph'
+import type { EventList, OneOrMany } from '@endge/utils'
 import type { NovaNodeProperties } from '@/domain/types/base.types'
-import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
-import type { NovaHitTestHandler } from '@/domain/types/hit-test.types'
-import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
-import type { NovaCanvas } from '@/model/platform/NovaCanvas'
-import type { NovaBounds, NovaLifecycleState, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
 import type {
-  NovaSemanticRegisterOptions,
-  NovaSemanticRegion,
-} from '@/domain/types/semantic.types'
-import type { NovaEvents } from '@/model/runtime/interaction/NovaEvents'
-import type { NovaDebug } from '@/model/runtime/debug/NovaDebug'
-import type { NovaNodeSoundMap, NovaSoundCueInput, NovaSoundHandle } from '@/domain/types/sound.types'
-import { boundsEquals, boundsIntersects, copyBounds, createEmptyBounds, transformBounds } from '@/domain/utils/bounds'
-import { resolveSchemaBounds, resolveSchemaItemBounds } from '@/domain/utils/schemaBounds'
+  NovaAddChildOptions,
+  NovaContextToken,
+  NovaObserveDataOptions,
+} from '@/domain/types/context.types'
+import type { NovaCursorContext, NovaCursorDeclaration } from '@/domain/types/cursor.types'
+import type { NovaNodeEventHandlers } from '@/domain/types/events.types'
+import type { NovaHitTestHandler } from '@/domain/types/hit-test.types'
+import type { NovaBounds, NovaLifecycleState, NovaRenderer, NovaSchema } from '@/domain/types/renderer.types'
 import type {
   NovaRenderDirtyFlags,
   NovaRenderPolicy,
   NovaRenderPolicyInput,
   NovaRenderVersions,
 } from '@/domain/types/rendering/index'
+import type {
+  NovaSemanticRegion,
+  NovaSemanticRegisterOptions,
+} from '@/domain/types/semantic.types'
+import type { NovaNodeSoundMap, NovaSoundCueInput, NovaSoundHandle } from '@/domain/types/sound.types'
+import type { NovaCanvas } from '@/model/platform/NovaCanvas'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { NovaDebug } from '@/model/runtime/debug/NovaDebug'
+import type { NovaEvents } from '@/model/runtime/interaction/NovaEvents'
+import type { NovaStoreReadMap, NovaStoreTrackingPhase } from '@/model/runtime/state/nova-store-tracking'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { RaphAfter, RaphNode, RaphPropagation, RaphProperty } from '@endge/raph'
+import { mat3 } from 'gl-matrix'
+import { NovaPhase } from '@/domain/constants/nova-phase'
+import { boundsEquals, boundsIntersects, copyBounds, createEmptyBounds, transformBounds } from '@/domain/utils/bounds'
+import { resolveSchemaBounds, resolveSchemaItemBounds } from '@/domain/utils/schemaBounds'
 import {
   bumpRenderVersions,
   createCleanRenderDirtyFlags,
@@ -32,25 +39,18 @@ import {
   mergeRenderDirtyFlags,
   resolveNovaRenderPolicy,
 } from '@/model/render/policy/nova-render-policy'
-import { NovaPhase } from '@/domain/constants/nova-phase'
-import type {
-  NovaAddChildOptions,
-  NovaContextToken,
-  NovaObserveDataOptions,
-} from '@/domain/types/context.types'
 import {
   beginNovaStoreTracking,
   endNovaStoreTracking,
-  type NovaStoreReadMap,
-  type NovaStoreTrackingPhase,
+
 } from '@/model/runtime/state/nova-store-tracking'
 
 /**
  * Описывает контракт NovaRenderNodeAwareRenderer.
  */
 interface NovaRenderNodeAwareRenderer {
-  beginNode(node: NovaNode<any>): void
-  endNode(node: NovaNode<any>): void
+  beginNode: (node: NovaNode<any>) => void
+  endNode: (node: NovaNode<any>) => void
 }
 
 /**
@@ -257,7 +257,9 @@ export class NovaNode<
     reads: NovaStoreReadMap,
     touchedPhases: Set<NovaStoreTrackingPhase>,
   ): void {
-    if (!this._reactiveStoreObservers) this._reactiveStoreObservers = new Map()
+    if (!this._reactiveStoreObservers) {
+      this._reactiveStoreObservers = new Map()
+    }
 
     for (const phase of touchedPhases) {
       const nextPaths = reads.get(phase) ?? new Set<string>()
@@ -275,7 +277,9 @@ export class NovaNode<
       }
 
       for (const path of nextPaths) {
-        if (phaseObservers.has(path)) continue
+        if (phaseObservers.has(path)) {
+          continue
+        }
         phaseObservers.set(path, this.createReactiveStoreObserver(path, phase))
       }
     }
@@ -286,7 +290,9 @@ export class NovaNode<
    */
   private createReactiveStoreObserver(path: string, phase: NovaStoreTrackingPhase): () => void {
     const dispose = this.raph.observeData(this, path, { phase })
-    if (phase !== NovaPhase.Render) return dispose
+    if (phase !== NovaPhase.Render) {
+      return dispose
+    }
 
     const disposeFlush = this.raph.observeData(this.surface, path, { phase: NovaPhase.Flush })
     return () => {
@@ -306,7 +312,7 @@ export class NovaNode<
     phase: 'update',
     default: true,
     propagation: RaphPropagation.Down,
-    compute: self => {
+    compute: (self) => {
       const localActive = self.getLocal('localActive') ?? true
       const parentActive = self.parent?.get('active') ?? true
       return localActive && parentActive
@@ -315,11 +321,14 @@ export class NovaNode<
   get active(): boolean {
     return this.get('active') ?? true
   }
+
   /**
    * Обновляет active.
    */
   set active(v: boolean) {
-    if (this.localActive === v) return
+    if (this.localActive === v) {
+      return
+    }
 
     this.setLocal('localActive', v)
     this.nova.events.markSpatialDirty(this, true)
@@ -334,7 +343,7 @@ export class NovaNode<
     phase: 'render',
     default: true,
     propagation: RaphPropagation.Down,
-    compute: self => {
+    compute: (self) => {
       const localVisible = self.getLocal('localVisible') ?? true
       const parentVisible = self.parent?.get('visible') ?? true
       return localVisible && parentVisible
@@ -343,11 +352,14 @@ export class NovaNode<
   get visible(): boolean {
     return this.get('visible') ?? true
   }
+
   /**
    * Обновляет visible.
    */
   set visible(v: boolean) {
-    if (this.localVisible === v) return
+    if (this.localVisible === v) {
+      return
+    }
 
     this.setLocal('localVisible', v)
     this.nova.events.markSpatialDirty(this, true)
@@ -362,6 +374,7 @@ export class NovaNode<
   get opacity(): number {
     return this.get('opacity')
   }
+
   /**
    * Обновляет opacity.
    */
@@ -380,6 +393,7 @@ export class NovaNode<
   get x(): number {
     return this.get('x')
   }
+
   /**
    * Обновляет x.
    */
@@ -394,6 +408,7 @@ export class NovaNode<
   get y(): number {
     return this.get('y')
   }
+
   /**
    * Обновляет y.
    */
@@ -408,6 +423,7 @@ export class NovaNode<
   get width(): number {
     return this.get('width')
   }
+
   /**
    * Обновляет width.
    */
@@ -422,6 +438,7 @@ export class NovaNode<
   get height(): number {
     return this.get('height')
   }
+
   /**
    * Обновляет height.
    */
@@ -436,6 +453,7 @@ export class NovaNode<
   get scaleX(): number {
     return this.get('scaleX')
   }
+
   /**
    * Обновляет scale x.
    */
@@ -450,6 +468,7 @@ export class NovaNode<
   get scaleY(): number {
     return this.get('scaleY')
   }
+
   /**
    * Обновляет scale y.
    */
@@ -464,6 +483,7 @@ export class NovaNode<
   get rotation(): number {
     return this.get('rotation')
   }
+
   /**
    * Обновляет rotation.
    */
@@ -479,7 +499,7 @@ export class NovaNode<
     default: mat3.create(),
     propagation: RaphPropagation.Down,
     dependsOn: ['x', 'y', 'scaleX', 'scaleY', 'rotation'],
-    compute: self => {
+    compute: (self) => {
       const x = self.x || 0
       const y = self.y || 0
       const rot = self.rotation || 0
@@ -488,12 +508,20 @@ export class NovaNode<
 
       const out = mat3.create()
       mat3.identity(out)
-      if (x !== 0 || y !== 0) mat3.translate(out, out, [x, y])
-      if (rot !== 0) mat3.rotate(out, out, rot)
-      if (sx !== 1 || sy !== 1) mat3.scale(out, out, [sx, sy])
+      if (x !== 0 || y !== 0) {
+        mat3.translate(out, out, [x, y])
+      }
+      if (rot !== 0) {
+        mat3.rotate(out, out, rot)
+      }
+      if (sx !== 1 || sy !== 1) {
+        mat3.scale(out, out, [sx, sy])
+      }
 
       const parentMatrix = self.parent?.matrix
-      if (parentMatrix) mat3.multiply(out, parentMatrix, out)
+      if (parentMatrix) {
+        mat3.multiply(out, parentMatrix, out)
+      }
 
       return out
     },
@@ -513,11 +541,14 @@ export class NovaNode<
   get interactive(): boolean {
     return this.get('interactive')
   }
+
   /**
    * Обновляет interactive.
    */
   set interactive(v: boolean) {
-    if (this.interactive === v) return
+    if (this.interactive === v) {
+      return
+    }
     this.nova.events.markSpatialDirty(this)
     this.nova.cursors.markSpatialDirty(this)
     this.set('interactive', v)
@@ -530,11 +561,14 @@ export class NovaNode<
   get cursor(): NovaCursorDeclaration | null {
     return this.get('cursor')
   }
+
   /**
    * Обновляет cursor declaration.
    */
   set cursor(v: NovaCursorDeclaration | null) {
-    if (this.cursor === v) return
+    if (this.cursor === v) {
+      return
+    }
     this.set('cursor', v)
     this.syncCursorRegistration()
   }
@@ -546,11 +580,14 @@ export class NovaNode<
   get cursorContext(): NovaCursorContext | null {
     return this.get('cursorContext')
   }
+
   /**
    * Обновляет cursor context.
    */
   set cursorContext(v: NovaCursorContext | null) {
-    if (this.cursorContext === v) return
+    if (this.cursorContext === v) {
+      return
+    }
     this.set('cursorContext', v)
     this.nova.cursors.markSpatialDirty(this)
   }
@@ -562,6 +599,7 @@ export class NovaNode<
   get propagateUpdate(): boolean {
     return this.get('propagateUpdate')
   }
+
   /**
    * Обновляет propagate update.
    */
@@ -578,13 +616,16 @@ export class NovaNode<
    */
   @RaphAfter({ phase: 'update' })
   doUpdate(): void {
-    if (!this.active) return
+    if (!this.active) {
+      return
+    }
 
     this.debugger.startTimer('update')
     beginNovaStoreTracking(this, 'update')
     try {
       this.update()
-    } finally {
+    }
+    finally {
       endNovaStoreTracking()
     }
     if (this.debugger.enabled) {
@@ -607,8 +648,12 @@ export class NovaNode<
    */
   @RaphAfter({ phase: 'render' })
   doRender(): void {
-    if (!this.visible) return
-    if (!this._layoutReady) return
+    if (!this.visible) {
+      return
+    }
+    if (!this._layoutReady) {
+      return
+    }
 
     if (this._surface && this.surface.renderCullingMode === 'bounds') {
       this.surface.markRenderNodeTestedForCulling()
@@ -631,7 +676,8 @@ export class NovaNode<
       this.renderer.setTransform(matrix)
       this.render()
       this.renderChildren()
-    } finally {
+    }
+    finally {
       endNovaStoreTracking()
       this.renderer.restoreState(renderStateMark)
       this.renderer.restore()
@@ -656,10 +702,14 @@ export class NovaNode<
    * Управляет участием node в render frame до завершения layout.
    */
   set layoutReady(value: boolean) {
-    if (this._layoutReady === value) return
+    if (this._layoutReady === value) {
+      return
+    }
     this._layoutReady = value
     this.markRenderFrameDirty(true)
-    if (value) this.dirty({ render: true })
+    if (value) {
+      this.dirty({ render: true })
+    }
   }
 
   //
@@ -674,27 +724,43 @@ export class NovaNode<
   ): this {
     const { zIndex, hitTest, ...rest } = opts
     const spatialDirty = hasSpatialOptions(opts)
-    const hasCursorOption = Object.prototype.hasOwnProperty.call(opts, 'cursor')
-    const hasCursorContextOption = Object.prototype.hasOwnProperty.call(opts, 'cursorContext')
-    const hasHitTestOption = Object.prototype.hasOwnProperty.call(opts, 'hitTest')
+    const hasCursorOption = Object.hasOwn(opts, 'cursor')
+    const hasCursorContextOption = Object.hasOwn(opts, 'cursorContext')
+    const hasHitTestOption = Object.hasOwn(opts, 'hitTest')
 
     if (zIndex !== undefined) {
       super.options({
         ...rest,
         weight: zIndex,
       })
-      if (hasHitTestOption) this.setHitTest(hitTest ?? null)
-      if (hasCursorOption) this.syncCursorRegistration()
-      if (hasCursorContextOption) this.nova.cursors.markSpatialDirty(this)
-      if (spatialDirty) this.markSpatialDirtyForOptions(opts)
+      if (hasHitTestOption) {
+        this.setHitTest(hitTest ?? null)
+      }
+      if (hasCursorOption) {
+        this.syncCursorRegistration()
+      }
+      if (hasCursorContextOption) {
+        this.nova.cursors.markSpatialDirty(this)
+      }
+      if (spatialDirty) {
+        this.markSpatialDirtyForOptions(opts)
+      }
       return this
     }
 
     super.options(rest)
-    if (hasHitTestOption) this.setHitTest(hitTest ?? null)
-    if (hasCursorOption) this.syncCursorRegistration()
-    if (hasCursorContextOption) this.nova.cursors.markSpatialDirty(this)
-    if (spatialDirty) this.markSpatialDirtyForOptions(opts)
+    if (hasHitTestOption) {
+      this.setHitTest(hitTest ?? null)
+    }
+    if (hasCursorOption) {
+      this.syncCursorRegistration()
+    }
+    if (hasCursorContextOption) {
+      this.nova.cursors.markSpatialDirty(this)
+    }
+    if (spatialDirty) {
+      this.markSpatialDirtyForOptions(opts)
+    }
     return this
   }
 
@@ -703,7 +769,7 @@ export class NovaNode<
    */
   dirty(
     opts:
-      | { matrix?: boolean; update?: boolean; render?: boolean }
+      | { matrix?: boolean, update?: boolean, render?: boolean }
       | string
       | Array<string>,
   ): void {
@@ -718,12 +784,16 @@ export class NovaNode<
     }
 
     const { matrix, update, render } = opts
-    if (update) this.raph.dirty('update', this)
+    if (update) {
+      this.raph.dirty('update', this)
+    }
     if (matrix) {
       this.markRenderDirtyFlags({ transform: true, visibility: true })
       this.surface.renderGraph?.markTransformDirty(this.renderNodeId)
       this.surface.renderGraph?.markVisibilityDirty(this.renderNodeId)
-      if (!this.surface.renderGraph) this.markRenderFrameDirty(true)
+      if (!this.surface.renderGraph) {
+        this.markRenderFrameDirty(true)
+      }
       this.nova.events.markSpatialDirty(this, true)
       this.nova.cursors.markSpatialDirty(this, true)
       this.raph.dirty('matrix', this)
@@ -751,7 +821,8 @@ export class NovaNode<
     if (graph && graph.handlesByNodeId.has(this.renderNodeId)) {
       graph.markPaintDirty(this.renderNodeId)
       graph.markResourceDirty(this.renderNodeId)
-    } else {
+    }
+    else {
       this.markRenderFrameDirty(true)
     }
     this.nova.events.markSpatialDirty(this)
@@ -790,7 +861,9 @@ export class NovaNode<
    * Возвращает local render bounds.
    */
   getLocalRenderBounds(): NovaBounds {
-    if (this._hasLocalRenderBounds) return { ...this._localRenderBounds }
+    if (this._hasLocalRenderBounds) {
+      return { ...this._localRenderBounds }
+    }
     return this.getLocalBounds()
   }
 
@@ -798,7 +871,9 @@ export class NovaNode<
    * Обновляет local render bounds.
    */
   setLocalRenderBounds(bounds: NovaBounds): this {
-    if (this._hasLocalRenderBounds && boundsEquals(this._localRenderBounds, bounds)) return this
+    if (this._hasLocalRenderBounds && boundsEquals(this._localRenderBounds, bounds)) {
+      return this
+    }
 
     copyBounds(this._localRenderBounds, bounds)
     this._hasLocalRenderBounds = true
@@ -836,7 +911,9 @@ export class NovaNode<
    * Снимает semantic region этой ноды.
    */
   clearSemantic(): void {
-    if (!this._semanticId) return
+    if (!this._semanticId) {
+      return
+    }
     this.nova.semantics.remove(this._semanticId)
     this._semanticId = undefined
   }
@@ -854,7 +931,9 @@ export class NovaNode<
    * Очищает local render bounds.
    */
   clearLocalRenderBounds(): this {
-    if (!this._hasLocalRenderBounds) return this
+    if (!this._hasLocalRenderBounds) {
+      return this
+    }
 
     this._hasLocalRenderBounds = false
     copyBounds(this._localRenderBounds, createEmptyBounds())
@@ -868,7 +947,9 @@ export class NovaNode<
    */
   containsPoint(x: number, y: number): boolean {
     const inverse = this.getInverseMatrix()
-    if (!inverse) return false
+    if (!inverse) {
+      return false
+    }
 
     const localX = inverse[0] * x + inverse[3] * y + inverse[6]
     const localY = inverse[1] * x + inverse[4] * y + inverse[7]
@@ -876,13 +957,17 @@ export class NovaNode<
     const bounds = this.getLocalRenderBounds()
 
     const inBounds = (
-      localX >= bounds.x &&
-      localY >= bounds.y &&
-      localX <= bounds.x + bounds.width &&
-      localY <= bounds.y + bounds.height
+      localX >= bounds.x
+      && localY >= bounds.y
+      && localX <= bounds.x + bounds.width
+      && localY <= bounds.y + bounds.height
     )
-    if (!inBounds) return false
-    if (!this._hitTest) return true
+    if (!inBounds) {
+      return false
+    }
+    if (!this._hitTest) {
+      return true
+    }
 
     return this._hitTest({
       node: this,
@@ -898,7 +983,9 @@ export class NovaNode<
    * Обновляет shape-level hit-test handler.
    */
   setHitTest(handler: NovaHitTestHandler | null): this {
-    if (this._hitTest === handler) return this
+    if (this._hitTest === handler) {
+      return this
+    }
 
     this._hitTest = handler
     this.nova.events.markSpatialDirty(this)
@@ -911,7 +998,9 @@ export class NovaNode<
    */
   toLocal(gx: number, gy: number): [number, number] {
     const inverse = this.getInverseMatrix()
-    if (!inverse) return [gx, gy]
+    if (!inverse) {
+      return [gx, gy]
+    }
     return [
       inverse[0] * gx + inverse[3] * gy + inverse[6],
       inverse[1] * gx + inverse[4] * gy + inverse[7],
@@ -946,7 +1035,9 @@ export class NovaNode<
     }
 
     for (const [eventName, cue] of Object.entries(map) as Array<[keyof NovaNodeEventHandlers, NovaSoundCueInput | undefined]>) {
-      if (!cue) continue
+      if (!cue) {
+        continue
+      }
       this._soundEventBindings.set(eventName, cue)
       const handler = this._soundUserHandlers.has(eventName)
         ? this._soundUserHandlers.get(eventName)
@@ -982,7 +1073,8 @@ export class NovaNode<
     this._soundEventBindings?.delete(type)
     if (Object.keys(this.eventHandlers).length === 0 && Object.keys(this.captureEventHandlers).length === 0) {
       this.nova.unregisterInteractiveNode(this)
-    } else {
+    }
+    else {
       this.nova.registerInteractiveNode(this)
     }
   }
@@ -994,7 +1086,8 @@ export class NovaNode<
     delete this.captureEventHandlers[type]
     if (Object.keys(this.eventHandlers).length === 0 && Object.keys(this.captureEventHandlers).length === 0) {
       this.nova.unregisterInteractiveNode(this)
-    } else {
+    }
+    else {
       this.nova.registerInteractiveNode(this)
     }
   }
@@ -1023,7 +1116,9 @@ export class NovaNode<
   ): void {
     const cue = this._soundEventBindings?.get(type)
     if (!cue) {
-      if (handler) this.eventHandlers[type] = handler
+      if (handler) {
+        this.eventHandlers[type] = handler
+      }
       this._soundUserHandlers.delete(type)
       return
     }
@@ -1031,7 +1126,9 @@ export class NovaNode<
     this._soundUserHandlers.set(type, handler)
     this.eventHandlers[type] = ((event: Event, ...args: Array<unknown>) => {
       const handle = this.nova.sound.playCue(cue)
-      if (handle) this.trackSoundHandle(handle)
+      if (handle) {
+        this.trackSoundHandle(handle)
+      }
       const userHandler = this._soundUserHandlers.get(type)
       if (typeof userHandler === 'function') {
         return (userHandler as (...handlerArgs: Array<unknown>) => unknown)(event, ...args)
@@ -1096,7 +1193,7 @@ export class NovaNode<
   /**
    * Выполняет внутреннюю операцию select.
    */
-  select(options?: { append?: boolean; toggle?: boolean; scope?: string }, event?: Event): void {
+  select(options?: { append?: boolean, toggle?: boolean, scope?: string }, event?: Event): void {
     this.nova.events.select(this, options, event)
   }
 
@@ -1324,7 +1421,9 @@ export class NovaNode<
       parent = parent.parent
     }
 
-    if (!includeChildren) return
+    if (!includeChildren) {
+      return
+    }
 
     for (const child of this.children) {
       if (child instanceof NovaNode) {
@@ -1340,7 +1439,9 @@ export class NovaNode<
     this._renderFrameDirty = false
     this.clearRenderDirtyFlags()
 
-    if (!includeChildren) return
+    if (!includeChildren) {
+      return
+    }
 
     for (const child of this.children) {
       if (child instanceof NovaNode) {
@@ -1353,7 +1454,9 @@ export class NovaNode<
    * Обновляет scale.
    */
   setScale(x: number, y: number): void {
-    if (this.scaleX === x && this.scaleY === y) return
+    if (this.scaleX === x && this.scaleY === y) {
+      return
+    }
 
     this.scaleX = x
     this.scaleY = y
@@ -1363,7 +1466,9 @@ export class NovaNode<
    * Обновляет rotation.
    */
   setRotation(angle: number): void {
-    if (this.rotation === angle) return
+    if (this.rotation === angle) {
+      return
+    }
 
     this.rotation = angle
   }
@@ -1373,10 +1478,14 @@ export class NovaNode<
    */
   private getInverseMatrix(): mat3 | undefined {
     const matrix = this.matrix
-    if (this._inverseMatrixSource === matrix) return this._inverseMatrix
+    if (this._inverseMatrixSource === matrix) {
+      return this._inverseMatrix
+    }
 
     const inverse = mat3.invert(this._inverseMatrix, matrix)
-    if (!inverse) return undefined
+    if (!inverse) {
+      return undefined
+    }
 
     this._inverseMatrixSource = matrix
     return this._inverseMatrix
@@ -1386,7 +1495,9 @@ export class NovaNode<
    * Обновляет position.
    */
   setPosition(x: number, y: number): void {
-    if (this.x === x && this.y === y) return
+    if (this.x === x && this.y === y) {
+      return
+    }
 
     this.x = x
     this.y = y
@@ -1396,7 +1507,9 @@ export class NovaNode<
    * Обновляет size.
    */
   setSize(width: number, height: number): void {
-    if (this.width === width && this.height === height) return
+    if (this.width === width && this.height === height) {
+      return
+    }
 
     this.width = width
     this.height = height
@@ -1482,7 +1595,9 @@ export class NovaNode<
    * Снимает автоматические reactive store observers.
    */
   private disposeReactiveStoreObservers(): void {
-    if (!this._reactiveStoreObservers) return
+    if (!this._reactiveStoreObservers) {
+      return
+    }
     for (const phaseObservers of this._reactiveStoreObservers.values()) {
       for (const dispose of phaseObservers.values()) {
         dispose()
@@ -1496,7 +1611,9 @@ export class NovaNode<
    * Выполняет внутреннюю операцию dispose.
    */
   override dispose(): void {
-    if (this._lifecycleState === 'destroyed') return
+    if (this._lifecycleState === 'destroyed') {
+      return
+    }
 
     this.clearSemantic()
     this.clearSchemaSemantics()
@@ -1542,9 +1659,13 @@ export class NovaNode<
     const regions: Array<NovaSemanticRegisterOptions> = []
 
     schema.forEach((item, index) => {
-      if (item.active === false || item.semantic === false || !item.semantic) return
+      if (item.active === false || item.semantic === false || !item.semantic) {
+        return
+      }
       const localBounds = item.semantic.bounds ?? resolveSchemaItemBounds(item, this.nova.schema)
-      if (!localBounds) return
+      if (!localBounds) {
+        return
+      }
       regions.push({
         ...item.semantic,
         id: item.semantic.id ?? `${sourceKey}:${index}`,
@@ -1567,7 +1688,9 @@ export class NovaNode<
   }
 
   private clearSchemaSemantics(): void {
-    if (!this._schemaSemanticSourceKey) return
+    if (!this._schemaSemanticSourceKey) {
+      return
+    }
     this.nova.semantics.clearSource(this._schemaSemanticSourceKey)
     this._schemaSemanticSourceKey = undefined
   }
@@ -1608,7 +1731,9 @@ export class NovaNode<
     const parent = this.parent
     if (parent) {
       const index = parent.children.indexOf(this)
-      if (index >= 0) parent.children.splice(index, 1)
+      if (index >= 0) {
+        parent.children.splice(index, 1)
+      }
     }
 
     this.dispose()
@@ -1632,7 +1757,9 @@ export class NovaNode<
 
     this._orderedChildren.sort((a, b) => {
       const weightDiff = a.weight - b.weight
-      if (weightDiff !== 0) return weightDiff
+      if (weightDiff !== 0) {
+        return weightDiff
+      }
       return this.renderOrderOf(a) - this.renderOrderOf(b)
     })
 
@@ -1656,7 +1783,7 @@ export class NovaNode<
    */
   override addChild(node: RaphNode<any>, options: NovaAddChildOptions = {}): boolean {
     const { context, ...raphOptions } = options
-    const hasExplicitContext = Object.prototype.hasOwnProperty.call(options, 'context')
+    const hasExplicitContext = Object.hasOwn(options, 'context')
 
     if (node instanceof NovaNode) {
       if (node.lifecycleState === 'destroyed') {
@@ -1690,7 +1817,9 @@ export class NovaNode<
    * Выполняет внутреннюю операцию ensure render order.
    */
   private ensureRenderOrder(node: NovaNode<E>): void {
-    if (this._renderOrder.has(node)) return
+    if (this._renderOrder.has(node)) {
+      return
+    }
     this._renderOrder.set(node, this._renderOrderCounter++)
   }
 
@@ -1716,7 +1845,9 @@ export class NovaNode<
     if (this._lifecycleState === 'destroyed') {
       throw new Error('Нельзя смонтировать уничтоженную Nova-ноду')
     }
-    if (this._lifecycleState === 'mounted' || this._lifecycleState === 'paused') return
+    if (this._lifecycleState === 'mounted' || this._lifecycleState === 'paused') {
+      return
+    }
 
     this._lifecycleState = 'mounted'
     this.onMount()
@@ -1732,7 +1863,9 @@ export class NovaNode<
    * Выполняет внутреннюю операцию pause.
    */
   pause(): this {
-    if (this._lifecycleState !== 'mounted') return this
+    if (this._lifecycleState !== 'mounted') {
+      return this
+    }
 
     this._lifecycleState = 'paused'
     this.onPause()
@@ -1750,7 +1883,9 @@ export class NovaNode<
    * Выполняет внутреннюю операцию resume.
    */
   resume(): this {
-    if (this._lifecycleState !== 'paused') return this
+    if (this._lifecycleState !== 'paused') {
+      return this
+    }
 
     this._lifecycleState = 'mounted'
     this.onResume()
@@ -1769,7 +1904,9 @@ export class NovaNode<
    * Выполняет внутреннюю операцию unmount subtree.
    */
   private unmountSubtree(): void {
-    if (this._lifecycleState === 'created' || this._lifecycleState === 'destroyed') return
+    if (this._lifecycleState === 'created' || this._lifecycleState === 'destroyed') {
+      return
+    }
 
     for (const child of this.children) {
       if (child instanceof NovaNode) {

@@ -1,4 +1,4 @@
-import { NovaClipboardService, type NovaClipboardResult } from '@/model/input/NovaClipboardService'
+import type { NovaClipboardResult } from '@/model/input/NovaClipboardService'
 import type {
   NovaTextSelectionAnchor,
   NovaTextSelectionHit,
@@ -8,6 +8,7 @@ import type {
   NovaTextSelectionState,
   NovaTextSelectionTarget,
 } from '@/model/text-selection/nova-text-selection.types'
+import { NovaClipboardService } from '@/model/input/NovaClipboardService'
 
 const DEFAULT_SELECTION_COLOR = 'rgba(37, 99, 235, 0.24)'
 const DEFAULT_BUCKET_SIZE = 128
@@ -39,7 +40,9 @@ export class NovaTextSelectionService<TContext = unknown> {
    */
   configure(options: NovaTextSelectionOptions | false | undefined): void {
     this.options = resolveNovaTextSelectionOptions(options)
-    if (!this.options.enabled) this.clear()
+    if (!this.options.enabled) {
+      this.clear()
+    }
   }
 
   /**
@@ -56,10 +59,16 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Регистрирует сущность в runtime-слое NovaTextSelectionService.
    */
   register(target: NovaTextSelectionTarget<TContext>): void {
-    if (!this.options.enabled) return
-    if (!target.text) return
+    if (!this.options.enabled) {
+      return
+    }
+    if (!target.text) {
+      return
+    }
     const selectable = target.selectable ?? this.options.mode === 'all-text'
-    if (!selectable) return
+    if (!selectable) {
+      return
+    }
 
     const resolved: NovaTextSelectionResolvedTarget<TContext> = {
       ...target,
@@ -78,13 +87,17 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Выполняет hit-test для runtime-геометрии NovaTextSelectionService.
    */
   hitTest(x: number, y: number): NovaTextSelectionHit<TContext> | null {
-    if (!this.options.enabled) return null
+    if (!this.options.enabled) {
+      return null
+    }
     const candidates = this.buckets.get(this.bucketKey(x, y)) ?? []
     const target = candidates
       .map(item => item.target)
       .filter(item => containsPoint(item, x, y))
       .sort((a, b) => b.zIndex - a.zIndex || b.order - a.order)[0]
-    if (!target) return null
+    if (!target) {
+      return null
+    }
     return {
       target,
       offset: resolveTextOffset(target, x),
@@ -110,9 +123,13 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Обновляет runtime-состояние NovaTextSelectionService.
    */
   update(x: number, y: number): boolean {
-    if (!this.anchor || !this.dragging || !this.options.drag) return false
+    if (!this.anchor || !this.dragging || !this.options.drag) {
+      return false
+    }
     const hit = this.hitTest(x, y)
-    if (!hit) return false
+    if (!hit) {
+      return false
+    }
     this.focus = { targetId: hit.target.id, offset: hit.offset }
     return true
   }
@@ -151,22 +168,30 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Возвращает значение состояния NovaTextSelectionService.
    */
   getRanges(): Array<NovaTextSelectionRange<TContext>> {
-    if (!this.anchor || !this.focus) return []
+    if (!this.anchor || !this.focus) {
+      return []
+    }
     const anchorTarget = this.targets.get(this.anchor.targetId)
     const focusTarget = this.targets.get(this.focus.targetId)
-    if (!anchorTarget || !focusTarget) return []
+    if (!anchorTarget || !focusTarget) {
+      return []
+    }
 
     if (anchorTarget.id === focusTarget.id) {
       const start = Math.min(this.anchor.offset, this.focus.offset)
       const end = Math.max(this.anchor.offset, this.focus.offset)
-      if (start === end) return []
+      if (start === end) {
+        return []
+      }
       return [{ target: anchorTarget, range: { start, end } }]
     }
 
     const sorted = [...this.orderedTargets].sort((a, b) => a.order - b.order)
     const anchorIndex = sorted.findIndex(target => target.id === anchorTarget.id)
     const focusIndex = sorted.findIndex(target => target.id === focusTarget.id)
-    if (anchorIndex < 0 || focusIndex < 0) return []
+    if (anchorIndex < 0 || focusIndex < 0) {
+      return []
+    }
 
     const forward = anchorIndex < focusIndex
     const startIndex = Math.min(anchorIndex, focusIndex)
@@ -175,7 +200,9 @@ export class NovaTextSelectionService<TContext = unknown> {
 
     for (let index = startIndex; index <= endIndex; index += 1) {
       const target = sorted[index]
-      if (!target.copyable) continue
+      if (!target.copyable) {
+        continue
+      }
       if (target.id === anchorTarget.id) {
         ranges.push({
           target,
@@ -183,14 +210,16 @@ export class NovaTextSelectionService<TContext = unknown> {
             ? { start: this.anchor.offset, end: target.text.length }
             : { start: 0, end: this.anchor.offset },
         })
-      } else if (target.id === focusTarget.id) {
+      }
+      else if (target.id === focusTarget.id) {
         ranges.push({
           target,
           range: forward
             ? { start: 0, end: this.focus.offset }
             : { start: this.focus.offset, end: target.text.length },
         })
-      } else {
+      }
+      else {
         ranges.push({ target, range: { start: 0, end: target.text.length } })
       }
     }
@@ -203,7 +232,9 @@ export class NovaTextSelectionService<TContext = unknown> {
    */
   getSelectedText(formatter?: (ranges: Array<NovaTextSelectionRange<TContext>>) => string): string {
     const ranges = this.getRanges()
-    if (formatter) return formatter(ranges)
+    if (formatter) {
+      return formatter(ranges)
+    }
     return ranges
       .map(item => (item.target.copyText ?? item.target.text).slice(item.range.start, item.range.end))
       .join('\n')
@@ -213,9 +244,13 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Выполняет действие copy в рамках ответственности NovaTextSelectionService.
    */
   async copy(formatter?: (ranges: Array<NovaTextSelectionRange<TContext>>) => string): Promise<NovaClipboardResult> {
-    if (!this.options.copy) return { ok: false, error: new Error('Text selection copy is disabled') }
+    if (!this.options.copy) {
+      return { ok: false, error: new Error('Text selection copy is disabled') }
+    }
     const text = this.getSelectedText(formatter)
-    if (!text) return { ok: false, error: new Error('No text selected') }
+    if (!text) {
+      return { ok: false, error: new Error('No text selected') }
+    }
     return this.clipboard.writeText(text)
   }
 
@@ -295,7 +330,9 @@ function containsPoint(target: NovaTextSelectionResolvedTarget<unknown>, x: numb
 }
 
 function resolveTextOffset(target: NovaTextSelectionResolvedTarget<unknown>, x: number): number {
-  if (target.text.length === 0) return 0
+  if (target.text.length === 0) {
+    return 0
+  }
   const ratio = Math.max(0, Math.min(1, (x - target.rect.x) / Math.max(1, target.rect.width)))
   return Math.max(0, Math.min(target.text.length, Math.round(target.text.length * ratio)))
 }

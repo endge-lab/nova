@@ -1,19 +1,21 @@
 import { bench, describe } from 'vitest'
 import {
-  NovaTextInputController,
   layoutNovaTextInput,
   novaCaretRectAtIndex,
   novaSelectionRects,
   novaTextIndexAtPoint,
+  NovaTextInputController,
   splitGraphemes,
 } from '@/index'
 
-describe('Nova input core benchmarks', () => {
+describe('nova input core benchmarks', () => {
   bench('10k random single-line edits', () => {
     const controller = new NovaTextInputController({ value: '' })
     for (let index = 0; index < 10_000; index += 1) {
       controller.insertText(String(index % 10))
-      if (index % 7 === 0) controller.deleteBackward()
+      if (index % 7 === 0) {
+        controller.deleteBackward()
+      }
     }
   })
 
@@ -38,7 +40,7 @@ describe('Nova input core benchmarks', () => {
   })
 
   bench('layout 1k measured proportional centered inputs', () => {
-    const measureText = createMeasuredText({ W: 12, i: 3, '.': 4, m: 11, ' ': 4 })
+    const measureText = createMeasuredText({ 'W': 12, 'i': 3, '.': 4, 'm': 11, ' ': 4 })
     for (let index = 0; index < 1_000; index += 1) {
       layoutNovaTextInput({
         text: `Wi. mixed ${index}`,
@@ -95,7 +97,7 @@ describe('Nova input core benchmarks', () => {
       fontSize: 13,
       lineHeight: 18,
       padding: 10,
-      measureText: createMeasuredText({ W: 12, i: 3, '.': 4, ' ': 4, '🙂': 14 }),
+      measureText: createMeasuredText({ 'W': 12, 'i': 3, '.': 4, ' ': 4, '🙂': 14 }),
     })
     for (let index = 0; index < 100_000; index += 1) {
       const caret = novaCaretRectAtIndex(layout, index % layout.text.length)

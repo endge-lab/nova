@@ -1,7 +1,7 @@
 /**
  * Описывает тип PhaseLog.
  */
-type PhaseLog = { type: 'info' | 'warn' | 'error' | 'success'; message: string }
+interface PhaseLog { type: 'info' | 'warn' | 'error' | 'success', message: string }
 /**
  * Описывает тип TimerMap.
  */
@@ -149,11 +149,12 @@ export class NovaDebug {
 
       if (group === null) {
         this._shouldLogFrame = true
-      } else {
+      }
+      else {
         const groupKey = group || 'default'
         const lastTime = this._lastLogFrameTimes.get(groupKey) ?? 0
-        this._shouldLogFrame =
-          now - lastTime >= this._logThrottleTime || lastTime === 0
+        this._shouldLogFrame
+          = now - lastTime >= this._logThrottleTime || lastTime === 0
 
         if (this._shouldLogFrame) {
           this._lastLogFrameTimes.set(groupKey, now)
@@ -175,15 +176,20 @@ export class NovaDebug {
       this._lastFps = this._lastFrameTime > 0 ? 1000 / this._lastFrameTime : 0
     }
 
-    if (!this._enabled || !this._shouldLogFrame || this._phaseStack !== 0)
-      {return}
+    if (!this._enabled || !this._shouldLogFrame || this._phaseStack !== 0) {
+      return
+    }
 
     let style = ''
-    if (this._lastFps < 30)
-      {style = 'color:#f00;font-weight:bold;'} // красный
-    else if (this._lastFps < 60)
-      {style = 'color:#f90;font-weight:bold;'} // оранжевый
-    else style = 'color:#0c0;font-weight:bold;' // зелёный
+    if (this._lastFps < 30) {
+      style = 'color:#f00;font-weight:bold;'
+    } // красный
+    else if (this._lastFps < 60) {
+      style = 'color:#f90;font-weight:bold;'
+    } // оранжевый
+    else {
+      style = 'color:#0c0;font-weight:bold;'
+    } // зелёный
 
     const empty = this._framePhases.length === 0 && this._frameLogs.length === 0
     const label = empty
@@ -216,7 +222,9 @@ export class NovaDebug {
    * Выполняет внутреннюю операцию phase start.
    */
   phaseStart(name: string): void {
-    if (!this._shouldLogFrame || !this._enabled) return
+    if (!this._shouldLogFrame || !this._enabled) {
+      return
+    }
     this._phaseName = name
     this._phaseStart = performance.now()
   }
@@ -225,7 +233,9 @@ export class NovaDebug {
    * Выполняет внутреннюю операцию phase end.
    */
   phaseEnd(): void {
-    if (!this._shouldLogFrame || !this._enabled) return
+    if (!this._shouldLogFrame || !this._enabled) {
+      return
+    }
     const duration = performance.now() - this._phaseStart
     this._framePhases.push([this._phaseName, duration])
   }
@@ -238,7 +248,9 @@ export class NovaDebug {
    * Выполняет внутреннюю операцию face log.
    */
   faceLog(message: string): void {
-    if (!this._enabled || !this._shouldLogFrame) return
+    if (!this._enabled || !this._shouldLogFrame) {
+      return
+    }
     this._frameLogs.push(message)
   }
 
@@ -250,7 +262,9 @@ export class NovaDebug {
    * Запускает связанную runtime-операцию.
    */
   startTimer(label: string): void {
-    if (!this._enabled || !this._shouldLogFrame) return
+    if (!this._enabled || !this._shouldLogFrame) {
+      return
+    }
     this._timers.set(label, performance.now())
   }
 
@@ -294,7 +308,9 @@ export class NovaDebug {
     message: string,
     timerLabel?: string,
   ): void {
-    if (!this._enabled || !this._shouldLogFrame) return
+    if (!this._enabled || !this._shouldLogFrame) {
+      return
+    }
 
     if (timerLabel && this._timers.has(timerLabel)) {
       const started = this._timers.get(timerLabel)!

@@ -42,8 +42,12 @@ export function transformBounds(bounds: NovaBounds, matrix: mat3): NovaBounds {
  * Выполняет публичную операцию union bounds.
  */
 export function unionBounds(a: NovaBounds, b: NovaBounds): NovaBounds {
-  if (a.width <= 0 && a.height <= 0) return { ...b }
-  if (b.width <= 0 && b.height <= 0) return { ...a }
+  if (a.width <= 0 && a.height <= 0) {
+    return { ...b }
+  }
+  if (b.width <= 0 && b.height <= 0) {
+    return { ...a }
+  }
 
   const minX = Math.min(a.x, b.x)
   const minY = Math.min(a.y, b.y)
@@ -91,7 +95,9 @@ export function boundsEquals(a: NovaBounds, b: NovaBounds): boolean {
  * Выполняет публичную операцию bounds intersects.
  */
 export function boundsIntersects(a: NovaBounds, b: NovaBounds): boolean {
-  if (a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0) return false
+  if (a.width <= 0 || a.height <= 0 || b.width <= 0 || b.height <= 0) {
+    return false
+  }
 
   return (
     a.x < b.x + b.width

@@ -54,7 +54,7 @@ function createBenchFixture(count: number) {
 
 const STORE_BENCH_OPTIONS = { time: 100, warmupTime: 10 }
 
-describe('Nova store decorators benchmarks', () => {
+describe('nova store decorators benchmarks', () => {
   bench('reactive store notify: 1k render subscribers', () => {
     const { app, store } = createBenchFixture(1_000)
     store.viewport.scale += 1

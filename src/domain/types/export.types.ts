@@ -24,11 +24,11 @@ export interface NovaExportImageResult {
   semanticSnapshot?: NovaSemanticSnapshot
 }
 
-export type NovaExportErrorCode =
-  | 'unsupported-format'
-  | 'tainted-canvas'
-  | 'context-lost'
-  | 'empty-canvas'
+export type NovaExportErrorCode
+  = | 'unsupported-format'
+    | 'tainted-canvas'
+    | 'context-lost'
+    | 'empty-canvas'
 
 export class NovaExportError extends Error {
   readonly code: NovaExportErrorCode

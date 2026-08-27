@@ -1,5 +1,5 @@
-import RBush from 'rbush'
 import type { NovaBounds } from '@/domain/types/renderer.types'
+import RBush from 'rbush'
 
 /**
  * Описывает indexed record для RBush.
@@ -16,7 +16,7 @@ interface NovaHitIndexRecord<T> {
  * Описывает options общего hit-test индекса.
  */
 export interface NovaHitIndexOptions<T> {
-  getBounds(item: T): NovaBounds
+  getBounds: (item: T) => NovaBounds
   isIndexable?: (item: T) => boolean
 }
 
@@ -42,13 +42,17 @@ export class NovaHitIndex<T extends object> {
     const records: Array<NovaHitIndexRecord<T>> = []
     for (const item of items) {
       const record = this.createRecord(item)
-      if (!record) continue
+      if (!record) {
+        continue
+      }
 
       this._records.set(item, record)
       records.push(record)
     }
 
-    if (records.length > 0) this._tree.load(records)
+    if (records.length > 0) {
+      this._tree.load(records)
+    }
   }
 
   /**
@@ -88,7 +92,9 @@ export class NovaHitIndex<T extends object> {
     this.remove(item)
 
     const record = this.createRecord(item)
-    if (!record) return
+    if (!record) {
+      return
+    }
 
     this._records.set(item, record)
     this._tree.insert(record)
@@ -99,7 +105,9 @@ export class NovaHitIndex<T extends object> {
    */
   remove(item: T): void {
     const record = this._records.get(item)
-    if (!record) return
+    if (!record) {
+      return
+    }
 
     this._tree.remove(record)
     this._records.delete(item)
@@ -132,10 +140,14 @@ export class NovaHitIndex<T extends object> {
    * Создает RBush record для item.
    */
   private createRecord(item: T): NovaHitIndexRecord<T> | null {
-    if (this.options.isIndexable && !this.options.isIndexable(item)) return null
+    if (this.options.isIndexable && !this.options.isIndexable(item)) {
+      return null
+    }
 
     const bounds = this.options.getBounds(item)
-    if (!isFiniteBounds(bounds) || bounds.width <= 0 || bounds.height <= 0) return null
+    if (!isFiniteBounds(bounds) || bounds.width <= 0 || bounds.height <= 0) {
+      return null
+    }
 
     return {
       minX: bounds.x,

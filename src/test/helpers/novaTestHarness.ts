@@ -1,12 +1,11 @@
-import { vi } from 'vitest'
 import type { EventList } from '@endge/utils'
+import type { NovaApp, NovaRaphOptions, NovaSoundOptions } from '@/index'
+import { vi } from 'vitest'
 import {
   Nova,
+
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
-  type NovaRaphOptions,
-  type NovaSoundOptions,
 } from '@/index'
 
 /**

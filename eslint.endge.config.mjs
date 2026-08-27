@@ -126,6 +126,8 @@ const endgeConfigs = [
       'no-restricted-globals': [
         'error',
         { name: 'fetch', message: 'FE-UI-STATIC-001: UI вызывает Module, а не raw transport.' },
+        { name: 'localStorage', message: 'FE-UI-STATIC-001: persistent state принадлежит Module и storage Adapter.' },
+        { name: 'sessionStorage', message: 'FE-UI-STATIC-001: persistent state принадлежит Module и storage Adapter.' },
       ],
       'no-restricted-imports': [
         'error',
@@ -137,6 +139,17 @@ const endgeConfigs = [
           ],
         },
       ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'NewExpression[callee.type=\'Identifier\'][callee.name=/(_(?:Service|Adapter|Module|Federation)|(?:Service|Adapter|Module|Federation))$/]',
+          message: 'FE-UI-STATIC-001: UI получает Module через Federation и не создаёт architectural layers.',
+        },
+        {
+          selector: 'MemberExpression[object.name=/^(window|globalThis)$/][property.name=/^(localStorage|sessionStorage)$/]',
+          message: 'FE-UI-STATIC-001: persistent state принадлежит Module и storage Adapter.',
+        },
+      ],
     },
   },
   {
@@ -146,6 +159,7 @@ const endgeConfigs = [
       'src/**/*Service.{js,mjs,cjs,ts,tsx,mts,cts}',
       'src/**/*_Service.{js,mjs,cjs,ts,tsx,mts,cts}',
     ],
+    ignores: ['src/test/**'],
     rules: {
       'no-restricted-globals': [
         'error',
@@ -180,6 +194,7 @@ const endgeConfigs = [
       'src/**/*Module.{js,mjs,cjs,ts,tsx,mts,cts}',
       'src/**/*_Module.{js,mjs,cjs,ts,tsx,mts,cts}',
     ],
+    ignores: ['src/**/adapters/**', 'src/test/**'],
     rules: {
       'no-restricted-globals': [
         'error',

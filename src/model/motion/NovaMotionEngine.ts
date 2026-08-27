@@ -1,18 +1,4 @@
 import type { RaphLoopLease } from '@endge/raph'
-import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
-import { NovaNode } from '@/model/runtime/tree/NovaNode'
-import { clampMotionProgress, resolveNovaMotionEasing } from '@/model/motion/nova-motion-easing'
-import { interpolateNovaMotionValue } from '@/model/motion/nova-motion-interpolation'
-import {
-  runNovaMotionPattern,
-  runNovaMotionPreset,
-  type NovaMotionPatternName,
-  type NovaMotionPatternOptions,
-  type NovaMotionPresetName,
-  type NovaMotionPresetOptions,
-} from '@/model/motion/nova-motion-presets'
-import { compileNovaMotionTimeline } from '@/model/motion/nova-motion-timeline'
 import type {
   NovaMotionOptions,
   NovaMotionPatch,
@@ -25,6 +11,18 @@ import type {
   NovaMotionTweenOptions,
   NovaMotionValue,
 } from '@/domain/types/motion.types'
+import type { NovaMotionPatternName, NovaMotionPatternOptions, NovaMotionPresetName, NovaMotionPresetOptions } from '@/model/motion/nova-motion-presets'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import { clampMotionProgress, resolveNovaMotionEasing } from '@/model/motion/nova-motion-easing'
+import { interpolateNovaMotionValue } from '@/model/motion/nova-motion-interpolation'
+import {
+
+  runNovaMotionPattern,
+  runNovaMotionPreset,
+} from '@/model/motion/nova-motion-presets'
+import { compileNovaMotionTimeline } from '@/model/motion/nova-motion-timeline'
+import { NovaComponentNode } from '@/model/runtime/components/NovaComponentNode'
+import { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 const NODE_MOTION_KEYS = new Set([
   'x',
@@ -82,7 +80,9 @@ export class NovaMotionEngine {
     }
 
     this.addPlayback(playback, segments, options)
-    if (options.autoplay !== false) playback.play()
+    if (options.autoplay !== false) {
+      playback.play()
+    }
     return playback
   }
 
@@ -93,7 +93,9 @@ export class NovaMotionEngine {
     const playback = new NovaMotionPlaybackController(this, options)
     const segments = compileNovaMotionTimeline(playback, options, (target, key) => this.readValue(target, key))
     this.addPlayback(playback, segments, options)
-    if (options.autoplay !== false) playback.play()
+    if (options.autoplay !== false) {
+      playback.play()
+    }
     return playback
   }
 
@@ -228,7 +230,9 @@ export class NovaMotionEngine {
 
     for (const playback of [...this.playbacks]) {
       playback.removeSegments(segment => keys.has(segmentKey(segment.target, segment.key)))
-      if (playback.empty) playback.cancel()
+      if (playback.empty) {
+        playback.cancel()
+      }
     }
   }
 
@@ -241,7 +245,9 @@ export class NovaMotionEngine {
     }
 
     const directValue = (target as any)[key]
-    if (directValue !== undefined) return directValue
+    if (directValue !== undefined) {
+      return directValue
+    }
 
     if (typeof (target as any).get === 'function') {
       return (target as any).get(key)
@@ -260,7 +266,8 @@ export class NovaMotionEngine {
     for (const [key, value] of Object.entries(patch)) {
       if (target instanceof NovaComponentNode && !NODE_MOTION_KEYS.has(key)) {
         componentPatch[key] = value
-      } else {
+      }
+      else {
         nodePatch[key] = value
       }
     }
@@ -273,7 +280,8 @@ export class NovaMotionEngine {
       for (const [key, value] of Object.entries(nodePatch)) {
         if (key in target) {
           ;(target as any)[key] = value
-        } else {
+        }
+        else {
           target.options({ [key]: value } as any)
         }
       }
@@ -288,7 +296,8 @@ export class NovaMotionEngine {
     const hasRunning = [...this.playbacks].some(playback => playback.state === 'running')
     if (hasRunning && !this.lease) {
       this.lease = this.app.raph.acquireLoop('nova-motion')
-    } else if (!hasRunning && this.lease) {
+    }
+    else if (!hasRunning && this.lease) {
       this.lease.release()
       this.lease = null
     }
@@ -370,7 +379,9 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
    * Выполняет внутреннюю операцию pause.
    */
   pause(): void {
-    if (this._state !== 'running') return
+    if (this._state !== 'running') {
+      return
+    }
     this.pausedAt = performance.now()
     this._state = 'paused'
   }
@@ -379,7 +390,9 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
    * Выполняет внутреннюю операцию resume.
    */
   resume(): void {
-    if (this._state !== 'paused') return
+    if (this._state !== 'paused') {
+      return
+    }
     this.startedAt += performance.now() - this.pausedAt
     this.pausedAt = 0
     this._state = 'running'
@@ -390,7 +403,9 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
    * Выполняет внутреннюю операцию cancel.
    */
   cancel(): void {
-    if (this._state === 'cancelled') return
+    if (this._state === 'cancelled') {
+      return
+    }
     this._state = 'cancelled'
     this.engine._deactivate(this)
   }
@@ -409,7 +424,9 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
    * Выполняет один tick runtime-обработки.
    */
   tick(now: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
-    if (this._state !== 'running') return
+    if (this._state !== 'running') {
+      return
+    }
     if (this.segments.length === 0) {
       this._state = 'finished'
       return
@@ -441,7 +458,9 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
   private applyAt(time: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
     for (const segment of this.segments) {
       const segmentEnd = segment.startAt + segment.duration
-      if (time < segment.startAt) continue
+      if (time < segment.startAt) {
+        continue
+      }
       if (time > segmentEnd) {
         appendPatch(patches, segment.target, segment.key, segment.to)
         continue
@@ -486,7 +505,7 @@ function appendPatch(
 /**
  * Вычисляет node dirty.
  */
-function resolveNodeDirty(patch: NovaMotionPatch): { matrix?: boolean; update?: boolean; render?: boolean } {
+function resolveNodeDirty(patch: NovaMotionPatch): { matrix?: boolean, update?: boolean, render?: boolean } {
   const keys = Object.keys(patch)
   return {
     matrix: keys.some(key => TRANSFORM_KEYS.has(key) || SIZE_KEYS.has(key)),

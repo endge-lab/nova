@@ -22,8 +22,8 @@ import type {
   NovaTimeRangeSegmentBatch,
 } from '@/domain/types/renderer.types'
 import type { NovaCanvas } from '@/model/platform/NovaCanvas'
-import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
+import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 
 const FAST_SCHEMA_BATCH_THRESHOLD = 64
@@ -72,7 +72,9 @@ export class NovaRenderBuilder implements NovaRenderer {
   schema(schema: NovaSchema<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
 
-    if (this.schemaBatch(schema, 'ordered')) return
+    if (this.schemaBatch(schema, 'ordered')) {
+      return
+    }
 
     for (const item of items) {
       this.schemaItem(item as NovaSchemaItem<any>)
@@ -83,7 +85,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Выполняет внутреннюю операцию schema batched.
    */
   schemaBatched(schema: NovaSchema<any>): void {
-    if (this.schemaBatch(schema, 'batched')) return
+    if (this.schemaBatch(schema, 'batched')) {
+      return
+    }
     this.schema(schema)
   }
 
@@ -91,7 +95,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Выполняет внутреннюю операцию schema ordered.
    */
   schemaOrdered(schema: NovaSchema<any>): void {
-    if (this.schemaBatch(schema, 'ordered')) return
+    if (this.schemaBatch(schema, 'ordered')) {
+      return
+    }
     this.schema(schema)
   }
 
@@ -154,7 +160,7 @@ export class NovaRenderBuilder implements NovaRenderer {
   /**
    * Начинает запись в offscreen render target.
    */
-  beginRenderTarget(id: string, width: number, height: number, options?: { dpr?: number; kind?: 'texture' | 'cache' | 'effect' }): void {
+  beginRenderTarget(id: string, width: number, height: number, options?: { dpr?: number, kind?: 'texture' | 'cache' | 'effect' }): void {
     this._writer.beginRenderTarget(id, width, height, options)
   }
 
@@ -169,7 +175,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Рисует offscreen render target в текущий target.
    */
   drawRenderTarget(id: string, x: number, y: number, width: number, height: number): void {
-    if (width <= 0 || height <= 0) return
+    if (width <= 0 || height <= 0) {
+      return
+    }
     this._writer.drawRenderTarget(id, x, y, width, height)
   }
 
@@ -240,7 +248,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Записывает retained rect batch без разворачивания в schema items.
    */
   rects(batch: NovaRectBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawRectBatch(batch)
   }
 
@@ -248,7 +258,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Записывает retained time-range segment batch без разворачивания в rect primitives.
    */
   timeRangeSegments(batch: NovaTimeRangeSegmentBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawTimeRangeSegmentBatch(batch)
   }
 
@@ -256,7 +268,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Записывает retained stripe batch без разворачивания в schema items.
    */
   stripes(batch: NovaStripeRectBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawStripeBatch(batch)
   }
 
@@ -264,7 +278,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Записывает retained icon batch без разворачивания в schema items.
    */
   icons(batch: NovaIconBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawIconBatch(batch)
   }
 
@@ -272,7 +288,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Записывает retained text batch без разворачивания в schema items.
    */
   texts(batch: NovaTextBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawTextBatch(batch)
   }
 
@@ -280,14 +298,16 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Записывает retained particle batch без разворачивания в schema items.
    */
   particles(batch: NovaParticleBatch): void {
-    if (batch.active === false || batch.count <= 0) return
+    if (batch.active === false || batch.count <= 0) {
+      return
+    }
     this._writer.drawParticles(batch)
   }
 
   /**
    * Выполняет внутреннюю операцию measure text.
    */
-  measureText(params: NovaText): { width: number; height: number } {
+  measureText(params: NovaText): { width: number, height: number } {
     const context = this.getMeasureContext()
     const font = params.styles?.font
     const size = font?.size ?? 12
@@ -295,7 +315,9 @@ export class NovaRenderBuilder implements NovaRenderer {
     const style = font?.style ?? 'normal'
     const weight = font?.weight ?? 'normal'
 
-    if (context) context.font = `${style} ${weight} ${size}px ${family}`
+    if (context) {
+      context.font = `${style} ${weight} ${size}px ${family}`
+    }
     const width = context?.measureText(params.text).width ?? params.text.length * size * 0.6
     return {
       width,
@@ -313,7 +335,8 @@ export class NovaRenderBuilder implements NovaRenderer {
 
     try {
       return this._measureCanvas.getContext('2d')
-    } catch {
+    }
+    catch {
       return null
     }
   }
@@ -351,7 +374,9 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Выполняет внутреннюю операцию schema item.
    */
   private schemaItem(item: NovaSchemaItem<any>): void {
-    if (item.active === false) return
+    if (item.active === false) {
+      return
+    }
 
     if (item.clip !== undefined && item.clip !== true) {
       this.clip(item.clip.x, item.clip.y, item.clip.width, item.clip.height)
@@ -389,7 +414,9 @@ export class NovaRenderBuilder implements NovaRenderer {
       ? items.filter(item => item.active !== false)
       : items
 
-    if (activeItems.length < FAST_SCHEMA_BATCH_THRESHOLD) return false
+    if (activeItems.length < FAST_SCHEMA_BATCH_THRESHOLD) {
+      return false
+    }
 
     this._writer.drawSchemaBatch(
       activeItems as Array<NovaSchemaItem<any>>,

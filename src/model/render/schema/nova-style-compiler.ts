@@ -8,7 +8,8 @@ import type {
   NovaStylePadding,
   NovaText,
 } from '@/domain/types/renderer.types'
-import { parseNovaColor, type NovaParsedColor } from '@/model/render/schema/nova-color-parser'
+import type { NovaParsedColor } from '@/model/render/schema/nova-color-parser'
+import { parseNovaColor } from '@/model/render/schema/nova-color-parser'
 
 /**
  * Описывает контракт NovaCompiledBoxStyle.
@@ -80,7 +81,7 @@ export function compileNovaBorderStyle(border: NovaBorder): NovaCompiledBoxStyle
   return {
     fill: parseNovaColor(undefined, 0x00000000),
     opacity: 1,
-    borderColor: parseNovaColor(border.styles?.color, 0x000000ff),
+    borderColor: parseNovaColor(border.styles?.color, 0x000000FF),
     borderWidth: border.styles?.width ?? 1,
     borderRadius: border.styles?.radius ?? 0,
     dashPattern: border.styles?.dashPattern,
@@ -107,7 +108,7 @@ export function compileNovaCircleStyle(circle: NovaCircle): NovaCompiledBoxStyle
  */
 export function compileNovaArcStyle(arc: NovaArc): NovaCompiledArcStyle {
   return {
-    color: parseNovaColor(arc.styles?.color, 0x000000ff),
+    color: parseNovaColor(arc.styles?.color, 0x000000FF),
     width: arc.styles?.width ?? 1,
     opacity: arc.styles?.opacity ?? 1,
     lineCap: arc.styles?.lineCap ?? 'butt',
@@ -117,9 +118,9 @@ export function compileNovaArcStyle(arc: NovaArc): NovaCompiledArcStyle {
 /**
  * Компилирует nova line style.
  */
-export function compileNovaLineStyle(line: NovaLine): { color: NovaParsedColor; width: number; opacity: number; dashPattern?: Array<number> } {
+export function compileNovaLineStyle(line: NovaLine): { color: NovaParsedColor, width: number, opacity: number, dashPattern?: Array<number> } {
   return {
-    color: parseNovaColor(line.styles?.color, 0x000000ff),
+    color: parseNovaColor(line.styles?.color, 0x000000FF),
     width: line.styles?.width ?? 1,
     opacity: line.styles?.opacity ?? 1,
     dashPattern: line.styles?.dashPattern,
@@ -154,7 +155,7 @@ export function compileNovaTextStyle(text: NovaText): NovaCompiledTextStyle {
   const fontFamily = font?.family ?? 'sans-serif'
 
   return {
-    color: parseNovaColor(text.styles?.color, 0x000000ff),
+    color: parseNovaColor(text.styles?.color, 0x000000FF),
     opacity: text.styles?.opacity ?? 1,
     font: `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`,
     fontSize,
@@ -171,7 +172,9 @@ export function compileNovaTextStyle(text: NovaText): NovaCompiledTextStyle {
  * Компилирует nova padding.
  */
 export function compileNovaPadding(padding?: NovaStylePadding): Required<NovaCompiledPadding> {
-  if (!padding) return { left: 0, right: 0, top: 0, bottom: 0 }
+  if (!padding) {
+    return { left: 0, right: 0, top: 0, bottom: 0 }
+  }
   if ('all' in padding) {
     const value = padding.all ?? 0
     return { left: value, right: value, top: value, bottom: value }

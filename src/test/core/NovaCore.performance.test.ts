@@ -1,7 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { EventList } from '@endge/utils'
+import type { NovaApp } from '@/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaContainer,
   NovaHitIndex,
   NovaNode,
@@ -11,12 +13,11 @@ import {
   NovaSurface,
   RaphSchedulerType,
   RendererType,
-  type NovaApp,
 } from '@/index'
 
 type TestEvents = EventList
 
-type AuditLog = {
+interface AuditLog {
   renders: Array<string>
   updates: Array<string>
   surfaceFlushes: Array<string>
@@ -104,7 +105,7 @@ function createCanvas(): HTMLCanvasElement {
   return canvas
 }
 
-function createApp(options: { width?: number; height?: number; input?: boolean; pointerCapture?: boolean } = {}): NovaApp<TestEvents> {
+function createApp(options: { width?: number, height?: number, input?: boolean, pointerCapture?: boolean } = {}): NovaApp<TestEvents> {
   return Nova.createApp<TestEvents>({
     target: createCanvas(),
     size: {
@@ -278,7 +279,7 @@ function waitFrame(): Promise<void> {
   return new Promise(resolve => requestAnimationFrame(() => resolve()))
 }
 
-describe('Nova core behavior and performance smoke', () => {
+describe('nova core behavior and performance smoke', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
@@ -686,7 +687,9 @@ describe('Nova core behavior and performance smoke', () => {
        * Выполняет отрисовку ViewportRootNode.
        */
       override render(): void {
-        if (this.childCount > 0) return
+        if (this.childCount > 0) {
+          return
+        }
 
         const child = new AuditNode(this.nova, this.surface, 'late-child', log)
         child.options({ x: 20, y: 20, width: 40, height: 30 })
@@ -696,7 +699,7 @@ describe('Nova core behavior and performance smoke', () => {
       /**
        * Возвращает значение состояния ViewportRootNode.
        */
-      override getRenderBounds(): { x: number; y: number; width: number; height: number } {
+      override getRenderBounds(): { x: number, y: number, width: number, height: number } {
         return { x: 0, y: 0, width: this.nova.width, height: this.nova.height }
       }
     }
@@ -794,7 +797,7 @@ describe('Nova core behavior and performance smoke', () => {
       /**
        * Возвращает значение состояния RenderBoundsHitNode.
        */
-      override getRenderBounds(): { x: number; y: number; width: number; height: number } {
+      override getRenderBounds(): { x: number, y: number, width: number, height: number } {
         return { x: 120, y: 80, width: 180, height: 40 }
       }
 
@@ -883,7 +886,7 @@ describe('Nova core behavior and performance smoke', () => {
     group.addChild(child)
     group.onCapture('mousedown', () => order.push('capture-group'))
     group.on('mousedown', () => order.push('bubble-group'))
-    child.on('mousedown', event => {
+    child.on('mousedown', (event) => {
       order.push('target-child')
       event.cancelBubble = true
     })
@@ -1685,7 +1688,7 @@ describe('Nova core behavior and performance smoke', () => {
     const events: Array<string> = []
     const node = surface.createNode(AuditNode, 'captured', log)
     node.options({ x: 10, y: 10, width: 30, height: 30 })
-    node.on('mousedown', event => {
+    node.on('mousedown', (event) => {
       events.push('down')
       node.capturePointer(event)
     })
@@ -1742,11 +1745,11 @@ describe('Nova core behavior and performance smoke', () => {
 
     first.options({ x: 10, y: 10, width: 30, height: 30 })
     second.options({ x: 60, y: 10, width: 30, height: 30 })
-    first.on('mousedown', event => {
+    first.on('mousedown', (event) => {
       first.capturePointer(event)
       events.push('first-down')
     })
-    second.on('mousedown', event => {
+    second.on('mousedown', (event) => {
       second.capturePointer(event)
       events.push('second-down')
     })
@@ -1800,7 +1803,7 @@ describe('Nova core behavior and performance smoke', () => {
     const events: Array<string> = []
     const first = surface.createNode(AuditNode, 'first', log)
     first.options({ x: 10, y: 10, width: 20, height: 20 })
-    first.on('mousedown', event => {
+    first.on('mousedown', (event) => {
       first.select({}, event)
     })
     first.on('focus', () => events.push('first-focus'))

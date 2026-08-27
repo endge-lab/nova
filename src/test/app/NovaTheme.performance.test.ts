@@ -1,9 +1,10 @@
+import type { NovaApp, NovaSurface } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+
   NovaNode,
   NovaPhase,
-  type NovaApp,
-  type NovaSurface,
+
 } from '@/index'
 import {
   createTestApp,
@@ -34,7 +35,7 @@ class ThemePerfNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('Nova theme runtime performance', () => {
+describe('nova theme runtime performance', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

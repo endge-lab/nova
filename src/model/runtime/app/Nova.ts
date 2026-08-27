@@ -1,48 +1,48 @@
 import type { EventList, OneOrMany } from '@endge/utils'
-import { NovaApp } from '@/model/runtime/app/NovaApp'
 import type { NovaAppCreateOptions } from '@/domain/types/base.types'
 import type { NovaElementConstructor } from '@/domain/types/component.types'
+import type { NovaContextToken } from '@/domain/types/context.types'
+import type { NovaThemeId, NovaThemeTokens } from '@/domain/types/theme.types'
+import type { NovaDefinedComponentInput, NovaDefinedComponentOptions } from '@/model/runtime/components/nova-defined-component'
 import type { NovaSchemaRegistry } from '@/model/runtime/components/NovaSchemaRegistry'
+import type { NovaComputed, NovaSignal, NovaTrackNodeOptions } from '@/model/runtime/reactivity/nova-reactivity'
+import type { NovaRef, NovaRefMap, NovaScope } from '@/model/runtime/refs/nova-ref'
+import type { NovaCreateStoreOptions } from '@/model/runtime/state/nova-store-runtime'
+import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import type { NovaGlobalThemeAsset, NovaThemeSelectorTarget } from '@/model/theme/NovaGlobalThemeRegistry'
+import { NovaApp } from '@/model/runtime/app/NovaApp'
+import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
+import { Prop } from '@/model/runtime/components/nova-component.decorator'
 import {
   defineNovaComponent,
+
   registerDefinedComponents,
-  type NovaDefinedComponentInput,
-  type NovaDefinedComponentOptions,
 } from '@/model/runtime/components/nova-defined-component'
+import { createNovaContextToken } from '@/model/runtime/context/nova-context'
+import {
+  createNovaComputed,
+  createNovaSignal,
+
+  trackNovaNode,
+} from '@/model/runtime/reactivity/nova-reactivity'
 import {
   createNovaRef,
   createNovaRefMap,
   createNovaScope,
-  type NovaRef,
-  type NovaRefMap,
-  type NovaScope,
+
 } from '@/model/runtime/refs/nova-ref'
-import {
-  createNovaComputed,
-  createNovaSignal,
-  trackNovaNode,
-  type NovaComputed,
-  type NovaSignal,
-  type NovaTrackNodeOptions,
-} from '@/model/runtime/reactivity/nova-reactivity'
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
-import type { NovaCompiledNodeConstructor } from '@/model/runtime/template/NovaTemplateRuntime'
-import { NovaAssets } from '@/model/runtime/assets/NovaAssetRegistry'
-import {
-  NovaGlobalThemes,
-  type NovaGlobalThemeAsset,
-  type NovaThemeSelectorTarget,
-} from '@/model/theme/NovaGlobalThemeRegistry'
-import type { NovaThemeId, NovaThemeTokens } from '@/domain/types/theme.types'
-import { Prop } from '@/model/runtime/components/nova-component.decorator'
-import type { NovaContextToken } from '@/domain/types/context.types'
-import { createNovaContextToken } from '@/model/runtime/context/nova-context'
 import {
   batchNovaStore,
   createNovaStore,
-  type NovaCreateStoreOptions,
+
 } from '@/model/runtime/state/nova-store-runtime'
+import {
+
+  NovaGlobalThemes,
+
+} from '@/model/theme/NovaGlobalThemeRegistry'
 
 export type NovaSchemaPlugin = (registry: NovaSchemaRegistry) => void
 
@@ -61,9 +61,9 @@ export interface NovaMountHandle {
     setListeners?: (listeners: Record<string, (...args: Array<any>) => void>) => unknown
     remove: () => void
   }
-  updateProps(patch: Record<string, unknown>): void
-  updateListeners(listeners: Record<string, (...args: Array<any>) => void>): void
-  destroy(): void
+  updateProps: (patch: Record<string, unknown>) => void
+  updateListeners: (listeners: Record<string, (...args: Array<any>) => void>) => void
+  destroy: () => void
 }
 
 /**
@@ -145,7 +145,9 @@ export class Nova {
    * Подключает Nova UI Kit ко всем новым NovaApp.
    */
   static useUIKit(plugin?: NovaSchemaPlugin): void {
-    if (plugin) this._uiKitPlugin = plugin
+    if (plugin) {
+      this._uiKitPlugin = plugin
+    }
     if (!this._uiKitPlugin) {
       throw new Error('[Nova] UI Kit plugin is not configured. Pass registerNovaUIKit to Nova.useUIKit().')
     }

@@ -1,15 +1,14 @@
+import type { NovaApp, NovaComponentCreateContext, NovaComponentDescriptor, NovaComponentSchema, NovaSurface } from '@/index'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   Nova,
+
   NovaComponentNode,
+
   NovaNode,
+
   NovaTemplateRuntime,
   reconcileNovaTemplateChildren,
-  type NovaApp,
-  type NovaComponentDescriptor,
-  type NovaComponentSchema,
-  type NovaComponentCreateContext,
-  type NovaSurface,
 } from '@/index'
 import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
 
@@ -160,7 +159,7 @@ class LargeCompiledTemplateNode extends NovaNode<Record<string, any>> {
 
 interface RefTestApi {
   value: number
-  increment(delta: number): number
+  increment: (delta: number) => number
 }
 
 /**
@@ -217,7 +216,7 @@ function createDescriptor(): NovaComponentDescriptor<TestProps, unknown, Record<
   return descriptor
 }
 
-describe('Nova template runtime', () => {
+describe('nova template runtime', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''

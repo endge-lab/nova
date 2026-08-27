@@ -1,9 +1,10 @@
+import type { NovaApp } from '@/index'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Nova, RaphSchedulerType, RendererType, type NovaApp } from '@/index'
+import { Nova, RaphSchedulerType, RendererType } from '@/index'
 
 type TestEvents = Record<string, any>
 
-describe('NovaMotionTimeline', () => {
+describe('novaMotionTimeline', () => {
   let app: NovaApp<TestEvents>
 
   beforeEach(() => {
@@ -85,7 +86,9 @@ function createApp(): NovaApp<TestEvents> {
 
 function installCanvasMocks(): void {
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
-    if (type !== RendererType.Web2D) return null
+    if (type !== RendererType.Web2D) {
+      return null
+    }
     return new Proxy({ measureText: vi.fn(() => ({ width: 10 })), createPattern: vi.fn(() => ({})) }, {
       /**
        * Возвращает значение состояния текущего класса.

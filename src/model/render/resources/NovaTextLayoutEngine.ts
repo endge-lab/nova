@@ -27,7 +27,9 @@ export class NovaTextLayoutEngine {
     const weight = font?.weight ?? 'normal'
     const fontKey = `${style}:${weight}:${size}:${family}`
 
-    if (context) context.font = `${style} ${weight} ${size}px ${family}`
+    if (context) {
+      context.font = `${style} ${weight} ${size}px ${family}`
+    }
 
     return {
       width: Math.ceil(context?.measureText(text.text).width ?? text.text.length * size * 0.6),
@@ -46,7 +48,8 @@ export class NovaTextLayoutEngine {
 
     try {
       return this._canvas.getContext('2d')
-    } catch {
+    }
+    catch {
       return null
     }
   }

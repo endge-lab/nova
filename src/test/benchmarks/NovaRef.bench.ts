@@ -1,9 +1,9 @@
 import { bench, describe } from 'vitest'
-import { Nova, bindNovaRef, unbindNovaRef } from '@/index'
+import { bindNovaRef, Nova, unbindNovaRef } from '@/index'
 
 interface CounterApi {
   value: number
-  increment(delta: number): number
+  increment: (delta: number) => number
 }
 
 function createApi(): CounterApi {
@@ -19,7 +19,7 @@ function createApi(): CounterApi {
   }
 }
 
-describe('Nova proxy ref benchmarks', () => {
+describe('nova proxy ref benchmarks', () => {
   bench('direct API method call', () => {
     const api = createApi()
     for (let index = 0; index < 10_000; index += 1) {
