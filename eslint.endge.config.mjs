@@ -156,14 +156,33 @@ const endgeConfigs = [
       'no-restricted-syntax': [
         'error',
         {
-          selector: 'NewExpression[callee.type=\'Identifier\'][callee.name=/(_(?:Service|Module|Federation)|(?:Service|Module|Federation))$/]',
-          message: 'FE-UI-STATIC-001: UI получает Module через Federation и не создаёт architectural layers.',
+          selector: 'NewExpression[callee.type=\'Identifier\'][callee.name=/(_(?:Module|Federation)|(?:Module|Federation))$/]',
+          message: 'FE-UI-STATIC-001: UI получает Module через Federation и не создаёт Module/Federation.',
         },
         {
           selector: 'MemberExpression[object.name=/^(window|globalThis)$/][property.name=/^(localStorage|sessionStorage)$/]',
           message: 'FE-UI-STATIC-001: persistent state принадлежит Module.',
         },
       ],
+    },
+  },
+  {
+    name: 'endge/console-entrypoints',
+    files: [
+      'examples/**/*.{js,mjs,cjs,ts,tsx,mts,cts,vue}',
+      'plugins/**/*.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'scripts/**/*.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'src/test/**/*.{js,mjs,cjs,ts,tsx,mts,cts,vue}',
+      'src/**/debug/**/*.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'src/**/debug.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'src/**/*Debug.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'src/**/*DiagnosticsAdapter.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'src/**/*.{bench,benchmark}.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'src/**/cli.{js,mjs,cjs,ts,tsx,mts,cts}',
+      'src/**/server.{js,mjs,cjs,ts,tsx,mts,cts}',
+    ],
+    rules: {
+      'no-console': 'off',
     },
   },
   {

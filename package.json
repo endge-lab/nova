@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova",
   "type": "module",
-  "version": "0.13.11",
+  "version": "0.13.12",
   "private": false,
   "sideEffects": false,
   "exports": {
