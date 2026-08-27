@@ -387,9 +387,10 @@ function createDecoratedNode<E extends EventList>(
   schema: NovaComponentSchema<Record<string, any>>,
 ): NovaNode<E> {
   const props = descriptor.normalize?.(schema) ?? schema.props ?? {}
+  const Component = component as any
   const node = component.prototype instanceof NovaComponentNode
-    ? new (component as any)(context.app, context.surface, descriptor, props, { componentId: schema.id })
-    : new component(context.app, context.surface, props)
+    ? new Component(context.app, context.surface, descriptor, props, { componentId: schema.id })
+    : new Component(context.app, context.surface, props)
   if (!(component.prototype instanceof NovaComponentNode)) {
     attachPlainDecoratedRuntime(node, props, schema.id)
   }

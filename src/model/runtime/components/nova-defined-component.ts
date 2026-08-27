@@ -149,11 +149,12 @@ export function createDefinedComponentNode<E extends EventList = Record<string, 
     props: {},
   }
   const metadata = readDefinedComponent(component)
+  const Component = component
   const node = metadata?.createNode
     ? metadata.createNode(context, schema)
     : metadata
-      ? new component(context.app, context.surface)
-      : new component(
+      ? new Component(context.app, context.surface)
+      : new Component(
           context.app,
           context.surface,
           schema.props ?? {},

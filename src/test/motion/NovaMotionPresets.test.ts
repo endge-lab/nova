@@ -102,7 +102,7 @@ describe('novaMotion presets and patterns', () => {
     expect(new Set(patternNames).size).toBe(patternNames.length)
 
     for (const meta of [...Object.values(NOVA_MOTION_PRESETS), ...Object.values(NOVA_MOTION_PATTERNS)]) {
-      expect(meta.description).toMatch(/[А-Яа-яЁё]/)
+      expect(meta.description).toMatch(/[\u0401\u0410-\u042F\u0430-\u044F\u0451]/u)
       expect(meta.description).not.toContain('—')
       expect(meta.description).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
     }

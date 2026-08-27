@@ -1393,10 +1393,10 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           continue
         }
 
-        if (/^\*\*(.+)\*\*$/.test(part)) {
+        if (/^\*\*.+\*\*$/.test(part)) {
           chunks.push({ text: part.slice(2, -2), bold: true })
         }
-        else if (/^_(.+)_$/.test(part)) {
+        else if (/^_.+_$/.test(part)) {
           chunks.push({ text: part.slice(1, -1), italic: true })
         }
         else {

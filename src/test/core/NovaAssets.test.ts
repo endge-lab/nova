@@ -300,11 +300,16 @@ describe('nova assets registry', () => {
     vi.stubGlobal('Image', class {
       onload?: () => void
       onerror?: () => void
+      get src(): string {
+        return ''
+      }
+
       set src(_value: string) {}
       /**
        * Создает тестовый Image stub.
        */
       constructor() {
+        // eslint-disable-next-line ts/no-this-alias -- Тесту нужна ссылка на созданный браузерный stub.
         image = this
       }
     })

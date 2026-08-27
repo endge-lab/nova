@@ -3585,7 +3585,7 @@ export class NovaWebGLFrameRenderer {
    * Проверяет shaping cases, где glyph-atlas без HarfBuzz может разложить строку некорректно.
    */
   private _hasComplexGlyphText(value: string): boolean {
-    if (/(^|[^A-Z])(?:ffi|ffl|fi|fl)([^A-Z]|$)/i.test(value)) {
+    if (/(?:^|[^A-Z])(?:ffi|ffl|fi|fl)(?:[^A-Z]|$)/i.test(value)) {
       return true
     }
 

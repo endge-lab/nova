@@ -255,10 +255,7 @@ export class NovaSemanticService {
   }
 
   private _findAnyFocusedId(): string | undefined {
-    for (const id of this._focusedByScope.values()) {
-      return id
-    }
-    return undefined
+    return this._focusedByScope.values().next().value
   }
 
   private _clearRegionFocused(id: string): void {

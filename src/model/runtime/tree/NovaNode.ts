@@ -1261,7 +1261,7 @@ export class NovaNode<
    * Возвращает surface.
    */
   get surface(): NovaSurface<E> {
-    return this._surface! ?? (this as any as NovaSurface<E>)
+    return this._surface ?? (this as any as NovaSurface<E>)
   }
 
   /**

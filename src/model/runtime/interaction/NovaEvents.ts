@@ -1047,8 +1047,5 @@ export class NovaEvents<E extends EventList> {
 }
 
 function firstSetItem<T>(items: Set<T>): T | undefined {
-  for (const item of items) {
-    return item
-  }
-  return undefined
+  return items.values().next().value
 }
