@@ -16,18 +16,6 @@ interface CounterProps {
   color: string
 }
 
-/**
- * Описывает Nova-node CounterNode и его runtime-поведение.
- */
-class CounterNode extends NovaComponentNode<CounterProps, unknown, Record<string, never>, CounterProps, TestEvents> {
-  /**
-   * Создает экземпляр CounterNode и подготавливает базовое состояние.
-   */
-  constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
-    super(app, surface, COUNTER_DESCRIPTOR, { value: 0, color: '#000000' })
-  }
-}
-
 const COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, unknown, Record<string, never>, CounterProps> = {
   type: 'test.motion-counter',
   name: 'MotionCounter',
@@ -39,6 +27,17 @@ const COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, unknown, Record<
   },
 }
 
+/**
+ * Описывает Nova-node CounterNode и его runtime-поведение.
+ */
+class CounterNode extends NovaComponentNode<CounterProps, unknown, Record<string, never>, CounterProps, TestEvents> {
+  /**
+   * Создает экземпляр CounterNode и подготавливает базовое состояние.
+   */
+  constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
+    super(app, surface, COUNTER_DESCRIPTOR, { value: 0, color: '#000000' })
+  }
+}
 describe('novaMotionEngine', () => {
   let app: NovaApp<TestEvents>
 

@@ -26,6 +26,13 @@ let componentCreateCount = 0
 /**
  * Описывает Nova-node TestCursorNode и его runtime-поведение.
  */
+let TEST_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
+  TestCursorProps,
+  Record<string, never>,
+  Record<string, never>,
+  TestCursorProps
+>
+
 class TestCursorNode<E extends TestEvents>
   extends NovaComponentNode<TestCursorProps, Record<string, never>, Record<string, never>, TestCursorProps, E> {
   /**
@@ -54,12 +61,7 @@ class TestCursorNode<E extends TestEvents>
   }
 }
 
-const TEST_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
-  TestCursorProps,
-  Record<string, never>,
-  Record<string, never>,
-  TestCursorProps
-> = {
+TEST_CURSOR_DESCRIPTOR = {
   type: 'test.cursor',
   name: 'TestCursor',
   version: '0.1.0',
@@ -72,7 +74,6 @@ const TEST_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
     schema.id,
   ),
 }
-
 /**
  * Описывает Nova-node CursorBoxNode и его runtime-поведение.
  */

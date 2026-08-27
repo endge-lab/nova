@@ -81,7 +81,7 @@ export function readNovaDecoratedComponent(
  * Обновляет metadata конструктора.
  */
 export function updateNovaDecoratedComponent(
-  component: Function,
+  component: NovaElementConstructor<any>,
   patch: Partial<NovaDecoratedComponentMetadata>,
 ): NovaDecoratedComponentMetadata {
   const current = readOwnMetadata(component)
@@ -110,7 +110,7 @@ export function addNovaPropMetadata(
   options: NovaPropDecoratorOptions = {},
   event = false,
 ): void {
-  const component = target.constructor
+  const component = novaElementConstructorOf(target)
   const metadata = readOwnMetadata(component)
   const key = options.key ?? String(propertyKey)
   const props = metadata.props.filter(prop => prop.key !== key)
@@ -135,7 +135,7 @@ export function addNovaWatchMetadata(
   path: string,
   options: NovaWatchDecoratorOptions = {},
 ): void {
-  const component = target.constructor
+  const component = novaElementConstructorOf(target)
   const metadata = readOwnMetadata(component)
   const methodName = String(propertyKey)
   const watchers = metadata.watchers.filter(item => item.methodName !== methodName || item.path !== path)
@@ -157,7 +157,7 @@ export function addNovaCommandMetadata(
   id: string,
   options: { scope?: string } = {},
 ): void {
-  const component = target.constructor
+  const component = novaElementConstructorOf(target)
   const metadata = readOwnMetadata(component)
   const methodName = String(propertyKey)
   const commands = metadata.commands.filter(item => item.methodName !== methodName || item.id !== id)
@@ -169,7 +169,7 @@ export function addNovaCommandMetadata(
  * Добавляет API metadata.
  */
 export function addNovaApiMetadata(target: object, propertyKey: string | symbol): void {
-  const component = target.constructor
+  const component = novaElementConstructorOf(target)
   const metadata = readOwnMetadata(component)
   const methodName = String(propertyKey)
   const apis = metadata.apis.filter(item => item.methodName !== methodName)
@@ -231,7 +231,7 @@ export function createNovaDecoratedComponentDescriptor<
 /**
  * Устанавливает accessors для prop-полей на prototype.
  */
-export function installNovaPropAccessors(component: Function): void {
+export function installNovaPropAccessors(component: NovaElementConstructor<any>): void {
   const metadata = collectMetadata(component)
   for (const prop of metadata.props) {
     const accessorKey = prop.propertyKey ?? prop.key
@@ -305,7 +305,7 @@ export function readNovaComponentPath(source: Record<string, any> | undefined, p
 /**
  * Собирает metadata с учетом prototype chain.
  */
-export function collectMetadata(component: Function): NovaDecoratedComponentMetadata {
+export function collectMetadata(component: NovaElementConstructor<any>): NovaDecoratedComponentMetadata {
   const chain: Array<NovaDecoratedComponentMetadata> = []
   let current: unknown = component
   while (typeof current === 'function') {
@@ -345,7 +345,7 @@ function createEmptyMetadata(): NovaDecoratedComponentMetadata {
 /**
  * Возвращает own metadata конструктора.
  */
-function readOwnMetadata(component: Function): NovaDecoratedComponentMetadata {
+function readOwnMetadata(component: NovaElementConstructor<any>): NovaDecoratedComponentMetadata {
   const current = (component as { [NOVA_COMPONENT_METADATA]?: NovaDecoratedComponentMetadata })[NOVA_COMPONENT_METADATA]
   if (!current) {
     return createEmptyMetadata()
@@ -357,6 +357,10 @@ function readOwnMetadata(component: Function): NovaDecoratedComponentMetadata {
     commands: [...current.commands],
     apis: [...current.apis],
   }
+}
+
+function novaElementConstructorOf(target: object): NovaElementConstructor<any> {
+  return target.constructor as unknown as NovaElementConstructor<any>
 }
 
 /**

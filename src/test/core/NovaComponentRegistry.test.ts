@@ -27,6 +27,8 @@ interface CounterApi {
 /**
  * Описывает Nova-node CounterNode и его runtime-поведение.
  */
+let COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, CounterApi, Record<string, never>, CounterProps>
+
 class CounterNode<E extends TestEvents> extends NovaComponentNode<CounterProps, CounterApi, Record<string, never>, CounterProps, E> {
   /**
    * Создает экземпляр CounterNode и подготавливает базовое состояние.
@@ -46,7 +48,7 @@ class CounterNode<E extends TestEvents> extends NovaComponentNode<CounterProps, 
   }
 }
 
-const COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, CounterApi, Record<string, never>, CounterProps> = {
+COUNTER_DESCRIPTOR = {
   type: 'test.counter',
   name: 'Counter',
   version: '0.1.0',
@@ -60,7 +62,6 @@ const COUNTER_DESCRIPTOR: NovaComponentDescriptor<CounterProps, CounterApi, Reco
     schema.id,
   ),
 }
-
 /**
  * Описывает Nova-node InspectorNode и его runtime-поведение.
  */

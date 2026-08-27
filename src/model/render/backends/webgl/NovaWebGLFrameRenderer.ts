@@ -746,6 +746,495 @@ interface TextRasterLayout {
   contentHeight: number
 }
 
+const ROUNDED_RECT_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_position;
+in vec2 a_local;
+in vec2 a_size;
+in float a_radius;
+in vec4 a_fill;
+in vec4 a_border;
+in float a_borderWidth;
+in vec3 a_animation;
+in vec2 a_motion;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+uniform float u_time;
+out vec2 v_local;
+out vec2 v_size;
+out float v_radius;
+out vec4 v_fill;
+out vec4 v_border;
+out float v_borderWidth;
+out vec3 v_animation;
+void main() {
+  vec2 position = a_position;
+  if (a_motion.y > 0.0 && a_motion.x != 0.0) {
+    float left = a_position.x - a_local.x;
+    float movedLeft = mod(left - u_time * a_motion.x + a_motion.y, a_motion.y) - a_size.x;
+    position.x = movedLeft + a_local.x;
+  }
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_local = a_local;
+  v_size = a_size;
+  v_radius = a_radius;
+  v_fill = a_fill;
+  v_border = a_border;
+  v_borderWidth = a_borderWidth;
+  v_animation = a_animation;
+}
+`
+
+const ROUNDED_RECT_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec2 v_local;
+in vec2 v_size;
+in float v_radius;
+in vec4 v_fill;
+in vec4 v_border;
+in float v_borderWidth;
+in vec3 v_animation;
+uniform float u_time;
+out vec4 outColor;
+float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p - halfSize) - (halfSize - vec2(radius));
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
+void main() {
+  float radius = min(v_radius, min(v_size.x, v_size.y) * 0.5);
+  float dist = radius <= 0.0
+    ? max(max(-v_local.x, v_local.x - v_size.x), max(-v_local.y, v_local.y - v_size.y))
+    : sdRoundRect(v_local, v_size * 0.5, radius);
+  float aa = max(fwidth(dist), 0.001);
+  float shapeAlpha = 1.0 - smoothstep(-aa, aa, dist);
+  float borderMask = 0.0;
+  if (v_borderWidth > 0.0 && v_border.a > 0.0) {
+    borderMask = smoothstep(-v_borderWidth - aa, -v_borderWidth + aa, dist);
+  }
+  vec4 color = mix(v_fill, v_border, borderMask);
+  if (v_animation.z > 0.0) {
+    float pulse = 0.5 + 0.5 * sin(u_time * v_animation.y + v_animation.x);
+    color.rgb = mix(color.rgb, min(color.rgb * 1.35 + vec3(0.08), vec3(1.0)), pulse * v_animation.z);
+  }
+  outColor = vec4(color.rgb, color.a * shapeAlpha);
+}
+`
+
+const SOLID_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_position;
+in vec4 a_color;
+in vec3 a_animation;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+uniform float u_time;
+out vec4 v_color;
+out vec3 v_animation;
+void main() {
+  vec3 world = u_transform * vec3(a_position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_color = a_color;
+  v_animation = a_animation;
+}
+`
+
+const SOLID_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec4 v_color;
+in vec3 v_animation;
+uniform float u_time;
+out vec4 outColor;
+void main() {
+  vec4 color = v_color;
+  if (v_animation.z > 0.0) {
+    float pulse = 0.5 + 0.5 * sin(u_time * v_animation.y + v_animation.x);
+    color.rgb = mix(color.rgb, min(color.rgb * 1.35 + vec3(0.08), vec3(1.0)), pulse * v_animation.z);
+  }
+  outColor = color;
+}
+`
+
+const TEXTURE_VERTEX_SHADER = `#version 300 es
+in vec2 a_position;
+in vec2 a_uv;
+in vec4 a_color;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_uv;
+out vec4 v_color;
+void main() {
+  vec3 world = u_transform * vec3(a_position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_uv = a_uv;
+  v_color = a_color;
+}
+`
+
+const TEXTURE_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform sampler2D u_texture;
+in vec2 v_uv;
+in vec4 v_color;
+out vec4 outColor;
+void main() {
+  outColor = texture(u_texture, v_uv) * v_color;
+}
+`
+
+const DISTANCE_FIELD_TEXT_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_position;
+in vec2 a_uv;
+in vec4 a_color;
+in vec2 a_sdfParams;
+in vec2 a_unit;
+in vec4 a_rect;
+in vec4 a_uvRect;
+in float a_opacity;
+in vec4 a_glyphColor;
+in vec2 a_sdfInstanceParams;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+uniform int u_instanced;
+out vec2 v_uv;
+out vec4 v_color;
+out vec2 v_sdfParams;
+void main() {
+  vec2 position = a_position;
+  vec2 uv = a_uv;
+  vec4 color = a_color;
+  vec2 sdfParams = a_sdfParams;
+  if (u_instanced == 1) {
+    vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
+    position = a_rect.xy + unitUv * a_rect.zw;
+    uv = mix(a_uvRect.xy, a_uvRect.zw, unitUv);
+    color = vec4(a_glyphColor.rgb, a_glyphColor.a * a_opacity);
+    sdfParams = a_sdfInstanceParams;
+  }
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_uv = uv;
+  v_color = color;
+  v_sdfParams = sdfParams;
+}
+`
+
+const DISTANCE_FIELD_TEXT_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform sampler2D u_texture;
+uniform float u_edgeSoftness;
+in vec2 v_uv;
+in vec4 v_color;
+in vec2 v_sdfParams;
+out vec4 outColor;
+
+float median3(float r, float g, float b) {
+  return max(min(r, g), min(max(r, g), b));
+}
+
+float screenPxRange(float pxRange) {
+  vec2 textureSizePx = vec2(textureSize(u_texture, 0));
+  vec2 unitRange = vec2(pxRange) / max(textureSizePx, vec2(1.0));
+  vec2 screenTexSize = vec2(1.0) / max(fwidth(v_uv), vec2(0.000001));
+  return max(0.5 * dot(unitRange, screenTexSize), 1.0);
+}
+
+void main() {
+  vec4 sampleColor = texture(u_texture, v_uv);
+  float signedDistance = v_sdfParams.y > 0.5
+    ? median3(sampleColor.r, sampleColor.g, sampleColor.b)
+    : sampleColor.a;
+  float range = screenPxRange(max(v_sdfParams.x, 1.0)) / max(u_edgeSoftness, 0.1);
+  float alpha = clamp(range * (signedDistance - 0.5) + 0.5, 0.0, 1.0);
+  outColor = vec4(v_color.rgb, v_color.a * alpha);
+}
+`
+
+const PARTICLE_CIRCLE_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec2 a_center;
+in float a_radius;
+in vec4 a_fill;
+in vec4 a_stroke;
+in float a_strokeWidth;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_local;
+out float v_radius;
+out vec4 v_fill;
+out vec4 v_stroke;
+out float v_strokeWidth;
+void main() {
+  vec2 local = a_unit * a_radius;
+  vec2 position = a_center + local;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_local = local;
+  v_radius = a_radius;
+  v_fill = a_fill;
+  v_stroke = a_stroke;
+  v_strokeWidth = a_strokeWidth;
+}
+`
+
+const PARTICLE_CIRCLE_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec2 v_local;
+in float v_radius;
+in vec4 v_fill;
+in vec4 v_stroke;
+in float v_strokeWidth;
+out vec4 outColor;
+void main() {
+  float dist = length(v_local) - v_radius;
+  float aa = max(fwidth(dist), 0.001);
+  float shapeAlpha = 1.0 - smoothstep(-aa, aa, dist);
+  float inner = v_strokeWidth > 0.0
+    ? 1.0 - smoothstep(-v_strokeWidth - aa, -v_strokeWidth + aa, dist)
+    : 1.0;
+  float strokeMask = clamp(1.0 - inner, 0.0, 1.0);
+  vec4 color = mix(v_fill, v_stroke, strokeMask);
+  outColor = vec4(color.rgb, color.a * shapeAlpha);
+}
+`
+
+const PARTICLE_SPRITE_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec2 a_position;
+in float a_size;
+in float a_opacity;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_uv;
+out float v_opacity;
+void main() {
+  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = a_position + uv * a_size;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_uv = uv;
+  v_opacity = a_opacity;
+}
+`
+
+const PARTICLE_SPRITE_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform sampler2D u_texture;
+in vec2 v_uv;
+in float v_opacity;
+out vec4 outColor;
+void main() {
+  outColor = texture(u_texture, v_uv) * vec4(1.0, 1.0, 1.0, v_opacity);
+}
+`
+
+const RECT_BATCH_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec4 a_rect;
+in vec4 a_color;
+in float a_state;
+in float a_radius;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec4 v_color;
+out vec2 v_local;
+out vec2 v_size;
+flat out float v_radius;
+flat out float v_state;
+void main() {
+  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = a_rect.xy + uv * a_rect.zw;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_color = a_color;
+  v_local = uv * a_rect.zw;
+  v_size = a_rect.zw;
+  v_radius = a_radius;
+  v_state = a_state;
+}
+`
+
+const RECT_BATCH_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+in vec4 v_color;
+in vec2 v_local;
+in vec2 v_size;
+flat in float v_radius;
+flat in float v_state;
+out vec4 outColor;
+float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
+  vec2 q = abs(p - halfSize) - (halfSize - vec2(radius));
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
+}
+void main() {
+  vec4 color = v_color;
+  if (v_state > 0.5) {
+    color.rgb = min(color.rgb * 1.08 + vec3(0.03), vec3(1.0));
+  }
+  float radius = min(v_radius, min(v_size.x, v_size.y) * 0.5);
+  if (radius > 0.0) {
+    float dist = sdRoundRect(v_local, v_size * 0.5, radius);
+    float aa = max(fwidth(dist), 0.001);
+    color.a *= 1.0 - smoothstep(-aa, aa, dist);
+  }
+  outColor = color;
+}
+`
+
+const TIME_RANGE_SEGMENT_VERTEX_SHADER = `#version 300 es
+precision highp float;
+in vec2 a_unit;
+in vec4 a_timeRect;
+in vec4 a_color;
+in vec4 a_style;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+uniform float u_timeStart;
+uniform float u_pxPerMs;
+uniform float u_viewportX;
+uniform float u_yOffset;
+out vec4 v_color;
+out vec4 v_style;
+out vec2 v_uv;
+out vec2 v_size;
+void main() {
+  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
+  float x = u_viewportX + (a_timeRect.x - u_timeStart) * u_pxPerMs;
+  float width = max(1.0, (a_timeRect.y - a_timeRect.x) * u_pxPerMs);
+  float y = a_timeRect.z + u_yOffset;
+  vec2 position = vec2(x, y) + uv * vec2(width, a_timeRect.w);
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_color = a_color;
+  v_style = a_style;
+  v_uv = uv;
+  v_size = vec2(width, a_timeRect.w);
+}
+`
+
+const TIME_RANGE_SEGMENT_FRAGMENT_SHADER = `#version 300 es
+precision highp float;
+in vec4 v_color;
+in vec4 v_style;
+in vec2 v_uv;
+in vec2 v_size;
+out vec4 outColor;
+
+float box(vec2 p, vec2 b) {
+  vec2 d = abs(p) - b;
+  return 1.0 - smoothstep(0.0, 1.0, length(max(d, 0.0)) + min(max(d.x, d.y), 0.0));
+}
+
+vec4 iconColor(float iconType) {
+  if (iconType < 1.5) return vec4(0.17, 0.24, 0.39, 0.92);
+  if (iconType < 2.5) return vec4(0.15, 0.39, 0.92, 0.92);
+  if (iconType < 3.5) return vec4(0.58, 0.20, 0.92, 0.92);
+  return vec4(0.02, 0.47, 0.34, 0.92);
+}
+
+void main() {
+  vec4 color = v_color;
+  vec2 local = v_uv * v_size;
+
+  if (v_style.x > 0.5) {
+    float stripe = mod(gl_FragCoord.x + gl_FragCoord.y, 8.0);
+    float alpha = 1.0 - smoothstep(2.6, 3.4, stripe);
+    color = mix(color, vec4(0.56, 0.72, 0.91, color.a), alpha * 0.72);
+  }
+
+  if (v_style.y > 0.5 && v_size.x >= 28.0) {
+    vec2 center = vec2(v_size.x - 10.0, v_size.y * 0.5);
+    vec2 p = local - center;
+    vec4 icon = iconColor(v_style.y);
+    float mark = 0.0;
+
+    if (v_style.y < 1.5) {
+      float tri = max(abs(p.x) * 0.85 + p.y * 0.55, -p.y - 5.2);
+      mark = 1.0 - smoothstep(4.6, 5.6, tri);
+      mark *= step(-4.5, p.y);
+    } else if (v_style.y < 2.5) {
+      float ring = 1.0 - smoothstep(4.8, 5.8, abs(length(p) - 5.2));
+      float handA = box(p - vec2(0.0, -1.8), vec2(0.8, 3.0));
+      float handB = box(p - vec2(2.2, 1.0), vec2(2.6, 0.7));
+      mark = max(ring, max(handA, handB));
+    } else if (v_style.y < 3.5) {
+      mark = max(box(p + vec2(1.8, -1.8), vec2(1.2, 5.2)), box(p - vec2(1.8, 1.8), vec2(5.2, 1.2)));
+    } else {
+      float nodeA = 1.0 - smoothstep(2.4, 3.2, length(p + vec2(4.0, 2.8)));
+      float nodeB = 1.0 - smoothstep(2.4, 3.2, length(p - vec2(4.0, 2.8)));
+      float line = box(p, vec2(5.0, 0.8));
+      mark = max(line, max(nodeA, nodeB));
+    }
+
+    color = mix(color, icon, clamp(mark, 0.0, 1.0));
+  }
+
+  if (v_style.z > 0.5 && v_size.x >= 64.0) {
+    float left = 8.0;
+    float right = v_size.x - (v_style.y > 0.5 ? 24.0 : 8.0);
+    float inLabel = step(left, local.x) * step(local.x, right) * step(4.0, local.y) * step(local.y, v_size.y - 4.0);
+    float seed = fract(v_style.w * 0.013 + floor((local.x - left) / 4.0) * 0.173);
+    float stroke = step(0.62, seed) * step(fract(local.x / 4.0), 0.42) * step(abs(local.y - v_size.y * 0.5), 4.2);
+    color = mix(color, vec4(0.07, 0.09, 0.15, color.a), inLabel * stroke * 0.82);
+  }
+
+  outColor = color;
+}
+`
+
+const TEXTURE_RECT_BATCH_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+in vec2 a_unit;
+in vec4 a_rect;
+in vec4 a_uvRect;
+in float a_opacity;
+uniform vec2 u_resolution;
+uniform mat3 u_transform;
+out vec2 v_uv;
+out float v_opacity;
+void main() {
+  vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
+  vec2 position = a_rect.xy + unitUv * a_rect.zw;
+  vec3 world = u_transform * vec3(position, 1.0);
+  vec2 zeroToOne = world.xy / u_resolution;
+  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
+  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
+  v_uv = mix(a_uvRect.xy, a_uvRect.zw, unitUv);
+  v_opacity = a_opacity;
+}
+`
+
+const TEXTURE_RECT_BATCH_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+uniform sampler2D u_texture;
+in vec2 v_uv;
+in float v_opacity;
+out vec4 outColor;
+void main() {
+  outColor = texture(u_texture, v_uv) * vec4(1.0, 1.0, 1.0, v_opacity);
+}
+`
+
 /**
  * Преобразует Nova render frame в WebGL draw calls и GPU uploads.
  */
@@ -7897,492 +8386,3 @@ function resolveSourceHeight(source: CanvasImageSource): number {
   }
   return 'height' in source && typeof source.height === 'number' ? source.height : 1
 }
-
-const ROUNDED_RECT_VERTEX_SHADER = `#version 300 es
-precision mediump float;
-in vec2 a_position;
-in vec2 a_local;
-in vec2 a_size;
-in float a_radius;
-in vec4 a_fill;
-in vec4 a_border;
-in float a_borderWidth;
-in vec3 a_animation;
-in vec2 a_motion;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-uniform float u_time;
-out vec2 v_local;
-out vec2 v_size;
-out float v_radius;
-out vec4 v_fill;
-out vec4 v_border;
-out float v_borderWidth;
-out vec3 v_animation;
-void main() {
-  vec2 position = a_position;
-  if (a_motion.y > 0.0 && a_motion.x != 0.0) {
-    float left = a_position.x - a_local.x;
-    float movedLeft = mod(left - u_time * a_motion.x + a_motion.y, a_motion.y) - a_size.x;
-    position.x = movedLeft + a_local.x;
-  }
-  vec3 world = u_transform * vec3(position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_local = a_local;
-  v_size = a_size;
-  v_radius = a_radius;
-  v_fill = a_fill;
-  v_border = a_border;
-  v_borderWidth = a_borderWidth;
-  v_animation = a_animation;
-}
-`
-
-const ROUNDED_RECT_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-in vec2 v_local;
-in vec2 v_size;
-in float v_radius;
-in vec4 v_fill;
-in vec4 v_border;
-in float v_borderWidth;
-in vec3 v_animation;
-uniform float u_time;
-out vec4 outColor;
-float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
-  vec2 q = abs(p - halfSize) - (halfSize - vec2(radius));
-  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-}
-void main() {
-  float radius = min(v_radius, min(v_size.x, v_size.y) * 0.5);
-  float dist = radius <= 0.0
-    ? max(max(-v_local.x, v_local.x - v_size.x), max(-v_local.y, v_local.y - v_size.y))
-    : sdRoundRect(v_local, v_size * 0.5, radius);
-  float aa = max(fwidth(dist), 0.001);
-  float shapeAlpha = 1.0 - smoothstep(-aa, aa, dist);
-  float borderMask = 0.0;
-  if (v_borderWidth > 0.0 && v_border.a > 0.0) {
-    borderMask = smoothstep(-v_borderWidth - aa, -v_borderWidth + aa, dist);
-  }
-  vec4 color = mix(v_fill, v_border, borderMask);
-  if (v_animation.z > 0.0) {
-    float pulse = 0.5 + 0.5 * sin(u_time * v_animation.y + v_animation.x);
-    color.rgb = mix(color.rgb, min(color.rgb * 1.35 + vec3(0.08), vec3(1.0)), pulse * v_animation.z);
-  }
-  outColor = vec4(color.rgb, color.a * shapeAlpha);
-}
-`
-
-const SOLID_VERTEX_SHADER = `#version 300 es
-precision mediump float;
-in vec2 a_position;
-in vec4 a_color;
-in vec3 a_animation;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-uniform float u_time;
-out vec4 v_color;
-out vec3 v_animation;
-void main() {
-  vec3 world = u_transform * vec3(a_position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_color = a_color;
-  v_animation = a_animation;
-}
-`
-
-const SOLID_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-in vec4 v_color;
-in vec3 v_animation;
-uniform float u_time;
-out vec4 outColor;
-void main() {
-  vec4 color = v_color;
-  if (v_animation.z > 0.0) {
-    float pulse = 0.5 + 0.5 * sin(u_time * v_animation.y + v_animation.x);
-    color.rgb = mix(color.rgb, min(color.rgb * 1.35 + vec3(0.08), vec3(1.0)), pulse * v_animation.z);
-  }
-  outColor = color;
-}
-`
-
-const TEXTURE_VERTEX_SHADER = `#version 300 es
-in vec2 a_position;
-in vec2 a_uv;
-in vec4 a_color;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-out vec2 v_uv;
-out vec4 v_color;
-void main() {
-  vec3 world = u_transform * vec3(a_position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_uv = a_uv;
-  v_color = a_color;
-}
-`
-
-const TEXTURE_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-uniform sampler2D u_texture;
-in vec2 v_uv;
-in vec4 v_color;
-out vec4 outColor;
-void main() {
-  outColor = texture(u_texture, v_uv) * v_color;
-}
-`
-
-const DISTANCE_FIELD_TEXT_VERTEX_SHADER = `#version 300 es
-precision mediump float;
-in vec2 a_position;
-in vec2 a_uv;
-in vec4 a_color;
-in vec2 a_sdfParams;
-in vec2 a_unit;
-in vec4 a_rect;
-in vec4 a_uvRect;
-in float a_opacity;
-in vec4 a_glyphColor;
-in vec2 a_sdfInstanceParams;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-uniform int u_instanced;
-out vec2 v_uv;
-out vec4 v_color;
-out vec2 v_sdfParams;
-void main() {
-  vec2 position = a_position;
-  vec2 uv = a_uv;
-  vec4 color = a_color;
-  vec2 sdfParams = a_sdfParams;
-  if (u_instanced == 1) {
-    vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
-    position = a_rect.xy + unitUv * a_rect.zw;
-    uv = mix(a_uvRect.xy, a_uvRect.zw, unitUv);
-    color = vec4(a_glyphColor.rgb, a_glyphColor.a * a_opacity);
-    sdfParams = a_sdfInstanceParams;
-  }
-  vec3 world = u_transform * vec3(position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_uv = uv;
-  v_color = color;
-  v_sdfParams = sdfParams;
-}
-`
-
-const DISTANCE_FIELD_TEXT_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-uniform sampler2D u_texture;
-uniform float u_edgeSoftness;
-in vec2 v_uv;
-in vec4 v_color;
-in vec2 v_sdfParams;
-out vec4 outColor;
-
-float median3(float r, float g, float b) {
-  return max(min(r, g), min(max(r, g), b));
-}
-
-float screenPxRange(float pxRange) {
-  vec2 textureSizePx = vec2(textureSize(u_texture, 0));
-  vec2 unitRange = vec2(pxRange) / max(textureSizePx, vec2(1.0));
-  vec2 screenTexSize = vec2(1.0) / max(fwidth(v_uv), vec2(0.000001));
-  return max(0.5 * dot(unitRange, screenTexSize), 1.0);
-}
-
-void main() {
-  vec4 sampleColor = texture(u_texture, v_uv);
-  float signedDistance = v_sdfParams.y > 0.5
-    ? median3(sampleColor.r, sampleColor.g, sampleColor.b)
-    : sampleColor.a;
-  float range = screenPxRange(max(v_sdfParams.x, 1.0)) / max(u_edgeSoftness, 0.1);
-  float alpha = clamp(range * (signedDistance - 0.5) + 0.5, 0.0, 1.0);
-  outColor = vec4(v_color.rgb, v_color.a * alpha);
-}
-`
-
-const RECT_BATCH_VERTEX_SHADER = `#version 300 es
-precision mediump float;
-in vec2 a_unit;
-in vec4 a_rect;
-in vec4 a_color;
-in float a_state;
-in float a_radius;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-out vec4 v_color;
-out vec2 v_local;
-out vec2 v_size;
-flat out float v_radius;
-flat out float v_state;
-void main() {
-  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
-  vec2 position = a_rect.xy + uv * a_rect.zw;
-  vec3 world = u_transform * vec3(position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_color = a_color;
-  v_local = uv * a_rect.zw;
-  v_size = a_rect.zw;
-  v_radius = a_radius;
-  v_state = a_state;
-}
-`
-
-const RECT_BATCH_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-in vec4 v_color;
-in vec2 v_local;
-in vec2 v_size;
-flat in float v_radius;
-flat in float v_state;
-out vec4 outColor;
-float sdRoundRect(vec2 p, vec2 halfSize, float radius) {
-  vec2 q = abs(p - halfSize) - (halfSize - vec2(radius));
-  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;
-}
-void main() {
-  vec4 color = v_color;
-  if (v_state > 0.5) {
-    color.rgb = min(color.rgb * 1.08 + vec3(0.03), vec3(1.0));
-  }
-  float radius = min(v_radius, min(v_size.x, v_size.y) * 0.5);
-  if (radius > 0.0) {
-    float dist = sdRoundRect(v_local, v_size * 0.5, radius);
-    float aa = max(fwidth(dist), 0.001);
-    color.a *= 1.0 - smoothstep(-aa, aa, dist);
-  }
-  outColor = color;
-}
-`
-
-const TIME_RANGE_SEGMENT_VERTEX_SHADER = `#version 300 es
-precision highp float;
-in vec2 a_unit;
-in vec4 a_timeRect;
-in vec4 a_color;
-in vec4 a_style;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-uniform float u_timeStart;
-uniform float u_pxPerMs;
-uniform float u_viewportX;
-uniform float u_yOffset;
-out vec4 v_color;
-out vec4 v_style;
-out vec2 v_uv;
-out vec2 v_size;
-void main() {
-  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
-  float x = u_viewportX + (a_timeRect.x - u_timeStart) * u_pxPerMs;
-  float width = max(1.0, (a_timeRect.y - a_timeRect.x) * u_pxPerMs);
-  float y = a_timeRect.z + u_yOffset;
-  vec2 position = vec2(x, y) + uv * vec2(width, a_timeRect.w);
-  vec3 world = u_transform * vec3(position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_color = a_color;
-  v_style = a_style;
-  v_uv = uv;
-  v_size = vec2(width, a_timeRect.w);
-}
-`
-
-const TIME_RANGE_SEGMENT_FRAGMENT_SHADER = `#version 300 es
-precision highp float;
-in vec4 v_color;
-in vec4 v_style;
-in vec2 v_uv;
-in vec2 v_size;
-out vec4 outColor;
-
-float box(vec2 p, vec2 b) {
-  vec2 d = abs(p) - b;
-  return 1.0 - smoothstep(0.0, 1.0, length(max(d, 0.0)) + min(max(d.x, d.y), 0.0));
-}
-
-vec4 iconColor(float iconType) {
-  if (iconType < 1.5) return vec4(0.17, 0.24, 0.39, 0.92);
-  if (iconType < 2.5) return vec4(0.15, 0.39, 0.92, 0.92);
-  if (iconType < 3.5) return vec4(0.58, 0.20, 0.92, 0.92);
-  return vec4(0.02, 0.47, 0.34, 0.92);
-}
-
-void main() {
-  vec4 color = v_color;
-  vec2 local = v_uv * v_size;
-
-  if (v_style.x > 0.5) {
-    float stripe = mod(gl_FragCoord.x + gl_FragCoord.y, 8.0);
-    float alpha = 1.0 - smoothstep(2.6, 3.4, stripe);
-    color = mix(color, vec4(0.56, 0.72, 0.91, color.a), alpha * 0.72);
-  }
-
-  if (v_style.y > 0.5 && v_size.x >= 28.0) {
-    vec2 center = vec2(v_size.x - 10.0, v_size.y * 0.5);
-    vec2 p = local - center;
-    vec4 icon = iconColor(v_style.y);
-    float mark = 0.0;
-
-    if (v_style.y < 1.5) {
-      float tri = max(abs(p.x) * 0.85 + p.y * 0.55, -p.y - 5.2);
-      mark = 1.0 - smoothstep(4.6, 5.6, tri);
-      mark *= step(-4.5, p.y);
-    } else if (v_style.y < 2.5) {
-      float ring = 1.0 - smoothstep(4.8, 5.8, abs(length(p) - 5.2));
-      float handA = box(p - vec2(0.0, -1.8), vec2(0.8, 3.0));
-      float handB = box(p - vec2(2.2, 1.0), vec2(2.6, 0.7));
-      mark = max(ring, max(handA, handB));
-    } else if (v_style.y < 3.5) {
-      mark = max(box(p + vec2(1.8, -1.8), vec2(1.2, 5.2)), box(p - vec2(1.8, 1.8), vec2(5.2, 1.2)));
-    } else {
-      float nodeA = 1.0 - smoothstep(2.4, 3.2, length(p + vec2(4.0, 2.8)));
-      float nodeB = 1.0 - smoothstep(2.4, 3.2, length(p - vec2(4.0, 2.8)));
-      float line = box(p, vec2(5.0, 0.8));
-      mark = max(line, max(nodeA, nodeB));
-    }
-
-    color = mix(color, icon, clamp(mark, 0.0, 1.0));
-  }
-
-  if (v_style.z > 0.5 && v_size.x >= 64.0) {
-    float left = 8.0;
-    float right = v_size.x - (v_style.y > 0.5 ? 24.0 : 8.0);
-    float inLabel = step(left, local.x) * step(local.x, right) * step(4.0, local.y) * step(local.y, v_size.y - 4.0);
-    float seed = fract(v_style.w * 0.013 + floor((local.x - left) / 4.0) * 0.173);
-    float stroke = step(0.62, seed) * step(fract(local.x / 4.0), 0.42) * step(abs(local.y - v_size.y * 0.5), 4.2);
-    color = mix(color, vec4(0.07, 0.09, 0.15, color.a), inLabel * stroke * 0.82);
-  }
-
-  outColor = color;
-}
-`
-
-const PARTICLE_CIRCLE_VERTEX_SHADER = `#version 300 es
-precision mediump float;
-in vec2 a_unit;
-in vec2 a_center;
-in float a_radius;
-in vec4 a_fill;
-in vec4 a_stroke;
-in float a_strokeWidth;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-out vec2 v_local;
-out float v_radius;
-out vec4 v_fill;
-out vec4 v_stroke;
-out float v_strokeWidth;
-void main() {
-  vec2 local = a_unit * a_radius;
-  vec2 position = a_center + local;
-  vec3 world = u_transform * vec3(position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_local = local;
-  v_radius = a_radius;
-  v_fill = a_fill;
-  v_stroke = a_stroke;
-  v_strokeWidth = a_strokeWidth;
-}
-`
-
-const PARTICLE_CIRCLE_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-in vec2 v_local;
-in float v_radius;
-in vec4 v_fill;
-in vec4 v_stroke;
-in float v_strokeWidth;
-out vec4 outColor;
-void main() {
-  float dist = length(v_local) - v_radius;
-  float aa = max(fwidth(dist), 0.001);
-  float shapeAlpha = 1.0 - smoothstep(-aa, aa, dist);
-  float inner = v_strokeWidth > 0.0
-    ? 1.0 - smoothstep(-v_strokeWidth - aa, -v_strokeWidth + aa, dist)
-    : 1.0;
-  float strokeMask = clamp(1.0 - inner, 0.0, 1.0);
-  vec4 color = mix(v_fill, v_stroke, strokeMask);
-  outColor = vec4(color.rgb, color.a * shapeAlpha);
-}
-`
-
-const PARTICLE_SPRITE_VERTEX_SHADER = `#version 300 es
-precision mediump float;
-in vec2 a_unit;
-in vec2 a_position;
-in float a_size;
-in float a_opacity;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-out vec2 v_uv;
-out float v_opacity;
-void main() {
-  vec2 uv = (a_unit + vec2(1.0)) * 0.5;
-  vec2 position = a_position + uv * a_size;
-  vec3 world = u_transform * vec3(position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_uv = uv;
-  v_opacity = a_opacity;
-}
-`
-
-const PARTICLE_SPRITE_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-uniform sampler2D u_texture;
-in vec2 v_uv;
-in float v_opacity;
-out vec4 outColor;
-void main() {
-  outColor = texture(u_texture, v_uv) * vec4(1.0, 1.0, 1.0, v_opacity);
-}
-`
-
-const TEXTURE_RECT_BATCH_VERTEX_SHADER = `#version 300 es
-precision mediump float;
-in vec2 a_unit;
-in vec4 a_rect;
-in vec4 a_uvRect;
-in float a_opacity;
-uniform vec2 u_resolution;
-uniform mat3 u_transform;
-out vec2 v_uv;
-out float v_opacity;
-void main() {
-  vec2 unitUv = (a_unit + vec2(1.0)) * 0.5;
-  vec2 position = a_rect.xy + unitUv * a_rect.zw;
-  vec3 world = u_transform * vec3(position, 1.0);
-  vec2 zeroToOne = world.xy / u_resolution;
-  vec2 clipSpace = zeroToOne * 2.0 - 1.0;
-  gl_Position = vec4(clipSpace.x, -clipSpace.y, 0.0, 1.0);
-  v_uv = mix(a_uvRect.xy, a_uvRect.zw, unitUv);
-  v_opacity = a_opacity;
-}
-`
-
-const TEXTURE_RECT_BATCH_FRAGMENT_SHADER = `#version 300 es
-precision mediump float;
-uniform sampler2D u_texture;
-in vec2 v_uv;
-in float v_opacity;
-out vec4 outColor;
-void main() {
-  outColor = texture(u_texture, v_uv) * vec4(1.0, 1.0, 1.0, v_opacity);
-}
-`

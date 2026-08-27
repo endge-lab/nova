@@ -23,6 +23,13 @@ let componentCreateCount = 0
 /**
  * Описывает ответственность PerfCursorComponent в архитектуре проекта.
  */
+let PERF_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
+  PerfCursorProps,
+  Record<string, never>,
+  Record<string, never>,
+  PerfCursorProps
+>
+
 class PerfCursorComponent<E extends TestEvents>
   extends NovaComponentNode<PerfCursorProps, Record<string, never>, Record<string, never>, PerfCursorProps, E> {
   /**
@@ -51,12 +58,7 @@ class PerfCursorComponent<E extends TestEvents>
   }
 }
 
-const PERF_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
-  PerfCursorProps,
-  Record<string, never>,
-  Record<string, never>,
-  PerfCursorProps
-> = {
+PERF_CURSOR_DESCRIPTOR = {
   type: 'perf.cursor',
   name: 'PerfCursor',
   version: '0.1.0',
@@ -69,7 +71,6 @@ const PERF_CURSOR_DESCRIPTOR: NovaComponentDescriptor<
     schema.id,
   ),
 }
-
 function create2DContextStub(): CanvasRenderingContext2D {
   const state: Record<PropertyKey, any> = {
     measureText: vi.fn((text: string) => ({ width: text.length * 8 })),

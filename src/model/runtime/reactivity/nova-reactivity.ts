@@ -34,87 +34,6 @@ const trackingStack: Array<NovaTrackingFrame> = []
 const nodeDependencies = new WeakMap<NovaNode<any>, Set<NovaReactiveSource>>()
 const trackedNodes = new WeakSet<NovaNode<any>>()
 
-/**
- * Creates a mutable Nova signal.
- */
-export function createNovaSignal<T>(initialValue: T): NovaSignal<T> {
-  return new NovaSignalImpl(initialValue)
-}
-
-/**
- * Creates a lazy Nova computed signal.
- */
-export function createNovaComputed<T>(compute: () => T): NovaComputed<T> {
-  return new NovaComputedImpl(compute)
-}
-
-/**
- * Tracks signal reads performed by a NovaNode update/template pass.
- */
-export function trackNovaNode<T>(node: NovaNode<any>, callback: () => T, options: NovaTrackNodeOptions = {}): T {
-  if (options.mode !== 'append') {
-    cleanupNodeDependencies(node)
-  }
-  if (!trackedNodes.has(node)) {
-    trackedNodes.add(node)
-    node.addDisposer(() => cleanupNodeDependencies(node))
-  }
-
-  trackingStack.push({ subscriber: node })
-  try {
-    return callback()
-  }
-  finally {
-    trackingStack.pop()
-  }
-}
-
-function registerDependency(source: NovaReactiveSource): void {
-  const frame = trackingStack[trackingStack.length - 1]
-  if (!frame) {
-    return
-  }
-
-  source.addSubscriber(frame.subscriber)
-  if (isComputedSubscriber(frame.subscriber)) {
-    frame.subscriber.addDependency(source)
-    return
-  }
-
-  let dependencies = nodeDependencies.get(frame.subscriber)
-  if (!dependencies) {
-    dependencies = new Set()
-    nodeDependencies.set(frame.subscriber, dependencies)
-  }
-  dependencies.add(source)
-}
-
-function cleanupNodeDependencies(node: NovaNode<any>): void {
-  const dependencies = nodeDependencies.get(node)
-  if (!dependencies) {
-    return
-  }
-
-  for (const dependency of dependencies) {
-    dependency.removeSubscriber(node)
-  }
-  dependencies.clear()
-}
-
-function notifySubscriber(subscriber: NovaReactiveSubscriber): void {
-  if (isComputedSubscriber(subscriber)) {
-    subscriber.markDirty()
-    return
-  }
-
-  subscriber.dirty({ update: true, render: true })
-  subscriber.nova.invalidate()
-}
-
-function isComputedSubscriber(subscriber: NovaReactiveSubscriber): subscriber is NovaComputedSubscriber {
-  return subscriber instanceof NovaComputedImpl
-}
-
 class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
   private _subscribers = new Set<NovaReactiveSubscriber>()
 
@@ -164,6 +83,13 @@ class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
       notifySubscriber(subscriber)
     }
   }
+}
+
+/**
+ * Creates a mutable Nova signal.
+ */
+export function createNovaSignal<T>(initialValue: T): NovaSignal<T> {
+  return new NovaSignalImpl(initialValue)
 }
 
 class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
@@ -240,4 +166,78 @@ class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
     }
     this._dependencies.clear()
   }
+}
+
+/**
+ * Creates a lazy Nova computed signal.
+ */
+export function createNovaComputed<T>(compute: () => T): NovaComputed<T> {
+  return new NovaComputedImpl(compute)
+}
+
+/**
+ * Tracks signal reads performed by a NovaNode update/template pass.
+ */
+export function trackNovaNode<T>(node: NovaNode<any>, callback: () => T, options: NovaTrackNodeOptions = {}): T {
+  if (options.mode !== 'append') {
+    cleanupNodeDependencies(node)
+  }
+  if (!trackedNodes.has(node)) {
+    trackedNodes.add(node)
+    node.addDisposer(() => cleanupNodeDependencies(node))
+  }
+
+  trackingStack.push({ subscriber: node })
+  try {
+    return callback()
+  }
+  finally {
+    trackingStack.pop()
+  }
+}
+
+function registerDependency(source: NovaReactiveSource): void {
+  const frame = trackingStack[trackingStack.length - 1]
+  if (!frame) {
+    return
+  }
+
+  source.addSubscriber(frame.subscriber)
+  if (isComputedSubscriber(frame.subscriber)) {
+    frame.subscriber.addDependency(source)
+    return
+  }
+
+  let dependencies = nodeDependencies.get(frame.subscriber)
+  if (!dependencies) {
+    dependencies = new Set()
+    nodeDependencies.set(frame.subscriber, dependencies)
+  }
+  dependencies.add(source)
+}
+
+function cleanupNodeDependencies(node: NovaNode<any>): void {
+  const dependencies = nodeDependencies.get(node)
+  if (!dependencies) {
+    return
+  }
+
+  for (const dependency of dependencies) {
+    dependency.removeSubscriber(node)
+  }
+  dependencies.clear()
+}
+
+function notifySubscriber(subscriber: NovaReactiveSubscriber): void {
+  if (isComputedSubscriber(subscriber)) {
+    subscriber.markDirty()
+    return
+  }
+
+  subscriber.dirty({ update: true, render: true })
+  subscriber.nova.invalidate()
+}
+
+function isComputedSubscriber(subscriber: NovaReactiveSubscriber): subscriber is NovaComputedSubscriber {
+  return subscriber instanceof NovaComputedImpl
 }

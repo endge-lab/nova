@@ -325,30 +325,6 @@ type PatternRunner = (
   options?: NovaMotionPatternOptions,
 ) => NovaMotionPlayback
 
-/**
- * Выполняет публичную операцию run nova motion preset.
- */
-export function runNovaMotionPreset(
-  engine: NovaMotionEngine,
-  target: NovaMotionTarget,
-  name: NovaMotionPresetName,
-  options: NovaMotionPresetOptions = {},
-): NovaMotionPlayback {
-  return PRESET_RUNNERS[name](engine, target, options)
-}
-
-/**
- * Выполняет публичную операцию run nova motion pattern.
- */
-export function runNovaMotionPattern(
-  engine: NovaMotionEngine,
-  targets: Array<NovaMotionTarget>,
-  name: NovaMotionPatternName,
-  options: NovaMotionPatternOptions = {},
-): NovaMotionPlayback {
-  return PATTERN_RUNNERS[name](engine, targets, options)
-}
-
 const PRESET_RUNNERS: Record<NovaMotionPresetName, PresetRunner> = {
   fadeIn: (engine, target, options) => engine.to(
     target,
@@ -492,6 +468,18 @@ const PRESET_RUNNERS: Record<NovaMotionPresetName, PresetRunner> = {
   },
 }
 
+/**
+ * Выполняет публичную операцию run nova motion preset.
+ */
+export function runNovaMotionPreset(
+  engine: NovaMotionEngine,
+  target: NovaMotionTarget,
+  name: NovaMotionPresetName,
+  options: NovaMotionPresetOptions = {},
+): NovaMotionPlayback {
+  return PRESET_RUNNERS[name](engine, target, options)
+}
+
 const PATTERN_RUNNERS: Record<NovaMotionPatternName, PatternRunner> = {
   staggerFade: (engine, targets, options) => {
     setTargets(targets, { opacity: 0 })
@@ -600,6 +588,17 @@ const PATTERN_RUNNERS: Record<NovaMotionPatternName, PatternRunner> = {
   },
 }
 
+/**
+ * Выполняет публичную операцию run nova motion pattern.
+ */
+export function runNovaMotionPattern(
+  engine: NovaMotionEngine,
+  targets: Array<NovaMotionTarget>,
+  name: NovaMotionPatternName,
+  options: NovaMotionPatternOptions = {},
+): NovaMotionPlayback {
+  return PATTERN_RUNNERS[name](engine, targets, options)
+}
 /**
  * Выполняет внутреннюю операцию from offset.
  */

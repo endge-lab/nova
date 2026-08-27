@@ -23,6 +23,8 @@ interface BoxProps {
 /**
  * Описывает Nova-node SyncBoxNode и его runtime-поведение.
  */
+let SYNC_BOX_DESCRIPTOR: NovaComponentDescriptor<BoxProps, unknown, Record<string, never>, BoxProps>
+
 class SyncBoxNode<E extends TestEvents> extends NovaComponentNode<BoxProps, unknown, Record<string, never>, BoxProps, E> {
   /**
    * Создает экземпляр SyncBoxNode и подготавливает базовое состояние.
@@ -50,7 +52,7 @@ class SyncBoxNode<E extends TestEvents> extends NovaComponentNode<BoxProps, unkn
   }
 }
 
-const SYNC_BOX_DESCRIPTOR: NovaComponentDescriptor<BoxProps, unknown, Record<string, never>, BoxProps> = {
+SYNC_BOX_DESCRIPTOR = {
   type: 'test.sync-box',
   name: 'SyncBox',
   version: '0.1.0',
@@ -62,7 +64,6 @@ const SYNC_BOX_DESCRIPTOR: NovaComponentDescriptor<BoxProps, unknown, Record<str
   },
   createNode: (context, schema) => new SyncBoxNode(context.app, context.surface, schema.props, schema.id),
 }
-
 function create2DContextStub(): CanvasRenderingContext2D {
   return new Proxy({} as Record<PropertyKey, any>, {
     /**

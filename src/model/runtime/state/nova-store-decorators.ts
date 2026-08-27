@@ -23,6 +23,8 @@ export interface NovaStoreMetadata {
 
 const NOVA_STORE_METADATA = Symbol('nova.store.metadata')
 
+type NovaStoreConstructor = abstract new (...args: Array<any>) => object
+
 /**
  * Помечает class как business store, поля которого могут быть привязаны к Raph data graph.
  */
@@ -47,13 +49,13 @@ export function Reactive<TStore extends object = object>(options: NovaReactiveOp
         { kind: string, name: string | symbol, addInitializer?: (initializer: (this: object) => void) => void },
       ]
       context.addInitializer?.(function initializer(this: object) {
-        addNovaReactiveMetadata(this.constructor, context.name, options as NovaReactiveOptions)
+        addNovaReactiveMetadata(novaStoreConstructorOf(this), context.name, options as NovaReactiveOptions)
       })
       return value
     }
 
     const [target, propertyKey] = args as [object, string | symbol, PropertyDescriptor | undefined]
-    addNovaReactiveMetadata(target.constructor, propertyKey, options as NovaReactiveOptions)
+    addNovaReactiveMetadata(novaStoreConstructorOf(target), propertyKey, options as NovaReactiveOptions)
     return args[2]
   }
 }
@@ -61,7 +63,7 @@ export function Reactive<TStore extends object = object>(options: NovaReactiveOp
 /**
  * Возвращает store metadata конструктора.
  */
-export function readNovaStoreMetadata(target: Function): NovaStoreMetadata | undefined {
+export function readNovaStoreMetadata(target: NovaStoreConstructor): NovaStoreMetadata | undefined {
   return (target as any)[NOVA_STORE_METADATA] as NovaStoreMetadata | undefined
 }
 
@@ -72,19 +74,19 @@ export function isNovaStoreObject(value: unknown): value is object {
   if (!value || typeof value !== 'object') {
     return false
   }
-  const metadata = readNovaStoreMetadata(value.constructor)
+  const metadata = readNovaStoreMetadata(value.constructor as NovaStoreConstructor)
   return Boolean(metadata?.reactiveFields.length)
 }
 
 /**
  * Возвращает store options конструктора.
  */
-export function readNovaStoreOptions(target: Function): NovaStoreOptions {
+export function readNovaStoreOptions(target: NovaStoreConstructor): NovaStoreOptions {
   return ((target as any)[NOVA_STORE_METADATA]?.options ?? {}) as NovaStoreOptions
 }
 
 function addNovaReactiveMetadata(
-  target: Function,
+  target: NovaStoreConstructor,
   key: string | symbol,
   options: NovaReactiveOptions,
 ): void {
@@ -96,11 +98,15 @@ function addNovaReactiveMetadata(
 }
 
 function updateNovaStoreMetadata(
-  target: Function,
+  target: NovaStoreConstructor,
   update: (metadata: NovaStoreMetadata) => NovaStoreMetadata,
 ): void {
   const previous = readNovaStoreMetadata(target) ?? { reactiveFields: [] }
   ;(target as any)[NOVA_STORE_METADATA] = update(previous)
+}
+
+function novaStoreConstructorOf(target: object): NovaStoreConstructor {
+  return target.constructor as NovaStoreConstructor
 }
 
 function isStandardAccessorDecorator(args: Array<any>): boolean {

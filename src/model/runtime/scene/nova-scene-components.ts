@@ -60,6 +60,80 @@ interface NovaTemplateSceneDefinition {
   children: Array<NovaTemplateChildSchema>
 }
 
+let novaScenesDescriptor: NovaScenesDescriptor
+
+/**
+ * Описывает сцену NovaTemplateScene и ее runtime lifecycle.
+ */
+class NovaTemplateScene<E extends EventList> extends NovaScene<E> {
+  private _managedRoots: Array<NovaNode<E>> = []
+
+  /**
+   * Создает cached scene из compiled DSL children.
+   */
+  constructor(
+    app: NovaApp<E>,
+    private readonly _host: NovaScenesNode<E>,
+    readonly id: string,
+    private _children: Array<NovaTemplateChildSchema>,
+  ) {
+    super(app)
+  }
+
+  /**
+   * Обновляет schema snapshot без пересоздания scene instance.
+   */
+  setChildren(children: Array<NovaTemplateChildSchema>): void {
+    this._children = children
+    if (this.state === 'created' || this.state === 'destroyed') {
+      return
+    }
+
+    this._reconcile()
+    this._applyActiveState(this.state === 'mounted')
+  }
+
+  /** Создает roots при первом mount. */
+  protected override onMount(): void {
+    this._reconcile()
+    this._applyActiveState(true)
+  }
+
+  /** Отключает inactive scene от update/render и input. */
+  protected override onPause(): void {
+    this._applyActiveState(false)
+  }
+
+  /** Возвращает cached scene в active tree. */
+  protected override onResume(): void {
+    this._applyActiveState(true)
+  }
+
+  /** Сбрасывает локальный список после удаления roots базовым lifecycle. */
+  protected override onUnmount(): void {
+    this._managedRoots = []
+  }
+
+  /**
+   * Согласует runtime-состояние NovaTemplateScene.
+   */
+  private _reconcile(): void {
+    const result = reconcileNovaTemplateChildren(this._host, this._managedRoots, this._children)
+    this._managedRoots = result.nodes
+    this.setRoots(this._managedRoots)
+  }
+
+  /**
+   * Применяет подготовленное состояние NovaTemplateScene.
+   */
+  private _applyActiveState(active: boolean): void {
+    for (const root of this.roots) {
+      root.active = active
+      root.visible = active
+    }
+  }
+}
+
 /** Runtime-компонент, который управляет cached NovaScene из DSL-разметки. */
 export class NovaScenesNode<E extends EventList = Record<string, any>>
   extends NovaComponentNode<NovaScenesResolvedProps, NovaScenesApi, Record<string, never>, NovaScenesProps, E> {
@@ -77,7 +151,7 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
     surface: NovaSurface<E>,
     props: NovaScenesProps = {},
     options: { componentId?: string, children?: Array<NovaTemplateChildSchema> } = {},
-    descriptor: NovaScenesDescriptor = NOVA_SCENES_DESCRIPTOR,
+    descriptor: NovaScenesDescriptor = novaScenesDescriptor,
   ) {
     super(app, surface, descriptor, normalizeNovaScenesProps(props), options)
     this.__type = 'Scenes'
@@ -223,97 +297,7 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
   }
 }
 
-/** No-op declaration node for invalid direct <Scene> usage outside <Scenes>. */
-export class NovaSceneDefinitionNode<E extends EventList = Record<string, any>>
-  extends NovaComponentNode<NovaSceneDefinitionProps, unknown, Record<string, never>, NovaSceneDefinitionProps, E> {
-  /**
-   * Создает declaration node без render-поведения.
-   */
-  constructor(
-    app: NovaApp<E>,
-    surface: NovaSurface<E>,
-    props: NovaSceneDefinitionProps = {},
-    options: { componentId?: string } = {},
-    descriptor: NovaSceneDefinitionDescriptor = NOVA_SCENE_DESCRIPTOR,
-  ) {
-    super(app, surface, descriptor, props, options)
-    this.__type = 'Scene'
-  }
-}
-
-/**
- * Описывает сцену NovaTemplateScene и ее runtime lifecycle.
- */
-class NovaTemplateScene<E extends EventList> extends NovaScene<E> {
-  private _managedRoots: Array<NovaNode<E>> = []
-
-  /**
-   * Создает cached scene из compiled DSL children.
-   */
-  constructor(
-    app: NovaApp<E>,
-    private readonly _host: NovaScenesNode<E>,
-    readonly id: string,
-    private _children: Array<NovaTemplateChildSchema>,
-  ) {
-    super(app)
-  }
-
-  /**
-   * Обновляет schema snapshot без пересоздания scene instance.
-   */
-  setChildren(children: Array<NovaTemplateChildSchema>): void {
-    this._children = children
-    if (this.state === 'created' || this.state === 'destroyed') {
-      return
-    }
-
-    this._reconcile()
-    this._applyActiveState(this.state === 'mounted')
-  }
-
-  /** Создает roots при первом mount. */
-  protected override onMount(): void {
-    this._reconcile()
-    this._applyActiveState(true)
-  }
-
-  /** Отключает inactive scene от update/render и input. */
-  protected override onPause(): void {
-    this._applyActiveState(false)
-  }
-
-  /** Возвращает cached scene в active tree. */
-  protected override onResume(): void {
-    this._applyActiveState(true)
-  }
-
-  /** Сбрасывает локальный список после удаления roots базовым lifecycle. */
-  protected override onUnmount(): void {
-    this._managedRoots = []
-  }
-
-  /**
-   * Согласует runtime-состояние NovaTemplateScene.
-   */
-  private _reconcile(): void {
-    const result = reconcileNovaTemplateChildren(this._host, this._managedRoots, this._children)
-    this._managedRoots = result.nodes
-    this.setRoots(this._managedRoots)
-  }
-
-  /**
-   * Применяет подготовленное состояние NovaTemplateScene.
-   */
-  private _applyActiveState(active: boolean): void {
-    for (const root of this.roots) {
-      root.active = active
-      root.visible = active
-    }
-  }
-}
-
-export const NOVA_SCENES_DESCRIPTOR: NovaScenesDescriptor = {
+export const NOVA_SCENES_DESCRIPTOR: NovaScenesDescriptor = novaScenesDescriptor = {
   type: NOVA_SCENES_SCHEMA_TYPE,
   name: 'Scenes',
   version: '1.0.0',
@@ -337,8 +321,27 @@ export const NOVA_SCENES_DESCRIPTOR: NovaScenesDescriptor = {
     NOVA_SCENES_DESCRIPTOR,
   ),
 }
+/** No-op declaration node for invalid direct <Scene> usage outside <Scenes>. */
+let novaSceneDescriptor: NovaSceneDefinitionDescriptor
 
-export const NOVA_SCENE_DESCRIPTOR: NovaSceneDefinitionDescriptor = {
+export class NovaSceneDefinitionNode<E extends EventList = Record<string, any>>
+  extends NovaComponentNode<NovaSceneDefinitionProps, unknown, Record<string, never>, NovaSceneDefinitionProps, E> {
+  /**
+   * Создает declaration node без render-поведения.
+   */
+  constructor(
+    app: NovaApp<E>,
+    surface: NovaSurface<E>,
+    props: NovaSceneDefinitionProps = {},
+    options: { componentId?: string } = {},
+    descriptor: NovaSceneDefinitionDescriptor = novaSceneDescriptor,
+  ) {
+    super(app, surface, descriptor, props, options)
+    this.__type = 'Scene'
+  }
+}
+
+export const NOVA_SCENE_DESCRIPTOR: NovaSceneDefinitionDescriptor = novaSceneDescriptor = {
   type: NOVA_SCENE_SCHEMA_TYPE,
   name: 'Scene',
   version: '1.0.0',
@@ -355,7 +358,6 @@ export const NOVA_SCENE_DESCRIPTOR: NovaSceneDefinitionDescriptor = {
     NOVA_SCENE_DESCRIPTOR,
   ),
 }
-
 /** Группировка core DSL schema types для compiler output и публичных интеграций. */
 export const NovaCoreDSL = {
   Scenes: NOVA_SCENES_SCHEMA_TYPE,

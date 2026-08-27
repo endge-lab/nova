@@ -41,6 +41,187 @@ const SIZE_KEYS = new Set(['width', 'height'])
 const VISUAL_KEYS = new Set(['opacity', 'visible'])
 
 /**
+ * Управляет playback state одного motion timeline или tween.
+ */
+class NovaMotionPlaybackController implements NovaMotionPlayback {
+  private _segments: Array<NovaMotionSegment> = []
+  private _startedAt = 0
+  private _pausedAt = 0
+  private _seekOffset = 0
+  private _state: NovaMotionPlaybackState = 'idle'
+
+  /**
+   * Создает instance и подготавливает внутреннее состояние.
+   */
+  constructor(
+    private readonly _engine: NovaMotionEngine,
+    private readonly _options: NovaMotionOptions,
+  ) {}
+
+  /**
+   * Возвращает id.
+   */
+  get id(): string | undefined {
+    return this._options.id
+  }
+
+  /**
+   * Возвращает state.
+   */
+  get state(): NovaMotionPlaybackState {
+    return this._state
+  }
+
+  /**
+   * Возвращает empty.
+   */
+  get empty(): boolean {
+    return this._segments.length === 0
+  }
+
+  /**
+   * Обновляет segments.
+   */
+  setSegments(segments: Array<NovaMotionSegment>): void {
+    this._segments = segments
+  }
+
+  /**
+   * Проверяет наличие target.
+   */
+  hasTarget(target: NovaMotionTarget): boolean {
+    return this._segments.some(segment => segment.target === target)
+  }
+
+  /**
+   * Удаляет segments.
+   */
+  removeSegments(predicate: (segment: NovaMotionSegment) => boolean): void {
+    this._segments = this._segments.filter(segment => !predicate(segment))
+  }
+
+  /**
+   * Выполняет внутреннюю операцию play.
+   */
+  play(): void {
+    this._startedAt = performance.now()
+    this._pausedAt = 0
+    this._seekOffset = 0
+    this._state = 'running'
+    this._engine._activate(this)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию pause.
+   */
+  pause(): void {
+    if (this._state !== 'running') {
+      return
+    }
+    this._pausedAt = performance.now()
+    this._state = 'paused'
+  }
+
+  /**
+   * Выполняет внутреннюю операцию resume.
+   */
+  resume(): void {
+    if (this._state !== 'paused') {
+      return
+    }
+    this._startedAt += performance.now() - this._pausedAt
+    this._pausedAt = 0
+    this._state = 'running'
+    this._engine._activate(this)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию cancel.
+   */
+  cancel(): void {
+    if (this._state === 'cancelled') {
+      return
+    }
+    this._state = 'cancelled'
+    this._engine._deactivate(this)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию seek.
+   */
+  seek(time: number): void {
+    this._seekOffset = Math.max(0, time)
+    if (this._state === 'idle') {
+      this._state = 'paused'
+    }
+  }
+
+  /**
+   * Выполняет один tick runtime-обработки.
+   */
+  tick(now: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
+    if (this._state !== 'running') {
+      return
+    }
+    if (this._segments.length === 0) {
+      this._state = 'finished'
+      return
+    }
+
+    const duration = this._duration
+    const repeat = this._options.repeat ?? 0
+    const rawTime = Math.max(0, now - this._startedAt + this._seekOffset)
+    const totalDuration = repeat === Infinity ? Infinity : duration * (repeat + 1)
+
+    if (rawTime >= totalDuration) {
+      this._applyAt(duration, patches)
+      this._state = 'finished'
+      return
+    }
+
+    const cycle = duration === 0 ? 0 : Math.floor(rawTime / duration)
+    let localTime = duration === 0 ? duration : rawTime % duration
+    if (this._options.yoyo && cycle % 2 === 1) {
+      localTime = duration - localTime
+    }
+
+    this._applyAt(localTime, patches)
+  }
+
+  /**
+   * Выполняет внутреннюю операцию apply at.
+   */
+  private _applyAt(time: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
+    for (const segment of this._segments) {
+      const segmentEnd = segment.startAt + segment.duration
+      if (time < segment.startAt) {
+        continue
+      }
+      if (time > segmentEnd) {
+        appendPatch(patches, segment.target, segment.key, segment.to)
+        continue
+      }
+
+      const rawProgress = segment.duration === 0 ? 1 : (time - segment.startAt) / segment.duration
+      const eased = resolveNovaMotionEasing(segment.easing)(clampMotionProgress(rawProgress))
+      appendPatch(
+        patches,
+        segment.target,
+        segment.key,
+        interpolateNovaMotionValue(segment.from, segment.to, eased),
+      )
+    }
+  }
+
+  /**
+   * Возвращает duration.
+   */
+  private get _duration(): number {
+    return Math.max(0, ...this._segments.map(segment => segment.startAt + segment.duration))
+  }
+}
+
+/**
  * Управляет motion segments, timelines и playback в Nova runtime.
  */
 export class NovaMotionEngine {
@@ -303,188 +484,6 @@ export class NovaMotionEngine {
     }
   }
 }
-
-/**
- * Управляет playback state одного motion timeline или tween.
- */
-class NovaMotionPlaybackController implements NovaMotionPlayback {
-  private _segments: Array<NovaMotionSegment> = []
-  private _startedAt = 0
-  private _pausedAt = 0
-  private _seekOffset = 0
-  private _state: NovaMotionPlaybackState = 'idle'
-
-  /**
-   * Создает instance и подготавливает внутреннее состояние.
-   */
-  constructor(
-    private readonly _engine: NovaMotionEngine,
-    private readonly _options: NovaMotionOptions,
-  ) {}
-
-  /**
-   * Возвращает id.
-   */
-  get id(): string | undefined {
-    return this._options.id
-  }
-
-  /**
-   * Возвращает state.
-   */
-  get state(): NovaMotionPlaybackState {
-    return this._state
-  }
-
-  /**
-   * Возвращает empty.
-   */
-  get empty(): boolean {
-    return this._segments.length === 0
-  }
-
-  /**
-   * Обновляет segments.
-   */
-  setSegments(segments: Array<NovaMotionSegment>): void {
-    this._segments = segments
-  }
-
-  /**
-   * Проверяет наличие target.
-   */
-  hasTarget(target: NovaMotionTarget): boolean {
-    return this._segments.some(segment => segment.target === target)
-  }
-
-  /**
-   * Удаляет segments.
-   */
-  removeSegments(predicate: (segment: NovaMotionSegment) => boolean): void {
-    this._segments = this._segments.filter(segment => !predicate(segment))
-  }
-
-  /**
-   * Выполняет внутреннюю операцию play.
-   */
-  play(): void {
-    this._startedAt = performance.now()
-    this._pausedAt = 0
-    this._seekOffset = 0
-    this._state = 'running'
-    this._engine._activate(this)
-  }
-
-  /**
-   * Выполняет внутреннюю операцию pause.
-   */
-  pause(): void {
-    if (this._state !== 'running') {
-      return
-    }
-    this._pausedAt = performance.now()
-    this._state = 'paused'
-  }
-
-  /**
-   * Выполняет внутреннюю операцию resume.
-   */
-  resume(): void {
-    if (this._state !== 'paused') {
-      return
-    }
-    this._startedAt += performance.now() - this._pausedAt
-    this._pausedAt = 0
-    this._state = 'running'
-    this._engine._activate(this)
-  }
-
-  /**
-   * Выполняет внутреннюю операцию cancel.
-   */
-  cancel(): void {
-    if (this._state === 'cancelled') {
-      return
-    }
-    this._state = 'cancelled'
-    this._engine._deactivate(this)
-  }
-
-  /**
-   * Выполняет внутреннюю операцию seek.
-   */
-  seek(time: number): void {
-    this._seekOffset = Math.max(0, time)
-    if (this._state === 'idle') {
-      this._state = 'paused'
-    }
-  }
-
-  /**
-   * Выполняет один tick runtime-обработки.
-   */
-  tick(now: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
-    if (this._state !== 'running') {
-      return
-    }
-    if (this._segments.length === 0) {
-      this._state = 'finished'
-      return
-    }
-
-    const duration = this._duration
-    const repeat = this._options.repeat ?? 0
-    const rawTime = Math.max(0, now - this._startedAt + this._seekOffset)
-    const totalDuration = repeat === Infinity ? Infinity : duration * (repeat + 1)
-
-    if (rawTime >= totalDuration) {
-      this._applyAt(duration, patches)
-      this._state = 'finished'
-      return
-    }
-
-    const cycle = duration === 0 ? 0 : Math.floor(rawTime / duration)
-    let localTime = duration === 0 ? duration : rawTime % duration
-    if (this._options.yoyo && cycle % 2 === 1) {
-      localTime = duration - localTime
-    }
-
-    this._applyAt(localTime, patches)
-  }
-
-  /**
-   * Выполняет внутреннюю операцию apply at.
-   */
-  private _applyAt(time: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
-    for (const segment of this._segments) {
-      const segmentEnd = segment.startAt + segment.duration
-      if (time < segment.startAt) {
-        continue
-      }
-      if (time > segmentEnd) {
-        appendPatch(patches, segment.target, segment.key, segment.to)
-        continue
-      }
-
-      const rawProgress = segment.duration === 0 ? 1 : (time - segment.startAt) / segment.duration
-      const eased = resolveNovaMotionEasing(segment.easing)(clampMotionProgress(rawProgress))
-      appendPatch(
-        patches,
-        segment.target,
-        segment.key,
-        interpolateNovaMotionValue(segment.from, segment.to, eased),
-      )
-    }
-  }
-
-  /**
-   * Возвращает duration.
-   */
-  private get _duration(): number {
-    return Math.max(0, ...this._segments.map(segment => segment.startAt + segment.duration))
-  }
-}
-
 /**
  * Добавляет patch.
  */
