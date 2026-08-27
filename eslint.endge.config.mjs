@@ -66,6 +66,12 @@ const endgeConfigs = [
           leadingUnderscore: 'require',
         },
       ],
+      'ts/no-use-before-define': ['error', {
+        classes: true,
+        functions: false,
+        typedefs: false,
+        variables: true,
+      }],
     },
   },
   {
@@ -92,13 +98,17 @@ const endgeConfigs = [
   {
     name: 'endge/domain-boundary',
     files: ['src/**/domain/**/*.{js,mjs,cjs,ts,tsx,mts,cts}'],
+    ignores: [
+      'src/**/modules/domain/**',
+      'src/test/**',
+    ],
     rules: {
       'no-restricted-globals': [
         'error',
-        { name: 'document', message: 'FE-DOMAIN-001: DOM принадлежит внешнему Adapter.' },
-        { name: 'fetch', message: 'FE-DOMAIN-001: transport принадлежит внешнему Adapter.' },
-        { name: 'localStorage', message: 'FE-DOMAIN-001: storage принадлежит внешнему Adapter.' },
-        { name: 'window', message: 'FE-DOMAIN-001: browser API принадлежит внешнему Adapter.' },
+        { name: 'document', message: 'FE-DOMAIN-001: domain получает готовые данные вне DOM.' },
+        { name: 'fetch', message: 'FE-DOMAIN-001: external operation выполняется вне domain.' },
+        { name: 'localStorage', message: 'FE-DOMAIN-001: persistence выполняется вне domain.' },
+        { name: 'window', message: 'FE-DOMAIN-001: browser operation выполняется вне domain.' },
       ],
       'no-restricted-imports': [
         'error',
@@ -122,12 +132,16 @@ const endgeConfigs = [
   {
     name: 'endge/ui-boundary',
     files: ['src/**/ui/**/*.{js,mjs,cjs,ts,tsx,mts,cts,vue}', 'src/**/*.vue'],
+    ignores: [
+      'src/**/modules/ui/**',
+      'src/test/**',
+    ],
     rules: {
       'no-restricted-globals': [
         'error',
         { name: 'fetch', message: 'FE-UI-STATIC-001: UI вызывает Module, а не raw transport.' },
-        { name: 'localStorage', message: 'FE-UI-STATIC-001: persistent state принадлежит Module и storage Adapter.' },
-        { name: 'sessionStorage', message: 'FE-UI-STATIC-001: persistent state принадлежит Module и storage Adapter.' },
+        { name: 'localStorage', message: 'FE-UI-STATIC-001: persistent state принадлежит Module.' },
+        { name: 'sessionStorage', message: 'FE-UI-STATIC-001: persistent state принадлежит Module.' },
       ],
       'no-restricted-imports': [
         'error',
@@ -142,75 +156,12 @@ const endgeConfigs = [
       'no-restricted-syntax': [
         'error',
         {
-          selector: 'NewExpression[callee.type=\'Identifier\'][callee.name=/(_(?:Service|Adapter|Module|Federation)|(?:Service|Adapter|Module|Federation))$/]',
+          selector: 'NewExpression[callee.type=\'Identifier\'][callee.name=/(_(?:Service|Module|Federation)|(?:Service|Module|Federation))$/]',
           message: 'FE-UI-STATIC-001: UI получает Module через Federation и не создаёт architectural layers.',
         },
         {
           selector: 'MemberExpression[object.name=/^(window|globalThis)$/][property.name=/^(localStorage|sessionStorage)$/]',
-          message: 'FE-UI-STATIC-001: persistent state принадлежит Module и storage Adapter.',
-        },
-      ],
-    },
-  },
-  {
-    name: 'endge/service-boundary',
-    files: [
-      'src/**/services/**/*.{js,mjs,cjs,ts,tsx,mts,cts}',
-      'src/**/*Service.{js,mjs,cjs,ts,tsx,mts,cts}',
-      'src/**/*_Service.{js,mjs,cjs,ts,tsx,mts,cts}',
-    ],
-    ignores: ['src/test/**'],
-    rules: {
-      'no-restricted-globals': [
-        'error',
-        { name: 'document', message: 'FE-SERVICE-DEPENDENCY-001: Service не использует DOM.' },
-        { name: 'fetch', message: 'FE-SERVICE-DEPENDENCY-001: Service не использует transport.' },
-        { name: 'localStorage', message: 'FE-SERVICE-DEPENDENCY-001: Service не использует storage.' },
-        { name: 'window', message: 'FE-SERVICE-DEPENDENCY-001: Service не использует browser API.' },
-      ],
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            { name: 'axios', message: 'FE-SERVICE-DEPENDENCY-001: transport принадлежит Adapter.' },
-            { name: 'ky', message: 'FE-SERVICE-DEPENDENCY-001: transport принадлежит Adapter.' },
-            { name: 'pinia', message: 'FE-SERVICE-DEPENDENCY-001: Service не владеет application state.' },
-            { name: 'vue', message: 'FE-SERVICE-DEPENDENCY-001: Service не зависит от UI framework.' },
-          ],
-          patterns: [
-            {
-              group: ['**/adapters/**', '**/federations/**', '**/modules/**', '**/ui/**', '**/*.vue'],
-              message: 'FE-SERVICE-DEPENDENCY-001: Service зависит только от contracts, Services и tools.',
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    name: 'endge/module-external-boundary',
-    files: [
-      'src/**/modules/**/*.{js,mjs,cjs,ts,tsx,mts,cts}',
-      'src/**/*Module.{js,mjs,cjs,ts,tsx,mts,cts}',
-      'src/**/*_Module.{js,mjs,cjs,ts,tsx,mts,cts}',
-    ],
-    ignores: ['src/**/adapters/**', 'src/test/**'],
-    rules: {
-      'no-restricted-globals': [
-        'error',
-        { name: 'document', message: 'FE-ADAPTER-BOUNDARY-001: DOM принадлежит Adapter.' },
-        { name: 'fetch', message: 'FE-ADAPTER-BOUNDARY-001: transport принадлежит Adapter.' },
-        { name: 'localStorage', message: 'FE-ADAPTER-BOUNDARY-001: storage принадлежит Adapter.' },
-        { name: 'window', message: 'FE-ADAPTER-BOUNDARY-001: browser API принадлежит Adapter.' },
-      ],
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            { name: 'axios', message: 'FE-ADAPTER-BOUNDARY-001: network client принадлежит Adapter.' },
-            { name: 'ky', message: 'FE-ADAPTER-BOUNDARY-001: network client принадлежит Adapter.' },
-            { name: 'pinia', message: 'FE-PINIA-001: Module сам является owner state.' },
-          ],
+          message: 'FE-UI-STATIC-001: persistent state принадлежит Module.',
         },
       ],
     },

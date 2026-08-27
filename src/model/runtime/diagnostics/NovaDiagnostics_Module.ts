@@ -13,8 +13,8 @@ import type {
 } from '@/domain/types/diagnostics.types'
 import type { NovaRenderMetrics } from '@/domain/types/rendering/index'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { DiagnosticsPerformance } from '@/model/runtime/diagnostics/adapters/NovaDiagnosticsBrowser_Adapter'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import { NovaDiagnosticsBrowser_Adapter } from '@/model/runtime/diagnostics/adapters/NovaDiagnosticsBrowser_Adapter'
 
 const DEFAULT_SAMPLE_INTERVAL_MS = 1000
