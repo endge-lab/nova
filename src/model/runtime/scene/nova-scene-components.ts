@@ -63,11 +63,11 @@ interface NovaTemplateSceneDefinition {
 /** Runtime-компонент, который управляет cached NovaScene из DSL-разметки. */
 export class NovaScenesNode<E extends EventList = Record<string, any>>
   extends NovaComponentNode<NovaScenesResolvedProps, NovaScenesApi, Record<string, never>, NovaScenesProps, E> {
-  private readonly api: NovaScenesApi
-  private readonly definitions = new Map<string, NovaTemplateSceneDefinition>()
-  private readonly scenes = new Map<string, NovaTemplateScene<E>>()
-  private activeSceneId: string | null = null
-  private ready = false
+  private readonly _api: NovaScenesApi
+  private readonly _definitions = new Map<string, NovaTemplateSceneDefinition>()
+  private readonly _scenes = new Map<string, NovaTemplateScene<E>>()
+  private _activeSceneId: string | null = null
+  private _ready = false
 
   /**
    * Создает manager независимых NovaScene внутри текущего template subtree.
@@ -81,30 +81,30 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
   ) {
     super(app, surface, descriptor, normalizeNovaScenesProps(props), options)
     this.__type = 'Scenes'
-    this.api = {
+    this._api = {
       setChildren: children => this.setChildren(children),
-      getActiveSceneId: () => this.activeSceneId,
-      getCachedSceneIds: () => [...this.scenes.keys()],
+      getActiveSceneId: () => this._activeSceneId,
+      getCachedSceneIds: () => [...this._scenes.keys()],
     }
     this.setChildren(options.children ?? [])
-    this.ready = true
+    this._ready = true
   }
 
   /** Возвращает public API компонента. */
   override getApi(): NovaScenesApi {
-    return this.api
+    return this._api
   }
 
   /** Обновляет props и синхронизирует активную сцену. */
   override setProps(patch: NovaScenesProps): this {
     super.setProps(patch as Partial<NovaScenesResolvedProps>)
-    this.syncActiveSceneIfReady()
+    this._syncActiveSceneIfReady()
     return this
   }
 
   /** Принимает декларации Scene и обновляет cached runtime-сцены. */
   setChildren(children: Array<NovaTemplateChildSchema>): void {
-    this.definitions.clear()
+    this._definitions.clear()
 
     for (const child of children) {
       if (child.type !== NOVA_SCENE_SCHEMA_TYPE) {
@@ -116,89 +116,89 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
         continue
       }
 
-      this.definitions.set(id, {
+      this._definitions.set(id, {
         id,
         children: child.children ?? [],
       })
     }
 
-    for (const [id, scene] of [...this.scenes.entries()]) {
-      const definition = this.definitions.get(id)
+    for (const [id, scene] of [...this._scenes.entries()]) {
+      const definition = this._definitions.get(id)
       if (!definition) {
         scene.destroy()
-        this.scenes.delete(id)
+        this._scenes.delete(id)
         continue
       }
 
       scene.setChildren(definition.children)
     }
 
-    this.syncActiveSceneIfReady()
+    this._syncActiveSceneIfReady()
   }
 
   /** Синхронизирует active Scene после mount самой manager-ноды. */
   protected override onMount(): void {
     super.onMount()
-    this.syncActiveSceneIfReady()
+    this._syncActiveSceneIfReady()
   }
 
   /** Освобождает cached scenes вместе с manager node. */
   override dispose(): void {
-    for (const scene of this.scenes.values()) {
+    for (const scene of this._scenes.values()) {
       scene.destroy()
     }
-    this.scenes.clear()
-    this.definitions.clear()
-    this.activeSceneId = null
+    this._scenes.clear()
+    this._definitions.clear()
+    this._activeSceneId = null
     super.dispose()
   }
 
   /**
    * Синхронизирует состояние между слоями NovaScenesNode.
    */
-  private syncActiveSceneIfReady(): void {
-    if (!this.ready || this.lifecycleState === 'created' || this.lifecycleState === 'destroyed') {
+  private _syncActiveSceneIfReady(): void {
+    if (!this._ready || this.lifecycleState === 'created' || this.lifecycleState === 'destroyed') {
       return
     }
 
-    this.syncActiveScene()
+    this._syncActiveScene()
   }
 
   /**
    * Синхронизирует состояние между слоями NovaScenesNode.
    */
-  private syncActiveScene(): void {
+  private _syncActiveScene(): void {
     const nextActiveId = this.props.active === null || this.props.active === undefined
       ? null
       : String(this.props.active)
 
-    if (this.activeSceneId === nextActiveId) {
-      this.ensureActiveSceneMounted(nextActiveId)
+    if (this._activeSceneId === nextActiveId) {
+      this._ensureActiveSceneMounted(nextActiveId)
       return
     }
 
-    const previous = this.activeSceneId ? this.scenes.get(this.activeSceneId) : undefined
+    const previous = this._activeSceneId ? this._scenes.get(this._activeSceneId) : undefined
     previous?.pause()
 
-    this.activeSceneId = nextActiveId
-    this.ensureActiveSceneMounted(nextActiveId)
+    this._activeSceneId = nextActiveId
+    this._ensureActiveSceneMounted(nextActiveId)
     this.dirty({ update: true, render: true })
   }
 
   /**
    * Выполняет внутренний шаг ensureActiveSceneMounted для NovaScenesNode.
    */
-  private ensureActiveSceneMounted(id: string | null): void {
+  private _ensureActiveSceneMounted(id: string | null): void {
     if (!id) {
       return
     }
 
-    const definition = this.definitions.get(id)
+    const definition = this._definitions.get(id)
     if (!definition) {
       return
     }
 
-    const scene = this.resolveScene(definition)
+    const scene = this._resolveScene(definition)
     if (scene.state === 'created') {
       scene.mount()
       return
@@ -211,14 +211,14 @@ export class NovaScenesNode<E extends EventList = Record<string, any>>
   /**
    * Нормализует и возвращает итоговое значение NovaScenesNode.
    */
-  private resolveScene(definition: NovaTemplateSceneDefinition): NovaTemplateScene<E> {
-    const existing = this.scenes.get(definition.id)
+  private _resolveScene(definition: NovaTemplateSceneDefinition): NovaTemplateScene<E> {
+    const existing = this._scenes.get(definition.id)
     if (existing) {
       return existing
     }
 
     const scene = new NovaTemplateScene(this.nova, this, definition.id, definition.children)
-    this.scenes.set(definition.id, scene)
+    this._scenes.set(definition.id, scene)
     return scene
   }
 }
@@ -245,16 +245,16 @@ export class NovaSceneDefinitionNode<E extends EventList = Record<string, any>>
  * Описывает сцену NovaTemplateScene и ее runtime lifecycle.
  */
 class NovaTemplateScene<E extends EventList> extends NovaScene<E> {
-  private managedRoots: Array<NovaNode<E>> = []
+  private _managedRoots: Array<NovaNode<E>> = []
 
   /**
    * Создает cached scene из compiled DSL children.
    */
   constructor(
     app: NovaApp<E>,
-    private readonly host: NovaScenesNode<E>,
+    private readonly _host: NovaScenesNode<E>,
     readonly id: string,
-    private children: Array<NovaTemplateChildSchema>,
+    private _children: Array<NovaTemplateChildSchema>,
   ) {
     super(app)
   }
@@ -263,49 +263,49 @@ class NovaTemplateScene<E extends EventList> extends NovaScene<E> {
    * Обновляет schema snapshot без пересоздания scene instance.
    */
   setChildren(children: Array<NovaTemplateChildSchema>): void {
-    this.children = children
+    this._children = children
     if (this.state === 'created' || this.state === 'destroyed') {
       return
     }
 
-    this.reconcile()
-    this.applyActiveState(this.state === 'mounted')
+    this._reconcile()
+    this._applyActiveState(this.state === 'mounted')
   }
 
   /** Создает roots при первом mount. */
   protected override onMount(): void {
-    this.reconcile()
-    this.applyActiveState(true)
+    this._reconcile()
+    this._applyActiveState(true)
   }
 
   /** Отключает inactive scene от update/render и input. */
   protected override onPause(): void {
-    this.applyActiveState(false)
+    this._applyActiveState(false)
   }
 
   /** Возвращает cached scene в active tree. */
   protected override onResume(): void {
-    this.applyActiveState(true)
+    this._applyActiveState(true)
   }
 
   /** Сбрасывает локальный список после удаления roots базовым lifecycle. */
   protected override onUnmount(): void {
-    this.managedRoots = []
+    this._managedRoots = []
   }
 
   /**
    * Согласует runtime-состояние NovaTemplateScene.
    */
-  private reconcile(): void {
-    const result = reconcileNovaTemplateChildren(this.host, this.managedRoots, this.children)
-    this.managedRoots = result.nodes
-    this.setRoots(this.managedRoots)
+  private _reconcile(): void {
+    const result = reconcileNovaTemplateChildren(this._host, this._managedRoots, this._children)
+    this._managedRoots = result.nodes
+    this.setRoots(this._managedRoots)
   }
 
   /**
    * Применяет подготовленное состояние NovaTemplateScene.
    */
-  private applyActiveState(active: boolean): void {
+  private _applyActiveState(active: boolean): void {
     for (const root of this.roots) {
       root.active = active
       root.visible = active

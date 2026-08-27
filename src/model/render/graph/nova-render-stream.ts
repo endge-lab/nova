@@ -125,7 +125,7 @@ export class NovaTypedRenderStream implements NovaRenderStream {
     }
 
     const slotIndex = this._freeSlots.pop() ?? this._slotCount++
-    this.ensureSlotCapacity(slotIndex + 1)
+    this._ensureSlotCapacity(slotIndex + 1)
     const slot: NovaRenderStreamSlot = {
       itemId: options.itemId,
       offset: slotIndex,
@@ -209,7 +209,7 @@ export class NovaTypedRenderStream implements NovaRenderStream {
   /**
    * Выполняет внутреннюю операцию ensure slot capacity.
    */
-  private ensureSlotCapacity(requiredSlots: number): void {
+  private _ensureSlotCapacity(requiredSlots: number): void {
     if (requiredSlots <= this.slotCapacity) {
       return
     }

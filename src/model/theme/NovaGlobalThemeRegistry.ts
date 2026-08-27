@@ -50,43 +50,43 @@ interface AttachedApp {
  * Global registry for imported NovaCSS assets and app-wide theme switching.
  */
 export class NovaGlobalThemeRegistry {
-  private readonly assets: Array<NovaGlobalThemeAsset> = []
-  private readonly listeners = new Set<() => void>()
-  private readonly apps = new Set<AttachedApp>()
-  private activeTheme: NovaThemeId | null = null
+  private readonly _assets: Array<NovaGlobalThemeAsset> = []
+  private readonly _listeners = new Set<() => void>()
+  private readonly _apps = new Set<AttachedApp>()
+  private _activeTheme: NovaThemeId | null = null
 
   import(asset: NovaGlobalThemeAsset): void {
     if (!asset || !Array.isArray(asset.themes) || asset.themes.length === 0) {
       return
     }
 
-    this.assets.push(asset)
-    for (const entry of this.apps) {
-      if (entry.inheritActive && this.activeTheme) {
-        this.registerThemes(entry.app)
-        this.tryUseTheme(entry.app, this.activeTheme)
+    this._assets.push(asset)
+    for (const entry of this._apps) {
+      if (entry.inheritActive && this._activeTheme) {
+        this._registerThemes(entry.app)
+        this._tryUseTheme(entry.app, this._activeTheme)
         entry.app.invalidate()
       }
     }
-    this.notify()
+    this._notify()
   }
 
   theme(): NovaThemeId | null
   theme(id: NovaThemeId): NovaThemeId
   theme(id?: NovaThemeId): NovaThemeId | null {
     if (id === undefined) {
-      return this.activeTheme
+      return this._activeTheme
     }
 
-    this.activeTheme = id
-    for (const entry of this.apps) {
+    this._activeTheme = id
+    for (const entry of this._apps) {
       if (entry.inheritActive) {
-        this.registerThemes(entry.app)
-        this.tryUseTheme(entry.app, id)
+        this._registerThemes(entry.app)
+        this._tryUseTheme(entry.app, id)
         entry.app.invalidate()
       }
     }
-    this.notify()
+    this._notify()
     return id
   }
 
@@ -95,26 +95,26 @@ export class NovaGlobalThemeRegistry {
       app: app as unknown as NovaApp<EventList>,
       inheritActive: options.inheritActive ?? true,
     }
-    this.apps.add(entry)
-    if (entry.inheritActive && this.activeTheme) {
-      this.registerThemes(entry.app)
-      this.tryUseTheme(entry.app, this.activeTheme)
+    this._apps.add(entry)
+    if (entry.inheritActive && this._activeTheme) {
+      this._registerThemes(entry.app)
+      this._tryUseTheme(entry.app, this._activeTheme)
     }
 
     return () => {
-      this.apps.delete(entry)
+      this._apps.delete(entry)
     }
   }
 
   subscribe(listener: () => void): () => void {
-    this.listeners.add(listener)
+    this._listeners.add(listener)
     return () => {
-      this.listeners.delete(listener)
+      this._listeners.delete(listener)
     }
   }
 
   resolveTokens(target: NovaThemeSelectorTarget): NovaThemeTokens {
-    const themeId = target.theme ?? this.activeTheme
+    const themeId = target.theme ?? this._activeTheme
     if (!themeId) {
       return {}
     }
@@ -128,7 +128,7 @@ export class NovaGlobalThemeRegistry {
     }> = []
     let assetOrder = 0
 
-    for (const asset of this.assets) {
+    for (const asset of this._assets) {
       for (const theme of asset.themes ?? []) {
         if (theme.id !== themeId) {
           continue
@@ -157,14 +157,14 @@ export class NovaGlobalThemeRegistry {
   }
 
   resetForTests(): void {
-    this.assets.length = 0
-    this.activeTheme = null
-    this.listeners.clear()
-    this.apps.clear()
+    this._assets.length = 0
+    this._activeTheme = null
+    this._listeners.clear()
+    this._apps.clear()
   }
 
-  private registerThemes(app: NovaApp<EventList>): void {
-    const themes = this.collectThemeDefinitions()
+  private _registerThemes(app: NovaApp<EventList>): void {
+    const themes = this._collectThemeDefinitions()
     if (themes.length === 0) {
       return
     }
@@ -179,10 +179,10 @@ export class NovaGlobalThemeRegistry {
     }
   }
 
-  private collectThemeDefinitions(): Array<NovaThemeDefinition> {
+  private _collectThemeDefinitions(): Array<NovaThemeDefinition> {
     const themes = new Map<NovaThemeId, NovaThemeDefinition>()
 
-    for (const asset of this.assets) {
+    for (const asset of this._assets) {
       for (const theme of asset.themes ?? []) {
         const previous = themes.get(theme.id)
         themes.set(theme.id, {
@@ -199,7 +199,7 @@ export class NovaGlobalThemeRegistry {
     return [...themes.values()]
   }
 
-  private tryUseTheme(app: NovaApp<EventList>, id: NovaThemeId): void {
+  private _tryUseTheme(app: NovaApp<EventList>, id: NovaThemeId): void {
     try {
       app.theme.use(id)
     }
@@ -208,8 +208,8 @@ export class NovaGlobalThemeRegistry {
     }
   }
 
-  private notify(): void {
-    for (const listener of this.listeners) {
+  private _notify(): void {
+    for (const listener of this._listeners) {
       listener()
     }
   }

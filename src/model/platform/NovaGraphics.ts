@@ -2,13 +2,13 @@
  * Содержит вспомогательные drawing helpers для Canvas2D primitives.
  */
 export class NovaGraphics {
-  private static assetsMap = new Map<string, HTMLCanvasElement>()
+  private static _assetsMap = new Map<string, HTMLCanvasElement>()
 
   /**
    * Получение канваса с графическим активом по имени.
    */
   static getAsset(name: string): HTMLCanvasElement | undefined {
-    return this.assetsMap.get(name)
+    return this._assetsMap.get(name)
   }
 
   /**
@@ -46,9 +46,9 @@ export class NovaGraphics {
       sizeK?: number
     },
   ): HTMLCanvasElement | null {
-    if (this.assetsMap.has(name)) {
+    if (this._assetsMap.has(name)) {
       console.warn(`Pattern "${name}" already exists`)
-      return this.assetsMap.get(name)!
+      return this._assetsMap.get(name)!
     }
 
     const { stripeColor, bgColor, stripeWidth, angle = 45, sizeK = 50 } = params
@@ -75,7 +75,7 @@ export class NovaGraphics {
       patternCtx.fillRect(i, 0, stripeWidth, patternSize * 2)
     }
 
-    this.assetsMap.set(name, patternCanvas)
+    this._assetsMap.set(name, patternCanvas)
     return patternCanvas
   }
 
@@ -89,9 +89,9 @@ export class NovaGraphics {
     w = 128,
     h = 128,
   ): Promise<HTMLCanvasElement> {
-    if (this.assetsMap.has(name)) {
+    if (this._assetsMap.has(name)) {
       console.warn(`Icon "${name}" already exists`)
-      return this.assetsMap.get(name)!
+      return this._assetsMap.get(name)!
     }
 
     const canvas = document.createElement('canvas')
@@ -113,7 +113,7 @@ export class NovaGraphics {
     ctx.drawImage(img, 0, 0, w, h)
     URL.revokeObjectURL(url)
 
-    this.assetsMap.set(name, canvas)
+    this._assetsMap.set(name, canvas)
     return canvas
   }
 }

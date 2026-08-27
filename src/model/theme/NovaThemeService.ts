@@ -29,12 +29,12 @@ export const NOVA_THEME_VERSION_PATH = 'nova.theme.version'
 export class NovaThemeService<E extends EventList = Record<string, any>> {
   //
   // Registry темы остается доменной частью Nova, а active/version живут в Raph data.
-  private readonly themes = new Map<NovaThemeId, NovaThemeDefinition>()
+  private readonly _themes = new Map<NovaThemeId, NovaThemeDefinition>()
 
   /**
    * Создает service и регистрирует начальные темы.
    */
-  constructor(private readonly app: NovaApp<E>, options: NovaThemeCreateOptions = {}) {
+  constructor(private readonly _app: NovaApp<E>, options: NovaThemeCreateOptions = {}) {
     if (options.themes) {
       this.registerMany(options.themes, { active: options.active })
     }
@@ -47,7 +47,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
    * Регистрирует тему в локальном Nova registry.
    */
   register(theme: NovaThemeDefinition, options: { activate?: boolean } = {}): void {
-    this.themes.set(theme.id, {
+    this._themes.set(theme.id, {
       ...theme,
       tokens: { ...theme.tokens },
     })
@@ -58,7 +58,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
     }
 
     if (this.active() === theme.id) {
-      this.bumpVersion()
+      this._bumpVersion()
     }
   }
 
@@ -67,7 +67,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
    */
   registerMany(themes: Array<NovaThemeDefinition>, options: { active?: NovaThemeId } = {}): void {
     for (const theme of themes) {
-      this.themes.set(theme.id, {
+      this._themes.set(theme.id, {
         ...theme,
         tokens: { ...theme.tokens },
       })
@@ -83,7 +83,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
    * Делает тему активной и пишет состояние в RaphKernel.
    */
   use(id: NovaThemeId): void {
-    if (!this.themes.has(id)) {
+    if (!this._themes.has(id)) {
       throw new Error(`[NovaTheme] Theme "${id}" is not registered.`)
     }
 
@@ -91,18 +91,18 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
       return
     }
 
-    this.app.raph.kernel.transaction(() => {
-      this.app.raph.kernel.set(NOVA_THEME_ACTIVE_PATH, id)
-      this.app.raph.kernel.set(NOVA_THEME_VERSION_PATH, this.version() + 1)
+    this._app.raph.kernel.transaction(() => {
+      this._app.raph.kernel.set(NOVA_THEME_ACTIVE_PATH, id)
+      this._app.raph.kernel.set(NOVA_THEME_VERSION_PATH, this.version() + 1)
     })
-    this.app.invalidate()
+    this._app.invalidate()
   }
 
   /**
    * Возвращает активный theme id из RaphKernel.
    */
   active(): NovaThemeId | null {
-    const value = this.app.raph.kernel.get(NOVA_THEME_ACTIVE_PATH)
+    const value = this._app.raph.kernel.get(NOVA_THEME_ACTIVE_PATH)
     return typeof value === 'string' ? value : null
   }
 
@@ -110,7 +110,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
    * Возвращает текущую версию темы из RaphKernel.
    */
   version(): number {
-    const value = this.app.raph.kernel.get(NOVA_THEME_VERSION_PATH)
+    const value = this._app.raph.kernel.get(NOVA_THEME_VERSION_PATH)
     return typeof value === 'number' && Number.isFinite(value) ? value : 0
   }
 
@@ -119,7 +119,7 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
    */
   activeDefinition(): NovaThemeDefinition | null {
     const active = this.active()
-    return active ? this.themes.get(active) ?? null : null
+    return active ? this._themes.get(active) ?? null : null
   }
 
   /**
@@ -200,9 +200,9 @@ export class NovaThemeService<E extends EventList = Record<string, any>> {
   /**
    * Поднимает версию темы без смены active id.
    */
-  private bumpVersion(): void {
-    this.app.raph.kernel.set(NOVA_THEME_VERSION_PATH, this.version() + 1)
-    this.app.invalidate()
+  private _bumpVersion(): void {
+    this._app.raph.kernel.set(NOVA_THEME_VERSION_PATH, this.version() + 1)
+    this._app.invalidate()
   }
 }
 

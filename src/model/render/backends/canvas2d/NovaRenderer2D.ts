@@ -94,7 +94,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Возвращает активную render-state границу.
    */
-  private get activeStateMark(): NovaRendererStateMark | undefined {
+  private get _activeStateMark(): NovaRendererStateMark | undefined {
     return this._stateMarks[this._stateMarks.length - 1]
   }
 
@@ -387,11 +387,11 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    * Выполняет внутреннюю операцию restore.
    */
   restore(): void {
-    const minDepth = this.activeStateMark?.transformDepth ?? 0
+    const minDepth = this._activeStateMark?.transformDepth ?? 0
     if (this._transformDepth <= minDepth) {
       return
     }
-    this.restoreUnsafe()
+    this._restoreUnsafe()
   }
 
   /**
@@ -410,11 +410,11 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    * Очищает clip.
    */
   clearClip(): void {
-    const minDepth = this.activeStateMark?.clipDepth ?? 0
+    const minDepth = this._activeStateMark?.clipDepth ?? 0
     if (this._clipDepth <= minDepth) {
       return
     }
-    this.clearClipUnsafe()
+    this._clearClipUnsafe()
   }
 
   /**
@@ -434,10 +434,10 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
    */
   restoreState(mark: NovaRendererStateMark): void {
     while (this._clipDepth > mark.clipDepth) {
-      this.clearClipUnsafe()
+      this._clearClipUnsafe()
     }
     while (this._transformDepth > mark.transformDepth) {
-      this.restoreUnsafe()
+      this._restoreUnsafe()
     }
 
     const markIndex = this._stateMarks.lastIndexOf(mark)
@@ -542,10 +542,10 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
     }
 
     if (p.parser === 'markdown') {
-      this.textMarkdown(p)
+      this._textMarkdown(p)
     }
     else {
-      this.textString(p)
+      this._textString(p)
     }
 
     if (shouldClipToInner) {
@@ -559,7 +559,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Возвращает per-item clip для retained text batch.
    */
-  private resolveTextBatchClip(batch: NovaTextBatch, index: number): NovaText['clip'] | null | undefined {
+  private _resolveTextBatchClip(batch: NovaTextBatch, index: number): NovaText['clip'] | null | undefined {
     const clipX = batch.clipX?.[index]
     const clipY = batch.clipY?.[index]
     const clipWidth = batch.clipWidth?.[index]
@@ -825,7 +825,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
           continue
         }
         if (centerMode === 'repeat' && row === 1 && column === 1) {
-          this.drawRepeatedNineSliceCenter(source, sourceRect, targetRect)
+          this._drawRepeatedNineSliceCenter(source, sourceRect, targetRect)
           continue
         }
         ctx.drawImage(source, sourceRect.x, sourceRect.y, sourceRect.width, sourceRect.height, targetRect.x, targetRect.y, targetRect.width, targetRect.height)
@@ -838,7 +838,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Рисует repeated center для nine-slice-image.
    */
-  private drawRepeatedNineSliceCenter(
+  private _drawRepeatedNineSliceCenter(
     source: CanvasImageSource,
     sourceRect: { x: number, y: number, width: number, height: number },
     targetRect: { x: number, y: number, width: number, height: number },
@@ -1034,7 +1034,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   texts(batch: NovaTextBatch): void {
     for (let index = 0; index < batch.count; index += 1) {
       const color = Array.isArray(batch.color) ? batch.color[index] : batch.color
-      const clip = this.resolveTextBatchClip(batch, index)
+      const clip = this._resolveTextBatchClip(batch, index)
       this.text({
         text: batch.text[index] ?? '',
         x: batch.x[index] ?? 0,
@@ -1187,7 +1187,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Выполняет внутреннюю операцию text string.
    */
-  private textString(p: NovaText): void {
+  private _textString(p: NovaText): void {
     if (!p.text?.length) {
       return
     }
@@ -1326,7 +1326,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Выполняет restore без проверки active state mark.
    */
-  private restoreUnsafe(): void {
+  private _restoreUnsafe(): void {
     this.ctx.restore()
     this._transformDepth = Math.max(0, this._transformDepth - 1)
   }
@@ -1334,7 +1334,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Выполняет clearClip без проверки active state mark.
    */
-  private clearClipUnsafe(): void {
+  private _clearClipUnsafe(): void {
     this.ctx.restore()
     this._clipDepth = Math.max(0, this._clipDepth - 1)
   }
@@ -1342,7 +1342,7 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
   /**
    * Выполняет внутреннюю операцию text markdown.
    */
-  private textMarkdown(p: NovaText): void {
+  private _textMarkdown(p: NovaText): void {
     const ctx = this.ctx
     ctx.save()
 

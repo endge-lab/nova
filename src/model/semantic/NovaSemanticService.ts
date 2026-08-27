@@ -14,16 +14,16 @@ interface StoredSemanticRegion extends NovaSemanticRegion {
  * Хранит bounded semantic regions без DOM-оверлея и без участия в render hot path.
  */
 export class NovaSemanticService {
-  private readonly regions = new Map<string, StoredSemanticRegion>()
-  private readonly sourceIndex = new Map<string, Set<string>>()
-  private insertionCounter = 0
-  private autoIdCounter = 0
-  private focusedByScope = new Map<string, string>()
+  private readonly _regions = new Map<string, StoredSemanticRegion>()
+  private readonly _sourceIndex = new Map<string, Set<string>>()
+  private _insertionCounter = 0
+  private _autoIdCounter = 0
+  private _focusedByScope = new Map<string, string>()
 
   register(options: NovaSemanticRegisterOptions): NovaSemanticRegion {
-    const id = options.id ?? `nova-semantic-${++this.autoIdCounter}`
-    const previous = this.regions.get(id)
-    const insertionOrder = previous?.insertionOrder ?? this.insertionCounter++
+    const id = options.id ?? `nova-semantic-${++this._autoIdCounter}`
+    const previous = this._regions.get(id)
+    const insertionOrder = previous?.insertionOrder ?? this._insertionCounter++
     const region: StoredSemanticRegion = {
       id,
       role: options.role,
@@ -39,14 +39,14 @@ export class NovaSemanticService {
       insertionOrder,
     }
 
-    this.removeFromSourceIndex(id)
-    this.regions.set(id, region)
-    this.addToSourceIndex(region)
+    this._removeFromSourceIndex(id)
+    this._regions.set(id, region)
+    this._addToSourceIndex(region)
     return cloneRegion(region)
   }
 
   update(id: string, patch: Partial<Omit<NovaSemanticRegisterOptions, 'id'>>): NovaSemanticRegion | undefined {
-    const previous = this.regions.get(id)
+    const previous = this._regions.get(id)
     if (!previous) {
       return undefined
     }
@@ -67,14 +67,14 @@ export class NovaSemanticService {
   }
 
   remove(id: string): boolean {
-    const removed = this.regions.delete(id)
+    const removed = this._regions.delete(id)
     if (!removed) {
       return false
     }
-    this.removeFromSourceIndex(id)
-    for (const [scope, focusedId] of this.focusedByScope) {
+    this._removeFromSourceIndex(id)
+    for (const [scope, focusedId] of this._focusedByScope) {
       if (focusedId === id) {
-        this.focusedByScope.delete(scope)
+        this._focusedByScope.delete(scope)
       }
     }
     return true
@@ -91,18 +91,18 @@ export class NovaSemanticService {
   }
 
   clearSource(sourceKey: string): void {
-    const ids = this.sourceIndex.get(sourceKey)
+    const ids = this._sourceIndex.get(sourceKey)
     if (!ids) {
       return
     }
     for (const id of [...ids]) {
       this.remove(id)
     }
-    this.sourceIndex.delete(sourceKey)
+    this._sourceIndex.delete(sourceKey)
   }
 
   syncSource(sourceKey: string, regions: Array<NovaSemanticRegisterOptions>): Array<NovaSemanticRegion> {
-    const previousIds = this.sourceIndex.get(sourceKey) ?? new Set<string>()
+    const previousIds = this._sourceIndex.get(sourceKey) ?? new Set<string>()
     const nextIds = new Set<string>()
     const registered: Array<NovaSemanticRegion> = []
 
@@ -124,13 +124,13 @@ export class NovaSemanticService {
         this.remove(id)
       }
     }
-    this.sourceIndex.set(sourceKey, nextIds)
+    this._sourceIndex.set(sourceKey, nextIds)
     return registered
   }
 
   query(options: NovaSemanticQueryOptions = {}): Array<NovaSemanticRegion> {
     const result: Array<StoredSemanticRegion> = []
-    for (const region of this.regions.values()) {
+    for (const region of this._regions.values()) {
       if (!matchesRegion(region, options)) {
         continue
       }
@@ -147,8 +147,8 @@ export class NovaSemanticService {
       includeData ? region : { ...region, data: undefined }
     ))
     const focusedId = options.scope !== undefined
-      ? this.focusedByScope.get(options.scope)
-      : this.findAnyFocusedId()
+      ? this._focusedByScope.get(options.scope)
+      : this._findAnyFocusedId()
     return {
       generatedAt: Date.now(),
       regionCount: regions.length,
@@ -159,60 +159,60 @@ export class NovaSemanticService {
   }
 
   focusNext(options: NovaSemanticQueryOptions = {}): NovaSemanticRegion | undefined {
-    return this.moveFocus(options, 1)
+    return this._moveFocus(options, 1)
   }
 
   focusPrevious(options: NovaSemanticQueryOptions = {}): NovaSemanticRegion | undefined {
-    return this.moveFocus(options, -1)
+    return this._moveFocus(options, -1)
   }
 
   getFocused(scope = 'default'): NovaSemanticRegion | undefined {
-    const id = this.focusedByScope.get(scope)
+    const id = this._focusedByScope.get(scope)
     return id ? this.query({ id, includeHidden: true, includeDisabled: true })[0] : undefined
   }
 
   setFocused(id: string | null, scope = 'default'): NovaSemanticRegion | undefined {
     if (id === null) {
-      const previousId = this.focusedByScope.get(scope)
+      const previousId = this._focusedByScope.get(scope)
       if (previousId) {
-        this.clearRegionFocused(previousId)
+        this._clearRegionFocused(previousId)
       }
-      this.focusedByScope.delete(scope)
+      this._focusedByScope.delete(scope)
       return undefined
     }
 
-    const region = this.regions.get(id)
+    const region = this._regions.get(id)
     if (!region || region.state?.hidden || region.state?.disabled || region.focusable === false) {
       return undefined
     }
-    const previousId = this.focusedByScope.get(scope)
+    const previousId = this._focusedByScope.get(scope)
     if (previousId && previousId !== id) {
-      this.clearRegionFocused(previousId)
+      this._clearRegionFocused(previousId)
     }
-    this.focusedByScope.set(scope, id)
-    this.regions.set(id, {
+    this._focusedByScope.set(scope, id)
+    this._regions.set(id, {
       ...region,
       state: {
         ...region.state,
         focused: true,
       },
     })
-    return cloneRegion(this.regions.get(id)!)
+    return cloneRegion(this._regions.get(id)!)
   }
 
   clear(): void {
-    this.regions.clear()
-    this.sourceIndex.clear()
-    this.focusedByScope.clear()
+    this._regions.clear()
+    this._sourceIndex.clear()
+    this._focusedByScope.clear()
   }
 
   reset(): void {
     this.clear()
-    this.insertionCounter = 0
-    this.autoIdCounter = 0
+    this._insertionCounter = 0
+    this._autoIdCounter = 0
   }
 
-  private moveFocus(options: NovaSemanticQueryOptions, direction: 1 | -1): NovaSemanticRegion | undefined {
+  private _moveFocus(options: NovaSemanticQueryOptions, direction: 1 | -1): NovaSemanticRegion | undefined {
     const scope = options.scope ?? 'default'
     const candidates = this.query({
       ...options,
@@ -224,7 +224,7 @@ export class NovaSemanticService {
       return undefined
     }
 
-    const currentId = this.focusedByScope.get(scope)
+    const currentId = this._focusedByScope.get(scope)
     const currentIndex = currentId ? candidates.findIndex(region => region.id === currentId) : -1
     const nextIndex = currentIndex < 0
       ? (direction > 0 ? 0 : candidates.length - 1)
@@ -232,41 +232,41 @@ export class NovaSemanticService {
     return this.setFocused(candidates[nextIndex].id, scope)
   }
 
-  private addToSourceIndex(region: StoredSemanticRegion): void {
+  private _addToSourceIndex(region: StoredSemanticRegion): void {
     const sourceKey = semanticSourceKey(region)
     if (!sourceKey) {
       return
     }
-    let ids = this.sourceIndex.get(sourceKey)
+    let ids = this._sourceIndex.get(sourceKey)
     if (!ids) {
       ids = new Set<string>()
-      this.sourceIndex.set(sourceKey, ids)
+      this._sourceIndex.set(sourceKey, ids)
     }
     ids.add(region.id)
   }
 
-  private removeFromSourceIndex(id: string): void {
-    for (const [sourceKey, ids] of this.sourceIndex) {
+  private _removeFromSourceIndex(id: string): void {
+    for (const [sourceKey, ids] of this._sourceIndex) {
       ids.delete(id)
       if (ids.size === 0) {
-        this.sourceIndex.delete(sourceKey)
+        this._sourceIndex.delete(sourceKey)
       }
     }
   }
 
-  private findAnyFocusedId(): string | undefined {
-    for (const id of this.focusedByScope.values()) {
+  private _findAnyFocusedId(): string | undefined {
+    for (const id of this._focusedByScope.values()) {
       return id
     }
     return undefined
   }
 
-  private clearRegionFocused(id: string): void {
-    const region = this.regions.get(id)
+  private _clearRegionFocused(id: string): void {
+    const region = this._regions.get(id)
     if (!region?.state?.focused) {
       return
     }
-    this.regions.set(id, {
+    this._regions.set(id, {
       ...region,
       state: {
         ...region.state,

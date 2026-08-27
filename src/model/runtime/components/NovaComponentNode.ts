@@ -26,9 +26,9 @@ export abstract class NovaComponentNode<
   readonly componentId: string
 
   protected props: TProps
-  private unregisterSyncPorts?: () => void
-  private commandDisposers: Array<() => void> = []
-  private pendingWatcherChanges = new Map<string, { prev: unknown, next: unknown }>()
+  private _unregisterSyncPorts?: () => void
+  private _commandDisposers: Array<() => void> = []
+  private _pendingWatcherChanges = new Map<string, { prev: unknown, next: unknown }>()
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
@@ -54,7 +54,7 @@ export abstract class NovaComponentNode<
    */
   setProps(patch: Partial<TProps>): this {
     const changedKeys: Array<keyof TProps> = []
-    const previousWatcherValues = this.readWatcherValues()
+    const previousWatcherValues = this._readWatcherValues()
 
     for (const key of Object.keys(patch) as Array<keyof TProps>) {
       const nextValue = patch[key]
@@ -70,9 +70,9 @@ export abstract class NovaComponentNode<
     }
 
     this.onPropsChanged(changedKeys)
-    this.collectWatcherChanges(previousWatcherValues)
-    this.dirty(this.resolveDirty(changedKeys))
-    this.notifySyncPortsChanged(changedKeys)
+    this._collectWatcherChanges(previousWatcherValues)
+    this.dirty(this._resolveDirty(changedKeys))
+    this._notifySyncPortsChanged(changedKeys)
     return this
   }
 
@@ -104,8 +104,8 @@ export abstract class NovaComponentNode<
    * Выполняет внутреннюю операцию dispose.
    */
   override dispose(): void {
-    this.unregisterSyncPorts?.()
-    this.unregisterSyncPorts = undefined
+    this._unregisterSyncPorts?.()
+    this._unregisterSyncPorts = undefined
     this.nova.components.unregister(this)
     super.dispose()
   }
@@ -123,18 +123,18 @@ export abstract class NovaComponentNode<
    */
   protected override onMount(): void {
     super.onMount()
-    this.unregisterSyncPorts = this.nova.sync.registerNode(this, this.getSyncPorts())
-    this.registerCommands()
-    this.runImmediateWatchers()
+    this._unregisterSyncPorts = this.nova.sync.registerNode(this, this.getSyncPorts())
+    this._registerCommands()
+    this._runImmediateWatchers()
   }
 
   /**
    * Снимает component ports при unmount.
    */
   protected override onUnmount(): void {
-    this.disposeCommands()
-    this.unregisterSyncPorts?.()
-    this.unregisterSyncPorts = undefined
+    this._disposeCommands()
+    this._unregisterSyncPorts?.()
+    this._unregisterSyncPorts = undefined
     super.onUnmount()
   }
 
@@ -142,14 +142,14 @@ export abstract class NovaComponentNode<
    * Выполняет watchers update-фазы перед пользовательским update.
    */
   override update(): void {
-    this.runWatchers('update')
+    this._runWatchers('update')
   }
 
   /**
    * Выполняет watchers render-фазы перед пользовательским render.
    */
   override render(): void {
-    this.runWatchers('render')
+    this._runWatchers('render')
   }
 
   /**
@@ -170,7 +170,7 @@ export abstract class NovaComponentNode<
   /**
    * Выполняет внутренний шаг notifySyncPortsChanged для NovaComponentNode.
    */
-  private notifySyncPortsChanged(changedKeys: Array<keyof TProps>): void {
+  private _notifySyncPortsChanged(changedKeys: Array<keyof TProps>): void {
     for (const key of changedKeys) {
       this.notifySyncPortChanged(String(key), this.props[key])
     }
@@ -186,16 +186,16 @@ export abstract class NovaComponentNode<
   /**
    * Вычисляет dirty.
    */
-  private resolveDirty(changedKeys: Array<keyof TProps>): { matrix?: boolean, update?: boolean, render?: boolean } {
+  private _resolveDirty(changedKeys: Array<keyof TProps>): { matrix?: boolean, update?: boolean, render?: boolean } {
     const policy = this.descriptor.dirtyPolicy
     if (!policy) {
       return { update: true, render: true }
     }
 
-    const hasMatrix = intersectsDirtyPaths(changedKeys, policy.matrix, this.pendingWatcherChanges)
-    const hasUpdate = intersectsDirtyPaths(changedKeys, policy.update, this.pendingWatcherChanges)
-    const hasRender = hasUpdate || hasMatrix || intersectsDirtyPaths(changedKeys, policy.render, this.pendingWatcherChanges)
-      || dirtyPathsChanged(policy.render, this.pendingWatcherChanges)
+    const hasMatrix = intersectsDirtyPaths(changedKeys, policy.matrix, this._pendingWatcherChanges)
+    const hasUpdate = intersectsDirtyPaths(changedKeys, policy.update, this._pendingWatcherChanges)
+    const hasRender = hasUpdate || hasMatrix || intersectsDirtyPaths(changedKeys, policy.render, this._pendingWatcherChanges)
+      || dirtyPathsChanged(policy.render, this._pendingWatcherChanges)
 
     if (!hasMatrix && !hasUpdate && !hasRender) {
       return { update: true, render: true }
@@ -210,7 +210,7 @@ export abstract class NovaComponentNode<
   /**
    * Читает watched paths перед изменением props.
    */
-  private readWatcherValues(): Map<string, unknown> {
+  private _readWatcherValues(): Map<string, unknown> {
     const values = new Map<string, unknown>()
     for (const watcher of this.descriptor.watchDefinitions ?? []) {
       values.set(watcher.path, readNovaComponentPath(this.props, watcher.path))
@@ -224,27 +224,27 @@ export abstract class NovaComponentNode<
   /**
    * Собирает changed watched paths после изменения props.
    */
-  private collectWatcherChanges(previous: Map<string, unknown>): void {
-    this.pendingWatcherChanges.clear()
+  private _collectWatcherChanges(previous: Map<string, unknown>): void {
+    this._pendingWatcherChanges.clear()
     for (const [path, prev] of previous) {
       const next = readNovaComponentPath(this.props, path)
       if (Object.is(prev, next)) {
         continue
       }
-      this.pendingWatcherChanges.set(path, { prev, next })
+      this._pendingWatcherChanges.set(path, { prev, next })
     }
   }
 
   /**
    * Выполняет immediate watchers.
    */
-  private runImmediateWatchers(): void {
+  private _runImmediateWatchers(): void {
     for (const watcher of this.descriptor.watchDefinitions ?? []) {
       const next = readNovaComponentPath(this.props, watcher.path)
       if (!watcher.immediate) {
         continue
       }
-      this.callWatcher(watcher.methodName, {
+      this._callWatcher(watcher.methodName, {
         next,
         prev: undefined,
         path: watcher.path,
@@ -256,22 +256,22 @@ export abstract class NovaComponentNode<
   /**
    * Выполняет watchers указанной фазы.
    */
-  private runWatchers(phase: 'update' | 'render' | 'matrix'): void {
+  private _runWatchers(phase: 'update' | 'render' | 'matrix'): void {
     const watchers = (this.descriptor.watchDefinitions ?? []).filter(watcher => watcher.phase === phase)
     if (watchers.length === 0) {
       return
     }
 
     for (const watcher of watchers) {
-      const change = this.pendingWatcherChanges.get(watcher.path)
+      const change = this._pendingWatcherChanges.get(watcher.path)
       if (!change) {
         continue
       }
-      this.callWatcher(watcher.methodName, {
+      this._callWatcher(watcher.methodName, {
         next: change.next,
         prev: change.prev,
         path: watcher.path,
-        changedPaths: [...this.pendingWatcherChanges.keys()],
+        changedPaths: [...this._pendingWatcherChanges.keys()],
       })
     }
   }
@@ -279,7 +279,7 @@ export abstract class NovaComponentNode<
   /**
    * Вызывает watcher method.
    */
-  private callWatcher(methodName: string, payload: { next: unknown, prev: unknown, path: string, changedPaths: Array<string> }): void {
+  private _callWatcher(methodName: string, payload: { next: unknown, prev: unknown, path: string, changedPaths: Array<string> }): void {
     const method = (this as unknown as Record<string, unknown>)[methodName]
     if (typeof method === 'function') {
       method.call(this, payload.next, payload.prev, payload)
@@ -289,14 +289,14 @@ export abstract class NovaComponentNode<
   /**
    * Регистрирует command handlers.
    */
-  private registerCommands(): void {
-    this.disposeCommands()
+  private _registerCommands(): void {
+    this._disposeCommands()
     for (const command of this.descriptor.commandDefinitions ?? []) {
       const method = (this as unknown as Record<string, unknown>)[command.methodName]
       if (typeof method !== 'function') {
         continue
       }
-      this.commandDisposers.push(this.nova.commands.register(command.id, payload => method.call(this, payload), {
+      this._commandDisposers.push(this.nova.commands.register(command.id, payload => method.call(this, payload), {
         owner: this,
         scope: command.scope,
       }))
@@ -306,8 +306,8 @@ export abstract class NovaComponentNode<
   /**
    * Снимает command handlers.
    */
-  private disposeCommands(): void {
-    for (const dispose of this.commandDisposers.splice(0)) {
+  private _disposeCommands(): void {
+    for (const dispose of this._commandDisposers.splice(0)) {
       dispose()
     }
   }

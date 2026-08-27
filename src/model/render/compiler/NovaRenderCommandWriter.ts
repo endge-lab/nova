@@ -68,7 +68,7 @@ export class NovaRenderCommandWriter {
   /**
    * Возвращает активную render-state границу.
    */
-  private get activeStateMark(): NovaRendererStateMark | undefined {
+  private get _activeStateMark(): NovaRendererStateMark | undefined {
     return this._stateMarks[this._stateMarks.length - 1]
   }
 
@@ -98,11 +98,11 @@ export class NovaRenderCommandWriter {
    * Выполняет внутреннюю операцию restore.
    */
   restore(): NovaRenderCommand | null {
-    const minDepth = this.activeStateMark?.transformDepth ?? 0
+    const minDepth = this._activeStateMark?.transformDepth ?? 0
     if (this._transformStack.length <= minDepth) {
       return null
     }
-    return this.restoreUnsafe()
+    return this._restoreUnsafe()
   }
 
   /**
@@ -132,11 +132,11 @@ export class NovaRenderCommandWriter {
    * Очищает clip.
    */
   clearClip(): NovaRenderCommand | null {
-    const minDepth = this.activeStateMark?.clipDepth ?? 0
+    const minDepth = this._activeStateMark?.clipDepth ?? 0
     if (this._clipStack.length <= minDepth) {
       return null
     }
-    return this.clearClipUnsafe()
+    return this._clearClipUnsafe()
   }
 
   /**
@@ -156,10 +156,10 @@ export class NovaRenderCommandWriter {
    */
   restoreState(mark: NovaRendererStateMark): void {
     while (this._clipStack.length > mark.clipDepth) {
-      this.clearClipUnsafe()
+      this._clearClipUnsafe()
     }
     while (this._transformStack.length > mark.transformDepth) {
-      this.restoreUnsafe()
+      this._restoreUnsafe()
     }
 
     const markIndex = this._stateMarks.lastIndexOf(mark)
@@ -232,7 +232,7 @@ export class NovaRenderCommandWriter {
     })
 
     this._frameBuilder.addItem(renderItem)
-    this.addHandle(renderItem, item, 0, 1, nodeId)
+    this._addHandle(renderItem, item, 0, 1, nodeId)
     this.command({
       type: 'drawItem',
       itemId: renderItem.id,
@@ -266,7 +266,7 @@ export class NovaRenderCommandWriter {
         clip: this.currentClip,
       })
 
-      this.addHandle(renderItem, item, index, 1, this._currentNodeId)
+      this._addHandle(renderItem, item, index, 1, this._currentNodeId)
     }
 
     return this.command({
@@ -299,7 +299,7 @@ export class NovaRenderCommandWriter {
     })
 
     this._frameBuilder.addItem(item)
-    this.addParticleHandle(item, batch, nodeId, streamKind)
+    this._addParticleHandle(item, batch, nodeId, streamKind)
 
     return this.command({
       type: 'drawParticles',
@@ -329,7 +329,7 @@ export class NovaRenderCommandWriter {
     })
 
     this._frameBuilder.addItem(item)
-    this.addRectBatchHandle(item, batch, nodeId)
+    this._addRectBatchHandle(item, batch, nodeId)
 
     return this.command({
       type: 'drawRectBatch',
@@ -357,7 +357,7 @@ export class NovaRenderCommandWriter {
     })
 
     this._frameBuilder.addItem(item)
-    this.addTimeRangeSegmentBatchHandle(item, batch, nodeId)
+    this._addTimeRangeSegmentBatchHandle(item, batch, nodeId)
 
     return this.command({
       type: 'drawTimeRangeSegmentBatch',
@@ -371,21 +371,21 @@ export class NovaRenderCommandWriter {
    * Записывает retained stripe batch как отдельный stream command.
    */
   drawStripeBatch(batch: NovaStripeRectBatch, nodeId = this._currentNodeId): NovaRenderCommand {
-    return this.drawGenericBatch('drawStripeBatch', 'stripe-batch', 'stripe-batch:fill', batch, nodeId)
+    return this._drawGenericBatch('drawStripeBatch', 'stripe-batch', 'stripe-batch:fill', batch, nodeId)
   }
 
   /**
    * Записывает retained icon batch как отдельный stream command.
    */
   drawIconBatch(batch: NovaIconBatch, nodeId = this._currentNodeId): NovaRenderCommand {
-    return this.drawGenericBatch('drawIconBatch', 'icon-batch', 'icon-batch:texture', batch, nodeId)
+    return this._drawGenericBatch('drawIconBatch', 'icon-batch', 'icon-batch:texture', batch, nodeId)
   }
 
   /**
    * Записывает retained text batch как отдельный stream command.
    */
   drawTextBatch(batch: NovaTextBatch, nodeId = this._currentNodeId): NovaRenderCommand {
-    return this.drawGenericBatch('drawTextBatch', 'text-batch', 'text-batch:atlas', batch, nodeId)
+    return this._drawGenericBatch('drawTextBatch', 'text-batch', 'text-batch:atlas', batch, nodeId)
   }
 
   /**
@@ -414,7 +414,7 @@ export class NovaRenderCommandWriter {
   /**
    * Выполняет restore без проверки active state mark.
    */
-  private restoreUnsafe(): NovaRenderCommand {
+  private _restoreUnsafe(): NovaRenderCommand {
     this._currentTransform = this._transformStack.pop() ?? mat3.create()
     return this.command({ type: 'restore' })
   }
@@ -422,7 +422,7 @@ export class NovaRenderCommandWriter {
   /**
    * Выполняет clearClip без проверки active state mark.
    */
-  private clearClipUnsafe(): NovaRenderCommand {
+  private _clearClipUnsafe(): NovaRenderCommand {
     this._clipStack.pop()
     return this.command({ type: 'clearClip' })
   }
@@ -430,7 +430,7 @@ export class NovaRenderCommandWriter {
   /**
    * Добавляет handle.
    */
-  private addHandle(renderItem: NovaRenderItem, item: NovaSchemaItem<any>, offset: number, count: number, nodeId: string): void {
+  private _addHandle(renderItem: NovaRenderItem, item: NovaSchemaItem<any>, offset: number, count: number, nodeId: string): void {
     if (!this._graph) {
       return
     }
@@ -466,7 +466,7 @@ export class NovaRenderCommandWriter {
   /**
    * Добавляет handle для retained particle stream.
    */
-  private addParticleHandle(renderItem: NovaRenderItem, batch: NovaParticleBatch, nodeId: string, streamKind: NovaRenderHandle['streamKind']): void {
+  private _addParticleHandle(renderItem: NovaRenderItem, batch: NovaParticleBatch, nodeId: string, streamKind: NovaRenderHandle['streamKind']): void {
     if (!this._graph) {
       return
     }
@@ -500,7 +500,7 @@ export class NovaRenderCommandWriter {
   /**
    * Добавляет handle для retained rect stream.
    */
-  private addRectBatchHandle(renderItem: NovaRenderItem, batch: NovaRectBatch, nodeId: string): void {
+  private _addRectBatchHandle(renderItem: NovaRenderItem, batch: NovaRectBatch, nodeId: string): void {
     if (!this._graph) {
       return
     }
@@ -534,7 +534,7 @@ export class NovaRenderCommandWriter {
   /**
    * Добавляет handle для retained time-range segment stream.
    */
-  private addTimeRangeSegmentBatchHandle(renderItem: NovaRenderItem, batch: NovaTimeRangeSegmentBatch, nodeId: string): void {
+  private _addTimeRangeSegmentBatchHandle(renderItem: NovaRenderItem, batch: NovaTimeRangeSegmentBatch, nodeId: string): void {
     if (!this._graph) {
       return
     }
@@ -568,7 +568,7 @@ export class NovaRenderCommandWriter {
   /**
    * Записывает retained generic batch command.
    */
-  private drawGenericBatch(
+  private _drawGenericBatch(
     type: 'drawStripeBatch' | 'drawIconBatch' | 'drawTextBatch',
     streamKind: 'stripe-batch' | 'icon-batch' | 'text-batch',
     batchKey: string,
@@ -591,7 +591,7 @@ export class NovaRenderCommandWriter {
     })
 
     this._frameBuilder.addItem(item)
-    this.addGenericBatchHandle(item, batch, nodeId, streamKind)
+    this._addGenericBatchHandle(item, batch, nodeId, streamKind)
 
     return this.command({
       type,
@@ -606,7 +606,7 @@ export class NovaRenderCommandWriter {
   /**
    * Добавляет handle для retained generic stream.
    */
-  private addGenericBatchHandle(
+  private _addGenericBatchHandle(
     renderItem: NovaRenderItem,
     batch: NovaStripeRectBatch | NovaIconBatch | NovaTextBatch,
     nodeId: string,

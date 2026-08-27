@@ -25,7 +25,7 @@ export class NovaWebGLDevice {
     }
 
     this.gl = gl
-    this.configure()
+    this._configure()
   }
 
   /**
@@ -46,7 +46,7 @@ export class NovaWebGLDevice {
   /**
    * Выполняет внутреннюю операцию configure.
    */
-  private configure(): void {
+  private _configure(): void {
     const gl = this.gl
     gl.disable(gl.DEPTH_TEST)
     gl.disable(gl.CULL_FACE)

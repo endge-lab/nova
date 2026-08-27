@@ -28,7 +28,7 @@ describe('novaSoundEngine', () => {
 
     expect(app.sound.stats().loaded).toBe(1)
     expect(app.sound.stats().decoded).toBe(1)
-    expect((app.sound as any).assets.get('ui.click').source).toBe('click.ogg')
+    expect((app.sound as any)._assets.get('ui.click').source).toBe('click.ogg')
 
     app.destroy()
   })

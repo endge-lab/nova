@@ -21,26 +21,26 @@ interface BucketEntry<TContext> {
  * Инкапсулирует сервисную логику NovaTextSelectionService.
  */
 export class NovaTextSelectionService<TContext = unknown> {
-  private readonly clipboard = new NovaClipboardService()
-  private readonly targets = new Map<string, NovaTextSelectionResolvedTarget<TContext>>()
-  private readonly buckets = new Map<string, Array<BucketEntry<TContext>>>()
-  private readonly orderedTargets: Array<NovaTextSelectionResolvedTarget<TContext>> = []
-  private anchor: NovaTextSelectionAnchor | null = null
-  private focus: NovaTextSelectionAnchor | null = null
-  private dragging = false
-  private orderCursor = 0
+  private readonly _clipboard = new NovaClipboardService()
+  private readonly _targets = new Map<string, NovaTextSelectionResolvedTarget<TContext>>()
+  private readonly _buckets = new Map<string, Array<BucketEntry<TContext>>>()
+  private readonly _orderedTargets: Array<NovaTextSelectionResolvedTarget<TContext>> = []
+  private _anchor: NovaTextSelectionAnchor | null = null
+  private _focus: NovaTextSelectionAnchor | null = null
+  private _dragging = false
+  private _orderCursor = 0
 
   /**
    * Создает экземпляр NovaTextSelectionService и подготавливает базовое состояние.
    */
-  constructor(private options: Required<NovaTextSelectionOptions> = resolveNovaTextSelectionOptions()) {}
+  constructor(private _options: Required<NovaTextSelectionOptions> = resolveNovaTextSelectionOptions()) {}
 
   /**
    * Выполняет действие configure в рамках ответственности NovaTextSelectionService.
    */
   configure(options: NovaTextSelectionOptions | false | undefined): void {
-    this.options = resolveNovaTextSelectionOptions(options)
-    if (!this.options.enabled) {
+    this._options = resolveNovaTextSelectionOptions(options)
+    if (!this._options.enabled) {
       this.clear()
     }
   }
@@ -49,23 +49,23 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Выполняет действие beginFrame в рамках ответственности NovaTextSelectionService.
    */
   beginFrame(): void {
-    this.targets.clear()
-    this.buckets.clear()
-    this.orderedTargets.length = 0
-    this.orderCursor = 0
+    this._targets.clear()
+    this._buckets.clear()
+    this._orderedTargets.length = 0
+    this._orderCursor = 0
   }
 
   /**
    * Регистрирует сущность в runtime-слое NovaTextSelectionService.
    */
   register(target: NovaTextSelectionTarget<TContext>): void {
-    if (!this.options.enabled) {
+    if (!this._options.enabled) {
       return
     }
     if (!target.text) {
       return
     }
-    const selectable = target.selectable ?? this.options.mode === 'all-text'
+    const selectable = target.selectable ?? this._options.mode === 'all-text'
     if (!selectable) {
       return
     }
@@ -73,24 +73,24 @@ export class NovaTextSelectionService<TContext = unknown> {
     const resolved: NovaTextSelectionResolvedTarget<TContext> = {
       ...target,
       selectable,
-      copyable: target.copyable ?? this.options.copy,
+      copyable: target.copyable ?? this._options.copy,
       zIndex: target.zIndex ?? 0,
-      order: target.order ?? this.orderCursor,
+      order: target.order ?? this._orderCursor,
     }
-    this.orderCursor += 1
-    this.targets.set(resolved.id, resolved)
-    this.orderedTargets.push(resolved)
-    this.addToBuckets(resolved)
+    this._orderCursor += 1
+    this._targets.set(resolved.id, resolved)
+    this._orderedTargets.push(resolved)
+    this._addToBuckets(resolved)
   }
 
   /**
    * Выполняет hit-test для runtime-геометрии NovaTextSelectionService.
    */
   hitTest(x: number, y: number): NovaTextSelectionHit<TContext> | null {
-    if (!this.options.enabled) {
+    if (!this._options.enabled) {
       return null
     }
-    const candidates = this.buckets.get(this.bucketKey(x, y)) ?? []
+    const candidates = this._buckets.get(this._bucketKey(x, y)) ?? []
     const target = candidates
       .map(item => item.target)
       .filter(item => containsPoint(item, x, y))
@@ -113,9 +113,9 @@ export class NovaTextSelectionService<TContext = unknown> {
       this.clear()
       return false
     }
-    this.anchor = { targetId: hit.target.id, offset: hit.offset }
-    this.focus = { ...this.anchor }
-    this.dragging = true
+    this._anchor = { targetId: hit.target.id, offset: hit.offset }
+    this._focus = { ...this._anchor }
+    this._dragging = true
     return true
   }
 
@@ -123,14 +123,14 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Обновляет runtime-состояние NovaTextSelectionService.
    */
   update(x: number, y: number): boolean {
-    if (!this.anchor || !this.dragging || !this.options.drag) {
+    if (!this._anchor || !this._dragging || !this._options.drag) {
       return false
     }
     const hit = this.hitTest(x, y)
     if (!hit) {
       return false
     }
-    this.focus = { targetId: hit.target.id, offset: hit.offset }
+    this._focus = { targetId: hit.target.id, offset: hit.offset }
     return true
   }
 
@@ -138,16 +138,16 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Выполняет действие end в рамках ответственности NovaTextSelectionService.
    */
   end(): void {
-    this.dragging = false
+    this._dragging = false
   }
 
   /**
    * Очищает накопленное состояние NovaTextSelectionService.
    */
   clear(): void {
-    this.anchor = null
-    this.focus = null
-    this.dragging = false
+    this._anchor = null
+    this._focus = null
+    this._dragging = false
   }
 
   /**
@@ -161,32 +161,32 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Возвращает значение состояния NovaTextSelectionService.
    */
   getSelectionColor(): string {
-    return this.options.selectionColor
+    return this._options.selectionColor
   }
 
   /**
    * Возвращает значение состояния NovaTextSelectionService.
    */
   getRanges(): Array<NovaTextSelectionRange<TContext>> {
-    if (!this.anchor || !this.focus) {
+    if (!this._anchor || !this._focus) {
       return []
     }
-    const anchorTarget = this.targets.get(this.anchor.targetId)
-    const focusTarget = this.targets.get(this.focus.targetId)
+    const anchorTarget = this._targets.get(this._anchor.targetId)
+    const focusTarget = this._targets.get(this._focus.targetId)
     if (!anchorTarget || !focusTarget) {
       return []
     }
 
     if (anchorTarget.id === focusTarget.id) {
-      const start = Math.min(this.anchor.offset, this.focus.offset)
-      const end = Math.max(this.anchor.offset, this.focus.offset)
+      const start = Math.min(this._anchor.offset, this._focus.offset)
+      const end = Math.max(this._anchor.offset, this._focus.offset)
       if (start === end) {
         return []
       }
       return [{ target: anchorTarget, range: { start, end } }]
     }
 
-    const sorted = [...this.orderedTargets].sort((a, b) => a.order - b.order)
+    const sorted = [...this._orderedTargets].sort((a, b) => a.order - b.order)
     const anchorIndex = sorted.findIndex(target => target.id === anchorTarget.id)
     const focusIndex = sorted.findIndex(target => target.id === focusTarget.id)
     if (anchorIndex < 0 || focusIndex < 0) {
@@ -207,16 +207,16 @@ export class NovaTextSelectionService<TContext = unknown> {
         ranges.push({
           target,
           range: forward
-            ? { start: this.anchor.offset, end: target.text.length }
-            : { start: 0, end: this.anchor.offset },
+            ? { start: this._anchor.offset, end: target.text.length }
+            : { start: 0, end: this._anchor.offset },
         })
       }
       else if (target.id === focusTarget.id) {
         ranges.push({
           target,
           range: forward
-            ? { start: 0, end: this.focus.offset }
-            : { start: this.focus.offset, end: target.text.length },
+            ? { start: 0, end: this._focus.offset }
+            : { start: this._focus.offset, end: target.text.length },
         })
       }
       else {
@@ -244,14 +244,14 @@ export class NovaTextSelectionService<TContext = unknown> {
    * Выполняет действие copy в рамках ответственности NovaTextSelectionService.
    */
   async copy(formatter?: (ranges: Array<NovaTextSelectionRange<TContext>>) => string): Promise<NovaClipboardResult> {
-    if (!this.options.copy) {
+    if (!this._options.copy) {
       return { ok: false, error: new Error('Text selection copy is disabled') }
     }
     const text = this.getSelectedText(formatter)
     if (!text) {
       return { ok: false, error: new Error('No text selected') }
     }
-    return this.clipboard.writeText(text)
+    return this._clipboard.writeText(text)
   }
 
   /**
@@ -261,9 +261,9 @@ export class NovaTextSelectionService<TContext = unknown> {
     const ranges = this.getRanges()
     return {
       active: ranges.length > 0,
-      dragging: this.dragging,
-      anchor: this.anchor ? { ...this.anchor } : null,
-      focus: this.focus ? { ...this.focus } : null,
+      dragging: this._dragging,
+      anchor: this._anchor ? { ...this._anchor } : null,
+      focus: this._focus ? { ...this._focus } : null,
       ranges,
       text: formatter ? formatter(ranges) : this.getSelectedText(),
     }
@@ -272,7 +272,7 @@ export class NovaTextSelectionService<TContext = unknown> {
   /**
    * Выполняет внутренний шаг addToBuckets для NovaTextSelectionService.
    */
-  private addToBuckets(target: NovaTextSelectionResolvedTarget<TContext>): void {
+  private _addToBuckets(target: NovaTextSelectionResolvedTarget<TContext>): void {
     const minX = Math.floor(target.rect.x / DEFAULT_BUCKET_SIZE)
     const maxX = Math.floor((target.rect.x + target.rect.width) / DEFAULT_BUCKET_SIZE)
     const minY = Math.floor(target.rect.y / DEFAULT_BUCKET_SIZE)
@@ -280,9 +280,9 @@ export class NovaTextSelectionService<TContext = unknown> {
     for (let x = minX; x <= maxX; x += 1) {
       for (let y = minY; y <= maxY; y += 1) {
         const key = `${x}:${y}`
-        const entries = this.buckets.get(key) ?? []
+        const entries = this._buckets.get(key) ?? []
         entries.push({ target })
-        this.buckets.set(key, entries)
+        this._buckets.set(key, entries)
       }
     }
   }
@@ -290,7 +290,7 @@ export class NovaTextSelectionService<TContext = unknown> {
   /**
    * Выполняет внутренний шаг bucketKey для NovaTextSelectionService.
    */
-  private bucketKey(x: number, y: number): string {
+  private _bucketKey(x: number, y: number): string {
     return `${Math.floor(x / DEFAULT_BUCKET_SIZE)}:${Math.floor(y / DEFAULT_BUCKET_SIZE)}`
   }
 }

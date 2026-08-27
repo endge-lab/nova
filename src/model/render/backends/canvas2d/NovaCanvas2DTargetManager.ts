@@ -20,7 +20,7 @@ export class NovaCanvas2DTargetManager extends NovaRenderTargetManager {
       return target
     }
 
-    this._resources.set(target.id, this.createResource(target))
+    this._resources.set(target.id, this._createResource(target))
     return target
   }
 
@@ -54,7 +54,7 @@ export class NovaCanvas2DTargetManager extends NovaRenderTargetManager {
   /**
    * Создает Canvas2D resource.
    */
-  private createResource(target: NovaRenderTarget): NovaRenderTargetResource {
+  private _createResource(target: NovaRenderTarget): NovaRenderTargetResource {
     const canvas = document.createElement('canvas')
     const context = canvas.getContext('2d')
     const resize = (width: number, height: number, dpr: number): void => {

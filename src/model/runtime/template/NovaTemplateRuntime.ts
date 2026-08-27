@@ -98,8 +98,8 @@ interface NovaTemplateRefBinding {
  * Runtime для сгенерированных Nova SFC, который сохраняет identity keyed children.
  */
 export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
-  private managedChildren: Array<NovaNode<E>> = []
-  private stats: NovaTemplateReconcileResult<E> = {
+  private _managedChildren: Array<NovaNode<E>> = []
+  private _stats: NovaTemplateReconcileResult<E> = {
     nodes: [],
     created: 0,
     reused: 0,
@@ -107,67 +107,67 @@ export class NovaTemplateRuntime<E extends EventList = Record<string, any>> {
     patched: 0,
   }
 
-  private reconciling = false
+  private _reconciling = false
 
   /**
    * Создает runtime для конкретного generated root node.
    */
   constructor(
-    private readonly parent: NovaNode<E>,
-    private scope: NovaScope = { refs: {} },
-    private readonly options: NovaTemplateRuntimeOptions = {},
+    private readonly _parent: NovaNode<E>,
+    private _scope: NovaScope = { refs: {} },
+    private readonly _options: NovaTemplateRuntimeOptions = {},
   ) {
-    NODE_TEMPLATE_SCOPE.set(parent, scope)
+    NODE_TEMPLATE_SCOPE.set(_parent, _scope)
   }
 
   /**
    * Обновляет scope refs для следующих reconcile-проходов.
    */
   setScope(scope: NovaScope): void {
-    this.scope = scope
-    NODE_TEMPLATE_SCOPE.set(this.parent, scope)
+    this._scope = scope
+    NODE_TEMPLATE_SCOPE.set(this._parent, scope)
   }
 
   /**
    * Применяет новый template snapshot к managed children.
    */
   reconcile(children: Array<NovaTemplateChildSchema>): NovaTemplateReconcileResult<E> {
-    if (this.reconciling) {
-      return this.stats
+    if (this._reconciling) {
+      return this._stats
     }
 
-    this.reconciling = true
+    this._reconciling = true
     try {
-      this.stats = reconcileNovaTemplateChildren(this.parent, this.managedChildren, children, this.scope, {
-        parentRenderDirty: this.options.parentRenderDirty ?? 'always',
+      this._stats = reconcileNovaTemplateChildren(this._parent, this._managedChildren, children, this._scope, {
+        parentRenderDirty: this._options.parentRenderDirty ?? 'always',
       })
-      this.managedChildren = this.stats.nodes
+      this._managedChildren = this._stats.nodes
     }
     finally {
-      this.reconciling = false
+      this._reconciling = false
     }
 
-    return this.stats
+    return this._stats
   }
 
   /**
    * Возвращает последние counters reconcile-прохода.
    */
   getStats(): Readonly<NovaTemplateReconcileResult<E>> {
-    return this.stats
+    return this._stats
   }
 
   /**
    * Удаляет все managed children.
    */
   dispose(): void {
-    for (const child of this.managedChildren) {
+    for (const child of this._managedChildren) {
       releaseNovaTemplateRef(child)
       child.remove()
     }
-    this.managedChildren = []
-    this.reconciling = false
-    this.stats = {
+    this._managedChildren = []
+    this._reconciling = false
+    this._stats = {
       nodes: [],
       created: 0,
       reused: 0,

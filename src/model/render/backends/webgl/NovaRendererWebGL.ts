@@ -107,168 +107,168 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
    * Выполняет внутреннюю операцию schema.
    */
   schema(_schema: NovaSchema<any>): void {
-    this.throwImmediateApiError('schema')
+    this._throwImmediateApiError('schema')
   }
 
   /**
    * Выполняет внутреннюю операцию save.
    */
   save(): void {
-    this.throwImmediateApiError('save')
+    this._throwImmediateApiError('save')
   }
 
   /**
    * Выполняет внутреннюю операцию restore.
    */
   restore(): void {
-    this.throwImmediateApiError('restore')
+    this._throwImmediateApiError('restore')
   }
 
   /**
    * Очищает внутреннее состояние.
    */
   clear(): void {
-    this.throwImmediateApiError('clear')
+    this._throwImmediateApiError('clear')
   }
 
   /**
    * Выполняет внутреннюю операцию clip.
    */
   clip(_x: number, _y: number, _width: number, _height: number): void {
-    this.throwImmediateApiError('clip')
+    this._throwImmediateApiError('clip')
   }
 
   /**
    * Очищает clip.
    */
   clearClip(): void {
-    this.throwImmediateApiError('clearClip')
+    this._throwImmediateApiError('clearClip')
   }
 
   /**
    * Сохраняет границу mutable render-state.
    */
   markState(): NovaRendererStateMark {
-    this.throwImmediateApiError('markState')
+    this._throwImmediateApiError('markState')
   }
 
   /**
    * Восстанавливает mutable render-state до сохраненной границы.
    */
   restoreState(_mark: NovaRendererStateMark): void {
-    this.throwImmediateApiError('restoreState')
+    this._throwImmediateApiError('restoreState')
   }
 
   /**
    * Обновляет transform.
    */
   setTransform(_matrix: mat3): void {
-    this.throwImmediateApiError('setTransform')
+    this._throwImmediateApiError('setTransform')
   }
 
   /**
    * Выполняет внутреннюю операцию text.
    */
   text(_params: NovaText): void {
-    this.throwImmediateApiError('text')
+    this._throwImmediateApiError('text')
   }
 
   /**
    * Выполняет внутреннюю операцию rect.
    */
   rect(_params: NovaRect): void {
-    this.throwImmediateApiError('rect')
+    this._throwImmediateApiError('rect')
   }
 
   /**
    * Выполняет внутреннюю операцию border.
    */
   border(_params: NovaBorder): void {
-    this.throwImmediateApiError('border')
+    this._throwImmediateApiError('border')
   }
 
   /**
    * Выполняет внутреннюю операцию line.
    */
   line(_params: NovaLine): void {
-    this.throwImmediateApiError('line')
+    this._throwImmediateApiError('line')
   }
 
   /**
    * Выполняет внутреннюю операцию circle.
    */
   circle(_params: NovaCircle): void {
-    this.throwImmediateApiError('circle')
+    this._throwImmediateApiError('circle')
   }
 
   /**
    * Выполняет внутреннюю операцию arc.
    */
   arc(_params: NovaArc): void {
-    this.throwImmediateApiError('arc')
+    this._throwImmediateApiError('arc')
   }
 
   /**
    * Выполняет внутреннюю операцию polygon.
    */
   polygon(_params: NovaPolygon): void {
-    this.throwImmediateApiError('polygon')
+    this._throwImmediateApiError('polygon')
   }
 
   /**
    * Выполняет внутреннюю операцию icon.
    */
   icon(_params: NovaIcon): void {
-    this.throwImmediateApiError('icon')
+    this._throwImmediateApiError('icon')
   }
 
   /**
    * Выполняет внутреннюю операцию patternRect.
    */
   patternRect(_params: NovaPatternRect): void {
-    this.throwImmediateApiError('patternRect')
+    this._throwImmediateApiError('patternRect')
   }
 
   /**
    * Выполняет внутреннюю операцию particles.
    */
   particles(_batch: NovaParticleBatch): void {
-    this.throwImmediateApiError('particles')
+    this._throwImmediateApiError('particles')
   }
 
   /**
    * Выполняет внутреннюю операцию rects.
    */
   rects(_batch: NovaRectBatch): void {
-    this.throwImmediateApiError('rects')
+    this._throwImmediateApiError('rects')
   }
 
   /**
    * Выполняет внутреннюю операцию timeRangeSegments.
    */
   timeRangeSegments(_batch: NovaTimeRangeSegmentBatch): void {
-    this.throwImmediateApiError('timeRangeSegments')
+    this._throwImmediateApiError('timeRangeSegments')
   }
 
   /**
    * Выполняет внутреннюю операцию stripes.
    */
   stripes(_batch: NovaStripeRectBatch): void {
-    this.throwImmediateApiError('stripes')
+    this._throwImmediateApiError('stripes')
   }
 
   /**
    * Выполняет внутреннюю операцию icons.
    */
   icons(_batch: NovaIconBatch): void {
-    this.throwImmediateApiError('icons')
+    this._throwImmediateApiError('icons')
   }
 
   /**
    * Выполняет внутреннюю операцию texts.
    */
   texts(_batch: NovaTextBatch): void {
-    this.throwImmediateApiError('texts')
+    this._throwImmediateApiError('texts')
   }
 
   /**
@@ -296,7 +296,7 @@ export class NovaRendererWebGL implements NovaRenderer, NovaRenderBackend {
   /**
    * Выполняет внутреннюю операцию throw immediate api error.
    */
-  private throwImmediateApiError(method: string): never {
+  private _throwImmediateApiError(method: string): never {
     throw new Error(
       `NovaRendererWebGL.${method}() is not an immediate rendering API. Use NovaRenderCompiler/NovaRenderContext and renderFrame() for RendererType.WebGL.`,
     )

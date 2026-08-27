@@ -34,7 +34,7 @@ export class NovaSchemaRegistry {
    */
   constructor(options: { defaults?: boolean } = {}) {
     if (options.defaults ?? true) {
-      this.registerDefaults()
+      this._registerDefaults()
     }
   }
 
@@ -160,7 +160,7 @@ export class NovaSchemaRegistry {
     schema: NovaElementSchema<any>,
     options: NovaNodeContextOptions = {},
   ): NovaNode<E> {
-    const node = this.createDetachedNode(surface, schema, options)
+    const node = this._createDetachedNode(surface, schema, options)
     surface.addChild(node, options)
     return node
   }
@@ -173,7 +173,7 @@ export class NovaSchemaRegistry {
     schema: NovaElementSchema<any>,
     options: NovaNodeContextOptions = {},
   ): NovaNode<E> {
-    const node = this.createDetachedNode(parent.surface, schema, {
+    const node = this._createDetachedNode(parent.surface, schema, {
       ...options,
       parent,
     })
@@ -184,7 +184,7 @@ export class NovaSchemaRegistry {
   /**
    * Создает detached node.
    */
-  private createDetachedNode<E extends EventList>(
+  private _createDetachedNode<E extends EventList>(
     surface: NovaSurface<E>,
     schema: NovaElementSchema<any>,
     options: NovaNodeContextOptions & { parent?: NovaNode<E> } = {},
@@ -233,7 +233,7 @@ export class NovaSchemaRegistry {
   /**
    * Регистрирует defaults.
    */
-  private registerDefaults(): void {
+  private _registerDefaults(): void {
     for (const type of ['rect', 'border', 'text', 'line', 'circle', 'polygon', 'icon']) {
       this.reserveTag(type)
       this.register({

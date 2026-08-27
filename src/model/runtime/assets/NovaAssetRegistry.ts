@@ -333,7 +333,7 @@ export class NovaAssetRegistry {
         continue
       }
       this._recordUseCounts.delete(id)
-      this.unuseFontFace(id)
+      this._unuseFontFace(id)
       this._records.delete(id)
       this._materialized.delete(id)
     }
@@ -359,7 +359,7 @@ export class NovaAssetRegistry {
       return undefined
     }
 
-    const materialized = this.resolveMaterialization(record)
+    const materialized = this._resolveMaterialization(record)
     return {
       ref: record.ref,
       descriptor: record.descriptor,
@@ -413,7 +413,7 @@ export class NovaAssetRegistry {
       if (!record) {
         return `${prefix}:${id}`
       }
-      return `${prefix}:${id}:v${this.resolveMaterializationVersion(record)}`
+      return `${prefix}:${id}:v${this._resolveMaterializationVersion(record)}`
     }
     if (input) {
       return `${prefix}:${fallback(input)}`
@@ -424,7 +424,7 @@ export class NovaAssetRegistry {
   /**
    * Возвращает materialized asset.
    */
-  private resolveMaterialization(record: NovaAssetRecord): AssetMaterialization {
+  private _resolveMaterialization(record: NovaAssetRecord): AssetMaterialization {
     const cached = this._materialized.get(record.ref.id)
     if (cached) {
       return cached
@@ -442,54 +442,54 @@ export class NovaAssetRegistry {
         break
       case 'stripe':
         materialized = {
-          source: this.createStripeCanvas(descriptor),
+          source: this._createStripeCanvas(descriptor),
           ready: true,
         }
         break
       case 'pattern':
-        materialized = this.createPatternMaterialization(record, descriptor)
+        materialized = this._createPatternMaterialization(record, descriptor)
         break
       case 'linear-gradient':
         materialized = {
-          source: this.createLinearGradientCanvas(descriptor),
+          source: this._createLinearGradientCanvas(descriptor),
           ready: true,
         }
         break
       case 'radial-gradient':
         materialized = {
-          source: this.createRadialGradientCanvas(descriptor),
+          source: this._createRadialGradientCanvas(descriptor),
           ready: true,
         }
         break
       case 'conic-gradient':
         materialized = {
-          source: this.createConicGradientCanvas(descriptor),
+          source: this._createConicGradientCanvas(descriptor),
           ready: true,
         }
         break
       case 'noise':
         materialized = {
-          source: this.createNoiseCanvas(descriptor),
+          source: this._createNoiseCanvas(descriptor),
           ready: true,
         }
         break
       case 'mesh-gradient':
         materialized = {
-          source: this.createMeshGradientCanvas(descriptor),
+          source: this._createMeshGradientCanvas(descriptor),
           ready: true,
         }
         break
       case 'nine-slice-image':
-        materialized = this.createNineSliceMaterialization(record, descriptor)
+        materialized = this._createNineSliceMaterialization(record, descriptor)
         break
       case 'font':
-        materialized = this.createFontMaterialization(record, descriptor)
+        materialized = this._createFontMaterialization(record, descriptor)
         break
       case 'image':
-        materialized = this.createImageMaterialization(record, descriptor)
+        materialized = this._createImageMaterialization(record, descriptor)
         break
       case 'svg':
-        materialized = this.createSvgMaterialization(record, descriptor)
+        materialized = this._createSvgMaterialization(record, descriptor)
         break
       default:
         materialized = { ready: false }
@@ -503,14 +503,14 @@ export class NovaAssetRegistry {
   /**
    * Возвращает версию materialized source для invalidation texture caches.
    */
-  private resolveMaterializationVersion(record: NovaAssetRecord): number {
+  private _resolveMaterializationVersion(record: NovaAssetRecord): number {
     return this._materialized.get(record.ref.id)?.version ?? 0
   }
 
   /**
    * Создает canvas с stripe fill.
    */
-  private createStripeCanvas(descriptor: NovaStripeAssetDescriptor): HTMLCanvasElement {
+  private _createStripeCanvas(descriptor: NovaStripeAssetDescriptor): HTMLCanvasElement {
     const stripeWidth = Math.max(1, descriptor.stripeWidth)
     const patternSize = Math.ceil(Math.sqrt(2) * stripeWidth * Math.max(2, descriptor.sizeK))
     const canvas = document.createElement('canvas')
@@ -539,7 +539,7 @@ export class NovaAssetRegistry {
   /**
    * Создает canvas с linear-gradient fill.
    */
-  private createLinearGradientCanvas(descriptor: NovaLinearGradientAssetDescriptor): HTMLCanvasElement {
+  private _createLinearGradientCanvas(descriptor: NovaLinearGradientAssetDescriptor): HTMLCanvasElement {
     const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -571,7 +571,7 @@ export class NovaAssetRegistry {
   /**
    * Создает canvas с radial-gradient fill.
    */
-  private createRadialGradientCanvas(descriptor: NovaRadialGradientAssetDescriptor): HTMLCanvasElement {
+  private _createRadialGradientCanvas(descriptor: NovaRadialGradientAssetDescriptor): HTMLCanvasElement {
     const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -607,7 +607,7 @@ export class NovaAssetRegistry {
   /**
    * Создает canvas с conic-gradient fill.
    */
-  private createConicGradientCanvas(descriptor: NovaConicGradientAssetDescriptor): HTMLCanvasElement {
+  private _createConicGradientCanvas(descriptor: NovaConicGradientAssetDescriptor): HTMLCanvasElement {
     const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -652,7 +652,7 @@ export class NovaAssetRegistry {
   /**
    * Создает canvas с procedural noise fill.
    */
-  private createNoiseCanvas(descriptor: NovaNoiseAssetDescriptor): HTMLCanvasElement {
+  private _createNoiseCanvas(descriptor: NovaNoiseAssetDescriptor): HTMLCanvasElement {
     const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -687,7 +687,7 @@ export class NovaAssetRegistry {
   /**
    * Создает canvas с mesh-gradient fill.
    */
-  private createMeshGradientCanvas(descriptor: NovaMeshGradientAssetDescriptor): HTMLCanvasElement {
+  private _createMeshGradientCanvas(descriptor: NovaMeshGradientAssetDescriptor): HTMLCanvasElement {
     const size = Math.max(2, Math.ceil(descriptor.size ?? 256))
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -717,28 +717,28 @@ export class NovaAssetRegistry {
   /**
    * Создает materialization для image asset.
    */
-  private createImageMaterialization(record: NovaAssetRecord, descriptor: NovaImageAssetDescriptor): AssetMaterialization {
-    return this.createImageBackedMaterialization(record, descriptor.source, source => source)
+  private _createImageMaterialization(record: NovaAssetRecord, descriptor: NovaImageAssetDescriptor): AssetMaterialization {
+    return this._createImageBackedMaterialization(record, descriptor.source, source => source)
   }
 
   /**
    * Создает materialization для pattern fill.
    */
-  private createPatternMaterialization(record: NovaAssetRecord, descriptor: NovaPatternAssetDescriptor): AssetMaterialization {
-    return this.createImageBackedMaterialization(record, descriptor.source, source => this.createPatternCanvas(source, descriptor))
+  private _createPatternMaterialization(record: NovaAssetRecord, descriptor: NovaPatternAssetDescriptor): AssetMaterialization {
+    return this._createImageBackedMaterialization(record, descriptor.source, source => this._createPatternCanvas(source, descriptor))
   }
 
   /**
    * Создает materialization для nine-slice image.
    */
-  private createNineSliceMaterialization(record: NovaAssetRecord, descriptor: NovaNineSliceImageAssetDescriptor): AssetMaterialization {
-    return this.createImageBackedMaterialization(record, descriptor.source, source => source)
+  private _createNineSliceMaterialization(record: NovaAssetRecord, descriptor: NovaNineSliceImageAssetDescriptor): AssetMaterialization {
+    return this._createImageBackedMaterialization(record, descriptor.source, source => source)
   }
 
   /**
    * Создает materialization для font asset.
    */
-  private createFontMaterialization(record: NovaAssetRecord, descriptor: NovaFontAssetDescriptor): AssetMaterialization {
+  private _createFontMaterialization(record: NovaAssetRecord, descriptor: NovaFontAssetDescriptor): AssetMaterialization {
     const materialized: AssetMaterialization = { ready: false, loading: true }
     const FontFaceCtor = globalThis.FontFace
     const fonts = typeof document !== 'undefined' ? document.fonts : undefined
@@ -773,7 +773,7 @@ export class NovaAssetRegistry {
   /**
    * Создает materialization для SVG asset.
    */
-  private createSvgMaterialization(record: NovaAssetRecord, descriptor: NovaSvgAssetDescriptor): AssetMaterialization {
+  private _createSvgMaterialization(record: NovaAssetRecord, descriptor: NovaSvgAssetDescriptor): AssetMaterialization {
     const materialized: AssetMaterialization = { ready: false, loading: true }
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
@@ -789,7 +789,7 @@ export class NovaAssetRegistry {
     }
 
     materialized.source = canvas
-    const source = this.createSvgImageSource(descriptor)
+    const source = this._createSvgImageSource(descriptor)
     const image = new Image()
     materialized.loader = image
     image.onload = (): void => {
@@ -817,8 +817,8 @@ export class NovaAssetRegistry {
   /**
    * Создает browser-loadable SVG image source из raw svg или data URL.
    */
-  private createSvgImageSource(descriptor: NovaSvgAssetDescriptor): { url: string, revoke?: () => void } {
-    const svg = this.resolveSvgSource(descriptor)
+  private _createSvgImageSource(descriptor: NovaSvgAssetDescriptor): { url: string, revoke?: () => void } {
+    const svg = this._resolveSvgSource(descriptor)
     const blob = new Blob([svg], { type: 'image/svg+xml' })
     const url = URL.createObjectURL(blob)
     return { url, revoke: () => URL.revokeObjectURL(url) }
@@ -827,7 +827,7 @@ export class NovaAssetRegistry {
   /**
    * Нормализует raw svg/data URL и применяет currentColor override.
    */
-  private resolveSvgSource(descriptor: NovaSvgAssetDescriptor): string {
+  private _resolveSvgSource(descriptor: NovaSvgAssetDescriptor): string {
     const source = descriptor.source.trim()
     const svg = source.startsWith('data:image/svg+xml')
       ? decodeSvgDataUrl(source)
@@ -840,7 +840,7 @@ export class NovaAssetRegistry {
   /**
    * Создает canvas pattern source с учетом размера и scale.
    */
-  private createPatternCanvas(source: CanvasImageSource, descriptor: NovaPatternAssetDescriptor): HTMLCanvasElement {
+  private _createPatternCanvas(source: CanvasImageSource, descriptor: NovaPatternAssetDescriptor): HTMLCanvasElement {
     const sourceWidth = resolveAssetSourceWidth(source)
     const sourceHeight = resolveAssetSourceHeight(source)
     const scale = Math.max(0.01, descriptor.scale ?? 1)
@@ -869,7 +869,7 @@ export class NovaAssetRegistry {
   /**
    * Создает image-backed materialization для source или url.
    */
-  private createImageBackedMaterialization(
+  private _createImageBackedMaterialization(
     record: NovaAssetRecord,
     source: CanvasImageSource | string,
     materialize: (source: CanvasImageSource) => CanvasImageSource,
@@ -905,7 +905,7 @@ export class NovaAssetRegistry {
   /**
    * Снимает зарегистрированный FontFace из document.fonts.
    */
-  private unuseFontFace(id: string): void {
+  private _unuseFontFace(id: string): void {
     const face = this._fontFaces.get(id)
     if (!face) {
       return

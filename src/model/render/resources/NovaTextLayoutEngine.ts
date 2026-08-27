@@ -19,7 +19,7 @@ export class NovaTextLayoutEngine {
    * Выполняет внутреннюю операцию measure.
    */
   measure(text: NovaText, scale = 1): NovaTextLayoutMeasure {
-    const context = this.getContext2D()
+    const context = this._getContext2D()
     const font = text.styles?.font
     const size = (font?.size ?? 12) * scale
     const family = font?.family ?? 'sans-serif'
@@ -41,7 +41,7 @@ export class NovaTextLayoutEngine {
   /**
    * Возвращает context2 d.
    */
-  private getContext2D(): CanvasRenderingContext2D | null {
+  private _getContext2D(): CanvasRenderingContext2D | null {
     if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) {
       return null
     }

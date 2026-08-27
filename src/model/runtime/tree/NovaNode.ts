@@ -167,7 +167,7 @@ export class NovaNode<
    * Возвращает scoped dependency из ближайшего ancestor provider.
    */
   inject<T>(token: NovaContextToken<T>): T {
-    const result = this.resolveInjectedValue(token)
+    const result = this._resolveInjectedValue(token)
     if (result.found) {
       return result.value as T
     }
@@ -179,7 +179,7 @@ export class NovaNode<
    * Возвращает scoped dependency или fallback, если provider не найден.
    */
   injectOptional<T>(token: NovaContextToken<T>, fallback?: T): T | undefined {
-    const result = this.resolveInjectedValue(token)
+    const result = this._resolveInjectedValue(token)
     return result.found ? result.value as T : fallback
   }
 
@@ -280,7 +280,7 @@ export class NovaNode<
         if (phaseObservers.has(path)) {
           continue
         }
-        phaseObservers.set(path, this.createReactiveStoreObserver(path, phase))
+        phaseObservers.set(path, this._createReactiveStoreObserver(path, phase))
       }
     }
   }
@@ -288,7 +288,7 @@ export class NovaNode<
   /**
    * Создает data observer для автоматически прочитанного store path.
    */
-  private createReactiveStoreObserver(path: string, phase: NovaStoreTrackingPhase): () => void {
+  private _createReactiveStoreObserver(path: string, phase: NovaStoreTrackingPhase): () => void {
     const dispose = this.raph.observeData(this, path, { phase })
     if (phase !== NovaPhase.Render) {
       return dispose
@@ -570,7 +570,7 @@ export class NovaNode<
       return
     }
     this.set('cursor', v)
-    this.syncCursorRegistration()
+    this._syncCursorRegistration()
   }
 
   /**
@@ -667,7 +667,7 @@ export class NovaNode<
 
     const matrix = this.get('matrix')!
 
-    const nodeAwareRenderer = this.resolveNodeAwareRenderer()
+    const nodeAwareRenderer = this._resolveNodeAwareRenderer()
     nodeAwareRenderer?.beginNode(this)
     this.renderer.save()
     const renderStateMark = this.renderer.markState()
@@ -737,13 +737,13 @@ export class NovaNode<
         this.setHitTest(hitTest ?? null)
       }
       if (hasCursorOption) {
-        this.syncCursorRegistration()
+        this._syncCursorRegistration()
       }
       if (hasCursorContextOption) {
         this.nova.cursors.markSpatialDirty(this)
       }
       if (spatialDirty) {
-        this.markSpatialDirtyForOptions(opts)
+        this._markSpatialDirtyForOptions(opts)
       }
       return this
     }
@@ -753,13 +753,13 @@ export class NovaNode<
       this.setHitTest(hitTest ?? null)
     }
     if (hasCursorOption) {
-      this.syncCursorRegistration()
+      this._syncCursorRegistration()
     }
     if (hasCursorContextOption) {
       this.nova.cursors.markSpatialDirty(this)
     }
     if (spatialDirty) {
-      this.markSpatialDirtyForOptions(opts)
+      this._markSpatialDirtyForOptions(opts)
     }
     return this
   }
@@ -946,7 +946,7 @@ export class NovaNode<
    * Выполняет внутреннюю операцию contains point.
    */
   containsPoint(x: number, y: number): boolean {
-    const inverse = this.getInverseMatrix()
+    const inverse = this._getInverseMatrix()
     if (!inverse) {
       return false
     }
@@ -997,7 +997,7 @@ export class NovaNode<
    * Выполняет внутреннюю операцию to local.
    */
   toLocal(gx: number, gy: number): [number, number] {
-    const inverse = this.getInverseMatrix()
+    const inverse = this._getInverseMatrix()
     if (!inverse) {
       return [gx, gy]
     }
@@ -1022,7 +1022,7 @@ export class NovaNode<
       type.forEach(t => this.on(t, handler))
       return
     }
-    this.installEventHandler(type, handler)
+    this._installEventHandler(type, handler)
     this.nova.registerInteractiveNode(this)
   }
 
@@ -1042,7 +1042,7 @@ export class NovaNode<
       const handler = this._soundUserHandlers.has(eventName)
         ? this._soundUserHandlers.get(eventName)
         : this.eventHandlers[eventName]
-      this.installEventHandler(eventName, handler as any)
+      this._installEventHandler(eventName, handler as any)
       this.nova.registerInteractiveNode(this)
     }
 
@@ -1110,7 +1110,7 @@ export class NovaNode<
   /**
    * Устанавливает event handler с optional sound wrapper.
    */
-  private installEventHandler<K extends keyof NovaNodeEventHandlers>(
+  private _installEventHandler<K extends keyof NovaNodeEventHandlers>(
     type: K,
     handler: NonNullable<NovaNodeEventHandlers[K]> | undefined,
   ): void {
@@ -1127,7 +1127,7 @@ export class NovaNode<
     this.eventHandlers[type] = ((event: Event, ...args: Array<unknown>) => {
       const handle = this.nova.sound.playCue(cue)
       if (handle) {
-        this.trackSoundHandle(handle)
+        this._trackSoundHandle(handle)
       }
       const userHandler = this._soundUserHandlers.get(type)
       if (typeof userHandler === 'function') {
@@ -1140,7 +1140,7 @@ export class NovaNode<
   /**
    * Отслеживает node-scoped sound handle.
    */
-  private trackSoundHandle(handle: NovaSoundHandle): void {
+  private _trackSoundHandle(handle: NovaSoundHandle): void {
     this._soundHandles.add(handle)
     void handle.ended.finally(() => this._soundHandles.delete(handle))
   }
@@ -1148,7 +1148,7 @@ export class NovaNode<
   /**
    * Останавливает node-scoped sounds.
    */
-  private stopSoundHandles(): void {
+  private _stopSoundHandles(): void {
     for (const handle of [...this._soundHandles]) {
       handle.stop()
     }
@@ -1476,7 +1476,7 @@ export class NovaNode<
   /**
    * Возвращает inverse matrix.
    */
-  private getInverseMatrix(): mat3 | undefined {
+  private _getInverseMatrix(): mat3 | undefined {
     const matrix = this.matrix
     if (this._inverseMatrixSource === matrix) {
       return this._inverseMatrix
@@ -1518,7 +1518,7 @@ export class NovaNode<
   /**
    * Выполняет поиск scoped dependency по ancestor chain.
    */
-  private resolveInjectedValue<T>(token: NovaContextToken<T>): NovaContextLookup<T> {
+  private _resolveInjectedValue<T>(token: NovaContextToken<T>): NovaContextLookup<T> {
     const cached = this._injectCache?.get(token) as NovaInjectCacheEntry<T> | undefined
     if (
       cached
@@ -1535,7 +1535,7 @@ export class NovaNode<
     while (parent) {
       if (parent instanceof NovaNode && parent._provides?.has(token)) {
         const value = parent._provides.get(token) as T
-        this.cacheInjectedValue(token, {
+        this._cacheInjectedValue(token, {
           provider: parent,
           providerVersion: parent._providerVersion,
           scopeVersion: this.nova.contextVersion,
@@ -1557,7 +1557,7 @@ export class NovaNode<
   /**
    * Сохраняет найденный scoped dependency в локальном inject-cache.
    */
-  private cacheInjectedValue<T>(token: NovaContextToken<T>, entry: NovaInjectCacheEntry<T>): void {
+  private _cacheInjectedValue<T>(token: NovaContextToken<T>, entry: NovaInjectCacheEntry<T>): void {
     if (!this._injectCache) {
       this._injectCache = new Map()
     }
@@ -1568,7 +1568,7 @@ export class NovaNode<
   /**
    * Сбрасывает inject-cache у этой ноды и ее потомков.
    */
-  private clearInjectCacheDeep(): void {
+  private _clearInjectCacheDeep(): void {
     const stack: Array<NovaNode<any>> = [this]
     while (stack.length > 0) {
       const node = stack.pop()!
@@ -1584,7 +1584,7 @@ export class NovaNode<
   /**
    * Выполняет dispose callbacks текущей ноды.
    */
-  private runDisposers(): void {
+  private _runDisposers(): void {
     const disposers = this._disposers.splice(0)
     for (const dispose of disposers) {
       dispose()
@@ -1594,7 +1594,7 @@ export class NovaNode<
   /**
    * Снимает автоматические reactive store observers.
    */
-  private disposeReactiveStoreObservers(): void {
+  private _disposeReactiveStoreObservers(): void {
     if (!this._reactiveStoreObservers) {
       return
     }
@@ -1616,12 +1616,12 @@ export class NovaNode<
     }
 
     this.clearSemantic()
-    this.clearSchemaSemantics()
+    this._clearSchemaSemantics()
     this.nova.motion.cancel(this)
-    this.stopSoundHandles()
-    this.unmountSubtree()
-    this.disposeReactiveStoreObservers()
-    this.runDisposers()
+    this._stopSoundHandles()
+    this._unmountSubtree()
+    this._disposeReactiveStoreObservers()
+    this._runDisposers()
     super.dispose()
     this.offAll()
     this._orderedChildren.length = 0
@@ -1641,7 +1641,7 @@ export class NovaNode<
    */
   protected renderSchema(schema: NovaSchema<any>): void {
     this.setRenderBoundsFromSchema(schema)
-    this.syncSchemaSemantics(schema)
+    this._syncSchemaSemantics(schema)
     this.renderer.schema(schema)
   }
 
@@ -1650,11 +1650,11 @@ export class NovaNode<
    */
   protected renderSchemaOrdered(schema: NovaSchema<any>): void {
     this.setRenderBoundsFromSchema(schema)
-    this.syncSchemaSemantics(schema)
+    this._syncSchemaSemantics(schema)
     this.renderer.schema(schema)
   }
 
-  private syncSchemaSemantics(schema: NovaSchema<any>): void {
+  private _syncSchemaSemantics(schema: NovaSchema<any>): void {
     const sourceKey = `schema:${this.renderNodeId}`
     const regions: Array<NovaSemanticRegisterOptions> = []
 
@@ -1679,7 +1679,7 @@ export class NovaNode<
     })
 
     if (regions.length === 0) {
-      this.clearSchemaSemantics()
+      this._clearSchemaSemantics()
       return
     }
 
@@ -1687,7 +1687,7 @@ export class NovaNode<
     this.nova.semantics.syncSource(sourceKey, regions)
   }
 
-  private clearSchemaSemantics(): void {
+  private _clearSchemaSemantics(): void {
     if (!this._schemaSemanticSourceKey) {
       return
     }
@@ -1698,7 +1698,7 @@ export class NovaNode<
   /**
    * Помечает spatial dirty for options.
    */
-  private markSpatialDirtyForOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number }): void {
+  private _markSpatialDirtyForOptions(opts: Partial<NovaNodeProperties> & { zIndex?: number }): void {
     const includeChildren = (
       opts.x !== undefined
       || opts.y !== undefined
@@ -1715,7 +1715,7 @@ export class NovaNode<
   /**
    * Синхронизирует регистрацию node в cursor index.
    */
-  private syncCursorRegistration(): void {
+  private _syncCursorRegistration(): void {
     if (this.cursor) {
       this.nova.cursors.register(this)
       return
@@ -1760,7 +1760,7 @@ export class NovaNode<
       if (weightDiff !== 0) {
         return weightDiff
       }
-      return this.renderOrderOf(a) - this.renderOrderOf(b)
+      return this._renderOrderOf(a) - this._renderOrderOf(b)
     })
 
     for (const child of this._orderedChildren) {
@@ -1771,7 +1771,7 @@ export class NovaNode<
   /**
    * Вычисляет node aware renderer.
    */
-  private resolveNodeAwareRenderer(): NovaRenderNodeAwareRenderer | null {
+  private _resolveNodeAwareRenderer(): NovaRenderNodeAwareRenderer | null {
     const renderer = this.renderer as Partial<NovaRenderNodeAwareRenderer>
     return typeof renderer.beginNode === 'function' && typeof renderer.endNode === 'function'
       ? renderer as NovaRenderNodeAwareRenderer
@@ -1792,8 +1792,8 @@ export class NovaNode<
       if (hasExplicitContext) {
         node.setContext(context)
       }
-      node.clearInjectCacheDeep()
-      this.ensureRenderOrder(node)
+      node._clearInjectCacheDeep()
+      this._ensureRenderOrder(node)
     }
     const result = super.addChild(node, raphOptions)
     this.markRenderDirtyFlags({ children: true, cache: true })
@@ -1816,7 +1816,7 @@ export class NovaNode<
   /**
    * Выполняет внутреннюю операцию ensure render order.
    */
-  private ensureRenderOrder(node: NovaNode<E>): void {
+  private _ensureRenderOrder(node: NovaNode<E>): void {
     if (this._renderOrder.has(node)) {
       return
     }
@@ -1826,8 +1826,8 @@ export class NovaNode<
   /**
    * Выполняет render-операцию order of.
    */
-  private renderOrderOf(node: NovaNode<E>): number {
-    this.ensureRenderOrder(node)
+  private _renderOrderOf(node: NovaNode<E>): number {
+    this._ensureRenderOrder(node)
     return this._renderOrder.get(node)!
   }
 
@@ -1835,7 +1835,7 @@ export class NovaNode<
    * Выполняет render-операцию order index of.
    */
   renderOrderIndexOf(node: NovaNode<E>): number {
-    return this.renderOrderOf(node)
+    return this._renderOrderOf(node)
   }
 
   /**
@@ -1903,14 +1903,14 @@ export class NovaNode<
   /**
    * Выполняет внутреннюю операцию unmount subtree.
    */
-  private unmountSubtree(): void {
+  private _unmountSubtree(): void {
     if (this._lifecycleState === 'created' || this._lifecycleState === 'destroyed') {
       return
     }
 
     for (const child of this.children) {
       if (child instanceof NovaNode) {
-        child.unmountSubtree()
+        child._unmountSubtree()
       }
     }
 

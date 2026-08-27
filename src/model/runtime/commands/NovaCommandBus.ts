@@ -38,8 +38,8 @@ interface NovaCommandEntry {
  * Хранит Nova commands и разрешает scoped/targeted запуск.
  */
 export class NovaCommandBus {
-  private readonly entries = new Map<string, Array<NovaCommandEntry>>()
-  private order = 0
+  private readonly _entries = new Map<string, Array<NovaCommandEntry>>()
+  private _order = 0
 
   /**
    * Регистрирует command handler.
@@ -54,22 +54,22 @@ export class NovaCommandBus {
       handler,
       owner: options.owner,
       scope: options.scope,
-      order: this.order++,
+      order: this._order++,
     }
-    const list = this.entries.get(id) ?? []
+    const list = this._entries.get(id) ?? []
     list.push(entry)
-    this.entries.set(id, list)
+    this._entries.set(id, list)
 
     return () => {
-      const current = this.entries.get(id)
+      const current = this._entries.get(id)
       if (!current) {
         return
       }
       const next = current.filter(item => item !== entry)
       if (next.length === 0) {
-        this.entries.delete(id)
+        this._entries.delete(id)
       }
-      else { this.entries.set(id, next) }
+      else { this._entries.set(id, next) }
     }
   }
 
@@ -81,7 +81,7 @@ export class NovaCommandBus {
     payload?: TPayload,
     options: NovaCommandRunOptions = {},
   ): TResult {
-    const entry = this.resolveEntry(id, options)
+    const entry = this._resolveEntry(id, options)
     return entry.handler(payload) as TResult
   }
 
@@ -90,10 +90,10 @@ export class NovaCommandBus {
    */
   count(id?: string): number {
     if (id) {
-      return this.entries.get(id)?.length ?? 0
+      return this._entries.get(id)?.length ?? 0
     }
     let total = 0
-    for (const list of this.entries.values()) {
+    for (const list of this._entries.values()) {
       total += list.length
     }
     return total
@@ -102,8 +102,8 @@ export class NovaCommandBus {
   /**
    * Выбирает единственный handler для запуска.
    */
-  private resolveEntry(id: string, options: NovaCommandRunOptions): NovaCommandEntry {
-    let list = [...(this.entries.get(id) ?? [])]
+  private _resolveEntry(id: string, options: NovaCommandRunOptions): NovaCommandEntry {
+    let list = [...(this._entries.get(id) ?? [])]
     if (options.scope) {
       list = list.filter(entry => entry.scope === options.scope)
     }

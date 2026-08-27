@@ -12,8 +12,8 @@ export type NovaInputValidateFn<TValue = unknown, TContext = unknown> = (
  * Координирует поведение контроллера NovaInputValidationController.
  */
 export class NovaInputValidationController<TValue = unknown, TContext = unknown> {
-  private token = 0
-  private state: NovaInputValidationState = {
+  private _token = 0
+  private _state: NovaInputValidationState = {
     result: true,
     pending: false,
     dirty: false,
@@ -24,51 +24,51 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
   /**
    * Создает экземпляр NovaInputValidationController и подготавливает базовое состояние.
    */
-  constructor(private readonly validateFn?: NovaInputValidateFn<TValue, TContext>) {}
+  constructor(private readonly _validateFn?: NovaInputValidateFn<TValue, TContext>) {}
 
   /**
    * Возвращает значение состояния NovaInputValidationController.
    */
   getState(): NovaInputValidationState {
-    return { ...this.state }
+    return { ...this._state }
   }
 
   /**
    * Выполняет действие markDirty в рамках ответственности NovaInputValidationController.
    */
   markDirty(): void {
-    this.state.dirty = true
+    this._state.dirty = true
   }
 
   /**
    * Выполняет действие markTouched в рамках ответственности NovaInputValidationController.
    */
   markTouched(): void {
-    this.state.touched = true
+    this._state.touched = true
   }
 
   /**
    * Выполняет действие markSubmitted в рамках ответственности NovaInputValidationController.
    */
   markSubmitted(): void {
-    this.state.submitted = true
+    this._state.submitted = true
   }
 
   /**
    * Проверяет входное значение NovaInputValidationController.
    */
   async validate(value: TValue, context: TContext): Promise<NovaInputValidationState> {
-    const runToken = ++this.token
-    if (!this.validateFn) {
-      this.applyResult(true)
+    const runToken = ++this._token
+    if (!this._validateFn) {
+      this._applyResult(true)
       return this.getState()
     }
-    this.state.pending = true
-    const result = await this.validateFn(value, context)
-    if (runToken !== this.token) {
+    this._state.pending = true
+    const result = await this._validateFn(value, context)
+    if (runToken !== this._token) {
       return this.getState()
     }
-    this.applyResult(result)
+    this._applyResult(result)
     return this.getState()
   }
 
@@ -76,8 +76,8 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
    * Обновляет значение состояния NovaInputValidationController.
    */
   setResult(result: NovaInputValidationResult): NovaInputValidationState {
-    this.token += 1
-    this.applyResult(result)
+    this._token += 1
+    this._applyResult(result)
     return this.getState()
   }
 
@@ -85,8 +85,8 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
    * Сбрасывает состояние к базовым значениям NovaInputValidationController.
    */
   reset(): void {
-    this.token += 1
-    this.state = {
+    this._token += 1
+    this._state = {
       result: true,
       pending: false,
       dirty: false,
@@ -98,11 +98,11 @@ export class NovaInputValidationController<TValue = unknown, TContext = unknown>
   /**
    * Применяет подготовленное состояние NovaInputValidationController.
    */
-  private applyResult(result: NovaInputValidationResult): void {
+  private _applyResult(result: NovaInputValidationResult): void {
     const message = result === true ? undefined : typeof result === 'string' ? result : result.message
     const code = result === true || typeof result === 'string' ? undefined : result.code
-    this.state = {
-      ...this.state,
+    this._state = {
+      ...this._state,
       result,
       pending: false,
       message,

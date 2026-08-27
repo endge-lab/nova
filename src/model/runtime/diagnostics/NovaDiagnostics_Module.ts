@@ -40,7 +40,7 @@ export interface NovaDiagnosticsRuntimeHooks {
  * Собирает diagnostics NovaApp только при включенном runtime-флаге.
  */
 export class NovaDiagnostics_Module<E extends EventList = EventList> {
-  private _options = this.resolveOptions()
+  private _options = this._resolveOptions()
   private readonly _categories = new Set<NovaDiagnosticsCategory>(ALL_CATEGORIES)
   private _frameIndex = 0
   private _frameStartedAt = 0
@@ -61,7 +61,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Создает diagnostics module для конкретного NovaApp.
    */
-  constructor(
+  public constructor(
     private readonly _app: NovaApp<E>,
     private readonly _hooks: NovaDiagnosticsRuntimeHooks,
     private readonly _browserAdapter: NovaDiagnosticsBrowser_Adapter = new NovaDiagnosticsBrowser_Adapter(),
@@ -70,30 +70,30 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Возвращает активность diagnostics.
    */
-  get enabled(): boolean {
+  public get enabled(): boolean {
     return this._options.enabled === true
   }
 
   /**
    * Возвращает текущие настройки diagnostics.
    */
-  get options(): Required<NovaDiagnosticsOptions> {
+  public get options(): Required<NovaDiagnosticsOptions> {
     return this._options
   }
 
   /**
    * Возвращает накопленную history последних snapshots.
    */
-  get history(): Array<NovaDiagnosticsSnapshot> {
+  public get history(): Array<NovaDiagnosticsSnapshot> {
     return [...this._history]
   }
 
   /**
    * Применяет новые настройки diagnostics.
    */
-  configure(options: NovaDiagnosticsOptions | undefined): void {
+  public configure(options: NovaDiagnosticsOptions | undefined): void {
     const wasEnabled = this.enabled
-    const next = this.resolveOptions(options, this._options)
+    const next = this._resolveOptions(options, this._options)
 
     this._categories.clear()
     for (const category of next.categories) {
@@ -104,28 +104,28 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
     this._hooks.setRendererDiagnosticsEnabled(this.enabled && this.hasCategory('render'))
 
     if (!wasEnabled && this.enabled) {
-      this.startCollectors()
+      this._startCollectors()
     }
     else if (wasEnabled && !this.enabled) {
-      this.stopCollectors()
-      this.resetRuntimeState()
+      this._stopCollectors()
+      this._resetRuntimeState()
     }
     else if (this.enabled) {
-      this.restartBrowserCollectors()
+      this._restartBrowserCollectors()
     }
   }
 
   /**
    * Проверяет активность категории.
    */
-  hasCategory(category: NovaDiagnosticsCategory): boolean {
+  public hasCategory(category: NovaDiagnosticsCategory): boolean {
     return this.enabled && this._categories.has(category)
   }
 
   /**
    * Помечает начало frame diagnostics.
    */
-  frameStart(now = this._browserAdapter.now()): void {
+  public frameStart(now = this._browserAdapter.now()): void {
     if (!this.enabled) {
       return
     }
@@ -140,7 +140,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Помечает конец frame diagnostics и сохраняет snapshot.
    */
-  frameEnd(now = this._browserAdapter.now()): void {
+  public frameEnd(now = this._browserAdapter.now()): void {
     if (!this.enabled) {
       return
     }
@@ -165,7 +165,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Помечает начало runtime phase.
    */
-  phaseStart(name: string, now = this._browserAdapter.now()): void {
+  public phaseStart(name: string, now = this._browserAdapter.now()): void {
     if (!this.enabled || !this.hasCategory('frame')) {
       return
     }
@@ -176,7 +176,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Помечает конец runtime phase.
    */
-  phaseEnd(now = this._browserAdapter.now()): void {
+  public phaseEnd(now = this._browserAdapter.now()): void {
     if (!this.enabled || !this.hasCategory('frame') || !this._phaseName) {
       return
     }
@@ -189,7 +189,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Сохраняет размер dirty workload для текущей Raph phase.
    */
-  recordDirtyNodes(count: number): void {
+  public recordDirtyNodes(count: number): void {
     if (!this.enabled || !this.hasCategory('frame')) {
       return
     }
@@ -199,7 +199,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Сохраняет размер render dirty workload для текущего frame.
    */
-  recordDirtyRenderNodes(count: number): void {
+  public recordDirtyRenderNodes(count: number): void {
     if (!this.enabled || !this.hasCategory('frame')) {
       return
     }
@@ -209,64 +209,64 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Возвращает текущий diagnostics snapshot.
    */
-  snapshot(now = this._browserAdapter.now()): NovaDiagnosticsSnapshot {
+  public snapshot(now = this._browserAdapter.now()): NovaDiagnosticsSnapshot {
     return {
-      runtime: this.collectRuntime(now),
+      runtime: this._collectRuntime(now),
       frame: this.enabled ? this._lastFrame : createEmptyFrameSnapshot(),
-      render: this.enabled && this.hasCategory('render') ? this.collectRender() : createEmptyRenderSnapshot(),
-      resources: this.enabled && this.hasCategory('resources') ? this.collectResources() : createEmptyResourceSnapshot(),
+      render: this.enabled && this.hasCategory('render') ? this._collectRender() : createEmptyRenderSnapshot(),
+      resources: this.enabled && this.hasCategory('resources') ? this._collectResources() : createEmptyResourceSnapshot(),
       browser: this.enabled && this.hasCategory('browser') ? { ...this._browser } : {},
-      input: this.enabled && this.hasCategory('input') ? this.collectInput() : { hitTestMode: 'unknown', lastHitTestCandidates: 0 },
-      availability: this.collectAvailability(),
+      input: this.enabled && this.hasCategory('input') ? this._collectInput() : { hitTestMode: 'unknown', lastHitTestCandidates: 0 },
+      availability: this._collectAvailability(),
     }
   }
 
   /**
    * Освобождает diagnostics timers и observers.
    */
-  destroy(): void {
-    this.stopCollectors()
+  public destroy(): void {
+    this._stopCollectors()
     this._history = []
   }
 
   /**
    * Запускает runtime collectors.
    */
-  private startCollectors(): void {
+  private _startCollectors(): void {
     this._app.metrics.start()
     this._hooks.setRendererDiagnosticsEnabled(this.hasCategory('render'))
-    this.restartBrowserCollectors()
+    this._restartBrowserCollectors()
   }
 
   /**
    * Останавливает runtime collectors.
    */
-  private stopCollectors(): void {
+  private _stopCollectors(): void {
     this._app.metrics.stop()
     this._hooks.setRendererDiagnosticsEnabled(false)
-    this.stopBrowserCollectors()
+    this._stopBrowserCollectors()
   }
 
   /**
    * Перезапускает browser collectors после изменения настроек.
    */
-  private restartBrowserCollectors(): void {
-    this.stopBrowserCollectors()
+  private _restartBrowserCollectors(): void {
+    this._stopBrowserCollectors()
     if (!this.enabled || !this._options.browser || !this.hasCategory('browser')) {
       return
     }
 
-    this.sampleBrowser()
-    this.startLongTaskObserver()
+    this._sampleBrowser()
+    this._startLongTaskObserver()
     if (typeof setInterval !== 'undefined') {
-      this._browserTimerId = setInterval(() => this.sampleBrowser(), this._options.sampleIntervalMs)
+      this._browserTimerId = setInterval(() => this._sampleBrowser(), this._options.sampleIntervalMs)
     }
   }
 
   /**
    * Останавливает browser collectors.
    */
-  private stopBrowserCollectors(): void {
+  private _stopBrowserCollectors(): void {
     if (this._browserTimerId !== null && typeof clearInterval !== 'undefined') {
       clearInterval(this._browserTimerId)
     }
@@ -279,7 +279,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Сбрасывает mutable state, который не должен жить при выключенной диагностике.
    */
-  private resetRuntimeState(): void {
+  private _resetRuntimeState(): void {
     this._frameStartedAt = 0
     this._phaseStartedAt = 0
     this._phaseName = ''
@@ -298,7 +298,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Читает browser-level метрики, если runtime API доступны.
    */
-  private sampleBrowser(): void {
+  private _sampleBrowser(): void {
     if (this._samplingBrowser) {
       return
     }
@@ -351,7 +351,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Запускает observer long task API, если браузер его поддерживает.
    */
-  private startLongTaskObserver(): void {
+  private _startLongTaskObserver(): void {
     this._longTaskObserver = this._browserAdapter.observeLongTasks((duration) => {
       this._longTasks += 1
       this._longTaskMs += duration
@@ -361,7 +361,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Собирает runtime snapshot.
    */
-  private collectRuntime(now: number): NovaDiagnosticsRuntimeSnapshot {
+  private _collectRuntime(now: number): NovaDiagnosticsRuntimeSnapshot {
     const appMetrics = this.enabled ? this._app.metrics.snapshot(now) : undefined
 
     return {
@@ -383,7 +383,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Собирает render snapshot по последним surface metrics.
    */
-  private collectRender(): NovaDiagnosticsRenderSnapshot {
+  private _collectRender(): NovaDiagnosticsRenderSnapshot {
     const stats = collectSurfaceMetrics(this._app.surfaces.map(surface => surface.renderMetrics))
     const compileStats = this._app.surfaces.reduce((total, surface) => {
       total.rebuiltNodes += surface.renderCompileStats.rebuiltNodes
@@ -427,7 +427,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Собирает resource snapshot по расчетным ресурсам Nova.
    */
-  private collectResources(): NovaDiagnosticsResourceSnapshot {
+  private _collectResources(): NovaDiagnosticsResourceSnapshot {
     const stats = collectSurfaceMetrics(this._app.surfaces.map(surface => surface.renderMetrics))
     const textureMB = stats.atlasMemoryMB
     const cachedTextureMB = stats.cachedTextureMemoryMB
@@ -454,7 +454,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Собирает input snapshot.
    */
-  private collectInput(): NovaDiagnosticsInputSnapshot {
+  private _collectInput(): NovaDiagnosticsInputSnapshot {
     return {
       hitTestMode: this._app.events.hitTestMode,
       hitTestIndexPolicy: this._app.events.hitTestIndexPolicy,
@@ -468,7 +468,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Возвращает карту доступности diagnostics данных.
    */
-  private collectAvailability(): NovaDiagnosticsAvailability {
+  private _collectAvailability(): NovaDiagnosticsAvailability {
     const browserEnabled = this.enabled && this.hasCategory('browser')
     const perf: DiagnosticsPerformance | undefined = this._browserAdapter.performance()
 
@@ -488,7 +488,7 @@ export class NovaDiagnostics_Module<E extends EventList = EventList> {
   /**
    * Нормализует options diagnostics.
    */
-  private resolveOptions(
+  private _resolveOptions(
     input: NovaDiagnosticsOptions = {},
     base?: Required<NovaDiagnosticsOptions>,
   ): Required<NovaDiagnosticsOptions> {

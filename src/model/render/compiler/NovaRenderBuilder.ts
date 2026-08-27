@@ -72,12 +72,12 @@ export class NovaRenderBuilder implements NovaRenderer {
   schema(schema: NovaSchema<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
 
-    if (this.schemaBatch(schema, 'ordered')) {
+    if (this._schemaBatch(schema, 'ordered')) {
       return
     }
 
     for (const item of items) {
-      this.schemaItem(item as NovaSchemaItem<any>)
+      this._schemaItem(item as NovaSchemaItem<any>)
     }
   }
 
@@ -85,7 +85,7 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Выполняет внутреннюю операцию schema batched.
    */
   schemaBatched(schema: NovaSchema<any>): void {
-    if (this.schemaBatch(schema, 'batched')) {
+    if (this._schemaBatch(schema, 'batched')) {
       return
     }
     this.schema(schema)
@@ -95,7 +95,7 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Выполняет внутреннюю операцию schema ordered.
    */
   schemaOrdered(schema: NovaSchema<any>): void {
-    if (this.schemaBatch(schema, 'ordered')) {
+    if (this._schemaBatch(schema, 'ordered')) {
       return
     }
     this.schema(schema)
@@ -185,63 +185,63 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Выполняет внутреннюю операцию text.
    */
   text(params: NovaText): void {
-    this.schemaItem({ ...params, type: 'text' })
+    this._schemaItem({ ...params, type: 'text' })
   }
 
   /**
    * Выполняет внутреннюю операцию rect.
    */
   rect(params: NovaRect): void {
-    this.schemaItem({ ...params, type: 'rect' })
+    this._schemaItem({ ...params, type: 'rect' })
   }
 
   /**
    * Выполняет внутреннюю операцию border.
    */
   border(params: NovaBorder): void {
-    this.schemaItem({ ...params, type: 'border' })
+    this._schemaItem({ ...params, type: 'border' })
   }
 
   /**
    * Выполняет внутреннюю операцию line.
    */
   line(params: NovaLine): void {
-    this.schemaItem({ ...params, type: 'line' })
+    this._schemaItem({ ...params, type: 'line' })
   }
 
   /**
    * Выполняет внутреннюю операцию circle.
    */
   circle(params: NovaCircle): void {
-    this.schemaItem({ ...params, type: 'circle' })
+    this._schemaItem({ ...params, type: 'circle' })
   }
 
   /**
    * Выполняет внутреннюю операцию arc.
    */
   arc(params: NovaArc): void {
-    this.schemaItem({ ...params, type: 'arc' })
+    this._schemaItem({ ...params, type: 'arc' })
   }
 
   /**
    * Выполняет внутреннюю операцию polygon.
    */
   polygon(params: NovaPolygon): void {
-    this.schemaItem({ ...params, type: 'polygon' })
+    this._schemaItem({ ...params, type: 'polygon' })
   }
 
   /**
    * Выполняет внутреннюю операцию icon.
    */
   icon(params: NovaIcon): void {
-    this.schemaItem({ ...params, type: 'icon' })
+    this._schemaItem({ ...params, type: 'icon' })
   }
 
   /**
    * Записывает процедурный pattern rect как один render item.
    */
   patternRect(params: NovaPatternRect): void {
-    this.schemaItem({ ...params, type: 'pattern-rect' })
+    this._schemaItem({ ...params, type: 'pattern-rect' })
   }
 
   /**
@@ -308,7 +308,7 @@ export class NovaRenderBuilder implements NovaRenderer {
    * Выполняет внутреннюю операцию measure text.
    */
   measureText(params: NovaText): { width: number, height: number } {
-    const context = this.getMeasureContext()
+    const context = this._getMeasureContext()
     const font = params.styles?.font
     const size = font?.size ?? 12
     const family = font?.family ?? 'sans-serif'
@@ -328,7 +328,7 @@ export class NovaRenderBuilder implements NovaRenderer {
   /**
    * Возвращает measure context.
    */
-  private getMeasureContext(): CanvasRenderingContext2D | null {
+  private _getMeasureContext(): CanvasRenderingContext2D | null {
     if (typeof navigator !== 'undefined' && navigator.userAgent.toLowerCase().includes('jsdom')) {
       return null
     }
@@ -373,7 +373,7 @@ export class NovaRenderBuilder implements NovaRenderer {
   /**
    * Выполняет внутреннюю операцию schema item.
    */
-  private schemaItem(item: NovaSchemaItem<any>): void {
+  private _schemaItem(item: NovaSchemaItem<any>): void {
     if (item.active === false) {
       return
     }
@@ -408,7 +408,7 @@ export class NovaRenderBuilder implements NovaRenderer {
   /**
    * Выполняет внутреннюю операцию schema batch.
    */
-  private schemaBatch(schema: NovaSchema<any>, mode: 'batched' | 'ordered'): boolean {
+  private _schemaBatch(schema: NovaSchema<any>, mode: 'batched' | 'ordered'): boolean {
     const items = Array.isArray(schema) ? schema : [schema]
     const activeItems = items.some(item => item.active === false)
       ? items.filter(item => item.active !== false)

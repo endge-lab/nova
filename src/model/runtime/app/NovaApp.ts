@@ -92,7 +92,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   readonly bus: EventBus<E>
   readonly commands = new NovaCommandBus()
   readonly metrics: NovaMetrics
-  readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this.invalidateAssets())
+  readonly assets = new NovaAssetRegistry(NovaAssets.global, () => this._invalidateAssets())
   readonly sync: NovaSyncScope
   readonly semantics = new NovaSemanticService()
 
@@ -120,7 +120,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
     //
     // Сначала нормализуем базовую конфигурацию, потому что от нее зависит canvas и renderer.
-    this._inputOptions = this.resolveInputOptions(options.input)
+    this._inputOptions = this._resolveInputOptions(options.input)
     this._webglAttributes = options.renderer?.webgl
     this._mainRendererType = options.renderer?.main ?? RendererType.WebGL
     this._rendererConfig = resolveNovaRendererConfig(options.renderer?.config)
@@ -156,7 +156,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
 
     //
     // Подключаем DOM-события после создания bus и input options.
-    this.setupEventListeners()
+    this._setupEventListeners()
 
     //
     // Инициализируем Raph core и root node.
@@ -167,7 +167,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       scheduler: options.scheduler?.type ?? RaphSchedulerType.AnimationFrame,
     })
     this._diagnostics = new NovaDiagnostics_Module(this, {
-      setRendererDiagnosticsEnabled: enabled => this.setRendererDiagnosticsEnabled(enabled),
+      setRendererDiagnosticsEnabled: enabled => this._setRendererDiagnosticsEnabled(enabled),
     })
     this.theme = new NovaThemeService(this, options.theme)
     this._diagnostics.configure(options.diagnostics)
@@ -273,10 +273,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this._debugger.phaseStart('flush')
     this._diagnostics.phaseStart('flush')
 
-    const surfaces = this.getOrderedSurfaces()
+    const surfaces = this._getOrderedSurfaces()
     this._orchestrator.render(surfaces, this._dirtySurfaces)
     this.cursors.reapplyNativeCursor()
-    const shouldContinueTextRaster = surfaces.some(surface => this.shouldContinueTextRaster(surface))
+    const shouldContinueTextRaster = surfaces.some(surface => this._shouldContinueTextRaster(surface))
     this._dirtySurfaces.clear()
 
     //
@@ -290,14 +290,14 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     this._debugger.phaseEnd()
 
     if (shouldContinueTextRaster) {
-      this.scheduleTextRasterContinuation(surfaces)
+      this._scheduleTextRasterContinuation(surfaces)
     }
   }
 
   /**
    * Проверяет, нужно ли дорендерить deferred text atlas без пользовательского input.
    */
-  private shouldContinueTextRaster(surface: NovaSurface<E>): boolean {
+  private _shouldContinueTextRaster(surface: NovaSurface<E>): boolean {
     const metrics = surface.renderMetrics
     if (!metrics) {
       return false
@@ -309,7 +309,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Планирует continuation repaint вне текущего flush stack.
    */
-  private scheduleTextRasterContinuation(surfaces: Array<NovaSurface<E>>): void {
+  private _scheduleTextRasterContinuation(surfaces: Array<NovaSurface<E>>): void {
     if (this._textRasterContinuationPending) {
       return
     }
@@ -346,7 +346,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Помечает render surfaces dirty после async asset updates.
    */
-  private invalidateAssets(): void {
+  private _invalidateAssets(): void {
     for (const surface of this.surfaces) {
       surface.dirty({ render: true })
     }
@@ -596,7 +596,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
    * Добавляет surface в Raph graph, монтирует subtree и обновляет порядок слоев.
    */
   addSurface<T extends NovaSurface<E>>(surface: T): T {
-    this.ensureSurfaceOrder(surface)
+    this._ensureSurfaceOrder(surface)
 
     //
     // Новый surface сразу получает размеры приложения, чтобы первая отрисовка была синхронной с root canvas.
@@ -630,11 +630,11 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Возвращает surfaces в порядке compositing.
    */
-  private getOrderedSurfaces(): Array<NovaSurface<E>> {
+  private _getOrderedSurfaces(): Array<NovaSurface<E>> {
     this._orderedSurfaces.length = 0
 
     for (const surface of this.surfaces) {
-      this.ensureSurfaceOrder(surface)
+      this._ensureSurfaceOrder(surface)
       this._orderedSurfaces.push(surface)
     }
 
@@ -646,7 +646,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       if (weightDiff !== 0) {
         return weightDiff
       }
-      return this.surfaceOrderOf(a) - this.surfaceOrderOf(b)
+      return this._surfaceOrderOf(a) - this._surfaceOrderOf(b)
     })
 
     return this._orderedSurfaces
@@ -655,7 +655,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Фиксирует стабильный порядок добавления surface, если он еще не был сохранен.
    */
-  private ensureSurfaceOrder(surface: NovaSurface<E>): void {
+  private _ensureSurfaceOrder(surface: NovaSurface<E>): void {
     if (this._surfaceOrder.has(surface)) {
       return
     }
@@ -665,8 +665,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Возвращает стабильный индекс добавления surface.
    */
-  private surfaceOrderOf(surface: NovaSurface<E>): number {
-    this.ensureSurfaceOrder(surface)
+  private _surfaceOrderOf(surface: NovaSurface<E>): number {
+    this._ensureSurfaceOrder(surface)
     return this._surfaceOrder.get(surface)!
   }
 
@@ -698,7 +698,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
       if (weightDiff !== 0) {
         return weightDiff
       }
-      return this.surfaceOrderOf(a.surface) - this.surfaceOrderOf(b.surface)
+      return this._surfaceOrderOf(a.surface) - this._surfaceOrderOf(b.surface)
     }
 
     //
@@ -727,8 +727,8 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   getRenderOrderStamp(node: NovaNode<E>): Array<number> {
     //
     // Stamp начинается с surface, потому что surfaces композитятся независимо от внутренней иерархии.
-    const path = this.getRenderPath(node)
-    const stamp: Array<number> = [node.surface.weight, this.surfaceOrderOf(node.surface)]
+    const path = this._getRenderPath(node)
+    const stamp: Array<number> = [node.surface.weight, this._surfaceOrderOf(node.surface)]
 
     //
     // Каждый уровень добавляет zIndex текущей node и ее позицию среди детей родителя.
@@ -746,7 +746,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Возвращает путь от surface root до указанной node.
    */
-  private getRenderPath(node: NovaNode<E>): Array<NovaNode<E>> {
+  private _getRenderPath(node: NovaNode<E>): Array<NovaNode<E>> {
     const path: Array<NovaNode<E>> = []
     let current: unknown = node
 
@@ -844,7 +844,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Включает или выключает backend-level retained diagnostics.
    */
-  private setRendererDiagnosticsEnabled(enabled: boolean): void {
+  private _setRendererDiagnosticsEnabled(enabled: boolean): void {
     const backend = this._backend as NovaRendererDiagnosticsSwitch
     if (backend.diagnostics) {
       backend.diagnostics.enabled = enabled
@@ -862,7 +862,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Подключает pointer и keyboard listeners согласно input options.
    */
-  private setupEventListeners(): void {
+  private _setupEventListeners(): void {
     //
     // Pointer events всегда живут на canvas, чтобы hit-test и координаты были в одной системе.
     if (this._inputOptions.pointer.enabled) {
@@ -870,7 +870,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         const handler = (e: Event) => {
           if (domEvent === 'mousedown') {
             this._keyboardActive = true
-            this.focusCanvasKeyboardTarget()
+            this._focusCanvasKeyboardTarget()
           }
 
           if (domEvent === 'mousedown' || domEvent === 'mouseup') {
@@ -916,7 +916,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
     for (const domEvent of ['keydown', 'keyup'] as const) {
       const handler = (e: Event) => {
         const keyboardEvent = e as KeyboardEvent
-        if (!this.shouldHandleKeyboardEvent(keyboardEvent)) {
+        if (!this._shouldHandleKeyboardEvent(keyboardEvent)) {
           return
         }
 
@@ -925,7 +925,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
         }
 
         const handled = this.handleEvent(domEvent, keyboardEvent)
-        this.applyKeyboardPreventDefault(keyboardEvent, handled)
+        this._applyKeyboardPreventDefault(keyboardEvent, handled)
       }
 
       const registry = keyboardTarget === window ? this._boundWindowEvents : this._boundCanvasEvents
@@ -947,7 +947,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Переводит DOM focus на canvas для focused keyboard scope.
    */
-  private focusCanvasKeyboardTarget(): void {
+  private _focusCanvasKeyboardTarget(): void {
     if (!this._inputOptions.keyboard.enabled || this._inputOptions.keyboard.scope !== 'focused') {
       return
     }
@@ -957,7 +957,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Нормализует пользовательские input options в полный resolved config.
    */
-  private resolveInputOptions(options: NovaInputOptions = {}): ResolvedNovaInputOptions {
+  private _resolveInputOptions(options: NovaInputOptions = {}): ResolvedNovaInputOptions {
     return {
       pointer: {
         enabled: options.pointer?.enabled ?? true,
@@ -975,10 +975,10 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Проверяет, должен ли NovaApp обрабатывать конкретное keyboard event.
    */
-  private shouldHandleKeyboardEvent(event: KeyboardEvent): boolean {
+  private _shouldHandleKeyboardEvent(event: KeyboardEvent): boolean {
     const options = this._inputOptions.keyboard
 
-    if (options.ignoreEditableTargets && this.isEditableTarget(event.target)) {
+    if (options.ignoreEditableTargets && this._isEditableTarget(event.target)) {
       return false
     }
 
@@ -1000,7 +1000,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Применяет preventDefault для keyboard event согласно настройкам input.
    */
-  private applyKeyboardPreventDefault(event: KeyboardEvent, handled: boolean): void {
+  private _applyKeyboardPreventDefault(event: KeyboardEvent, handled: boolean): void {
     const preventDefault = this._inputOptions.keyboard.preventDefault
 
     if (preventDefault === 'always' || (preventDefault === 'handled' && handled)) {
@@ -1011,7 +1011,7 @@ export class NovaApp<E extends EventList = Record<string, any>> {
   /**
    * Проверяет, является ли target редактируемым DOM-элементом.
    */
-  private isEditableTarget(target: EventTarget | null): boolean {
+  private _isEditableTarget(target: EventTarget | null): boolean {
     if (!(target instanceof HTMLElement)) {
       return false
     }

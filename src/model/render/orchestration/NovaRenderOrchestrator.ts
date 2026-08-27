@@ -48,8 +48,8 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
       return
     }
 
-    if (this.shouldCompositeSurfaces()) {
-      this.renderWithSurfaceTargets(surfaces, _dirtySurfaces)
+    if (this._shouldCompositeSurfaces()) {
+      this._renderWithSurfaceTargets(surfaces, _dirtySurfaces)
       return
     }
 
@@ -63,7 +63,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
       const frame = needsCompile ? surface.compileRenderFrame() : previousFrame
       this._frames.set(surface, frame)
       const metrics = this._backend.renderFrame(frame)
-      surface.setRenderMetrics(this.mergeMetrics(frame.metrics, metrics))
+      surface.setRenderMetrics(this._mergeMetrics(frame.metrics, metrics))
     }
   }
 
@@ -85,7 +85,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Сохраняет compiler metrics, когда backend возвращает draw metrics.
    */
-  private mergeMetrics(compiler: NovaRenderMetrics, backend: NovaRenderMetrics): NovaRenderMetrics {
+  private _mergeMetrics(compiler: NovaRenderMetrics, backend: NovaRenderMetrics): NovaRenderMetrics {
     return {
       ...compiler,
       ...backend,
@@ -99,7 +99,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * WebGL backend может композитить surfaces через cached render targets.
    */
-  private shouldCompositeSurfaces(): boolean {
+  private _shouldCompositeSurfaces(): boolean {
     // Surface-target compositing is intentionally disabled for now: the current
     // full-canvas texture path corrupts DPR/WebGL UI scenes with icon/text
     // artefacts. Resident per-batch caches stay active in the backend.
@@ -109,12 +109,12 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Рендерит dirty surfaces в offscreen targets и собирает root из cached textures.
    */
-  private renderWithSurfaceTargets(surfaces: Array<NovaSurface<E>>, dirtySurfaces: ReadonlySet<NovaSurface<E>>): void {
+  private _renderWithSurfaceTargets(surfaces: Array<NovaSurface<E>>, dirtySurfaces: ReadonlySet<NovaSurface<E>>): void {
     this._backend.resize?.()
 
     const entries: Array<SurfaceRenderEntry<E>> = []
     for (const surface of surfaces) {
-      const cache = this.shouldCacheSurface(surface) ? this.ensureSurfaceCache(surface) : undefined
+      const cache = this._shouldCacheSurface(surface) ? this._ensureSurfaceCache(surface) : undefined
       const previousFrame = cache?.frame ?? this._frames.get(surface)
       const needsCompile = !previousFrame || dirtySurfaces.has(surface) || surface.renderFrameDirty
       const frame = needsCompile ? surface.compileRenderFrame() : previousFrame
@@ -126,13 +126,13 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
       }
 
       cache.frame = frame
-      const nextTarget = this.createSurfaceTarget(cache)
-      const targetChanged = this.hasTargetChanged(cache.target, nextTarget)
+      const nextTarget = this._createSurfaceTarget(cache)
+      const targetChanged = this._hasTargetChanged(cache.target, nextTarget)
       if (needsCompile || targetChanged || !cache.repainted) {
         cache.target = nextTarget
-        const targetFrame = this.wrapFrameInRenderTarget(frame, nextTarget)
+        const targetFrame = this._wrapFrameInRenderTarget(frame, nextTarget)
         const metrics = this._backend.renderFrame(targetFrame)
-        surface.setRenderMetrics(this.mergeMetrics(frame.metrics, metrics))
+        surface.setRenderMetrics(this._mergeMetrics(frame.metrics, metrics))
         cache.repainted = true
       }
       else {
@@ -144,19 +144,19 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
 
     this._backend.clearRoot()
     this._rootClears += 1
-    this.renderCompositeEntries(entries)
+    this._renderCompositeEntries(entries)
   }
 
   /**
    * Рисует cached chunks и direct surfaces в исходном z-order.
    */
-  private renderCompositeEntries(entries: Array<SurfaceRenderEntry<E>>): void {
+  private _renderCompositeEntries(entries: Array<SurfaceRenderEntry<E>>): void {
     let pendingCaches: Array<SurfaceRenderCache> = []
     const flushPendingCaches = (): void => {
       if (pendingCaches.length === 0) {
         return
       }
-      this._backend.renderFrame(this.createCompositeFrame(pendingCaches))
+      this._backend.renderFrame(this._createCompositeFrame(pendingCaches))
       pendingCaches = []
     }
 
@@ -168,7 +168,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
 
       flushPendingCaches()
       const metrics = this._backend.renderFrame(entry.frame)
-      entry.surface.setRenderMetrics(this.mergeMetrics(entry.frame.metrics, metrics))
+      entry.surface.setRenderMetrics(this._mergeMetrics(entry.frame.metrics, metrics))
     }
 
     flushPendingCaches()
@@ -177,14 +177,14 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Screen-space controls stay direct to avoid texture-target artefacts on UI icons.
    */
-  private shouldCacheSurface(surface: NovaSurface<E>): boolean {
+  private _shouldCacheSurface(surface: NovaSurface<E>): boolean {
     return !String(surface.name ?? '').endsWith(':controls')
   }
 
   /**
    * Создает или возвращает retained metadata для surface target.
    */
-  private ensureSurfaceCache(surface: NovaSurface<E>): SurfaceRenderCache {
+  private _ensureSurfaceCache(surface: NovaSurface<E>): SurfaceRenderCache {
     const current = this._surfaceCaches.get(surface)
     if (current) {
       return current
@@ -201,7 +201,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Создает target под текущий canvas size.
    */
-  private createSurfaceTarget(cache: SurfaceRenderCache): NovaRenderTarget {
+  private _createSurfaceTarget(cache: SurfaceRenderCache): NovaRenderTarget {
     const canvas = this._backend.novaCanvas
     return {
       id: cache.targetId,
@@ -215,7 +215,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Проверяет, нужно ли repaint-ить cache target из-за resize/DPR.
    */
-  private hasTargetChanged(previous: NovaRenderTarget | undefined, next: NovaRenderTarget): boolean {
+  private _hasTargetChanged(previous: NovaRenderTarget | undefined, next: NovaRenderTarget): boolean {
     return !previous
       || previous.width !== next.width
       || previous.height !== next.height
@@ -226,7 +226,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Оборачивает surface frame в begin/end render target.
    */
-  private wrapFrameInRenderTarget(frame: NovaRenderFrame, target: NovaRenderTarget): NovaRenderFrame {
+  private _wrapFrameInRenderTarget(frame: NovaRenderFrame, target: NovaRenderTarget): NovaRenderFrame {
     const begin: NovaRenderCommand = {
       id: `${target.id}:begin:${frame.id}`,
       type: 'beginRenderTarget',
@@ -256,7 +256,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   /**
    * Создает frame, который рисует все surface targets в root target.
    */
-  private createCompositeFrame(caches: Array<SurfaceRenderCache>): NovaRenderFrame {
+  private _createCompositeFrame(caches: Array<SurfaceRenderCache>): NovaRenderFrame {
     const canvas = this._backend.novaCanvas
     const width = Math.max(1, canvas.width)
     const height = Math.max(1, canvas.height)
@@ -304,14 +304,14 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
         textRunsRasterized: 0,
         bytesUploaded: 0,
       },
-      metrics: this.createEmptyMetrics(commands.length),
+      metrics: this._createEmptyMetrics(commands.length),
     }
   }
 
   /**
    * Создает минимальные render metrics для synthetic composite frame.
    */
-  private createEmptyMetrics(commands: number): NovaRenderMetrics {
+  private _createEmptyMetrics(commands: number): NovaRenderMetrics {
     return {
       compilerMs: 0,
       backendMs: 0,

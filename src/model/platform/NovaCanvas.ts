@@ -42,7 +42,7 @@ export class NovaCanvas {
   private constructor(canvas: HTMLCanvasElement, ownership: NovaCanvasOwnership, options: NovaCanvasCreateOptions = {}) {
     this._element = canvas
     this._ownership = ownership
-    this._dpr = this.resolveDpr(options.dpr, options.maxDpr)
+    this._dpr = this._resolveDpr(options.dpr, options.maxDpr)
     this._maxDpr = options.maxDpr ?? 2
     this._webglAttributes = options.webgl
   }
@@ -127,7 +127,7 @@ export class NovaCanvas {
     this._cachedRect = undefined
 
     this._maxDpr = options.maxDpr ?? this._maxDpr
-    this._dpr = this.resolveDpr(options.dpr, this._maxDpr)
+    this._dpr = this._resolveDpr(options.dpr, this._maxDpr)
     const dpr = this._dpr
 
     this._element.width = Math.max(0, Math.floor(width * dpr))
@@ -262,7 +262,7 @@ export class NovaCanvas {
       throw new NovaExportError('empty-canvas', 'Cannot export an empty Nova canvas rect')
     }
 
-    const target = this.createExportCanvas(source, rect, targetWidth, targetHeight, pixelRatio, options.background)
+    const target = this._createExportCanvas(source, rect, targetWidth, targetHeight, pixelRatio, options.background)
     const quality = normalizeQuality(options.quality)
 
     try {
@@ -308,7 +308,7 @@ export class NovaCanvas {
     const instance = new NovaCanvas(canvas, 'internal', options)
     instance.resize(width, height, options)
 
-    instance.initContextLossHandlers()
+    instance._initContextLossHandlers()
 
     if (contextType === RendererType.Web2D) {
       instance.getContext2D()
@@ -345,12 +345,12 @@ export class NovaCanvas {
   /**
    * Вычисляет dpr.
    */
-  private resolveDpr(dpr?: number, maxDpr?: number): number {
+  private _resolveDpr(dpr?: number, maxDpr?: number): number {
     const raw = dpr ?? (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1)
     return Math.max(1, Math.min(raw, maxDpr ?? this._maxDpr))
   }
 
-  private createExportCanvas(
+  private _createExportCanvas(
     source: HTMLCanvasElement,
     rect: { x: number, y: number, width: number, height: number },
     targetWidth: number,
@@ -394,7 +394,7 @@ export class NovaCanvas {
   /**
    * Выполняет внутреннюю операцию init context loss handlers.
    */
-  private initContextLossHandlers(): void {
+  private _initContextLossHandlers(): void {
     if (this._handlersInited) {
       return
     }

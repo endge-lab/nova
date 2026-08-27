@@ -11,28 +11,28 @@ import { splitGraphemes } from '@/model/input/NovaTextLayoutEngine'
  * Координирует поведение контроллера NovaTextInputController.
  */
 export class NovaTextInputController {
-  private value: string
-  private draft: string
-  private selectionStart = 0
-  private selectionEnd = 0
-  private focused = false
-  private composing = false
-  private dirty = false
-  private readonly multiline: boolean
-  private readonly maxLength?: number
-  private readonly historyLimit: number
-  private history: Array<{ draft: string, selectionStart: number, selectionEnd: number }> = []
+  private _value: string
+  private _draft: string
+  private _selectionStart = 0
+  private _selectionEnd = 0
+  private _focused = false
+  private _composing = false
+  private _dirty = false
+  private readonly _multiline: boolean
+  private readonly _maxLength?: number
+  private readonly _historyLimit: number
+  private _history: Array<{ draft: string, selectionStart: number, selectionEnd: number }> = []
 
   /**
    * Создает экземпляр NovaTextInputController и подготавливает базовое состояние.
    */
-  constructor(private readonly options: NovaTextInputControllerOptions = {}) {
-    this.value = stringify(options.value ?? options.defaultValue ?? '')
-    this.draft = this.value
-    this.multiline = options.multiline ?? false
-    this.maxLength = options.maxLength
-    this.historyLimit = Math.max(0, options.historyLimit ?? 100)
-    this.select(this.draft.length, this.draft.length)
+  constructor(private readonly _options: NovaTextInputControllerOptions = {}) {
+    this._value = stringify(_options.value ?? _options.defaultValue ?? '')
+    this._draft = this._value
+    this._multiline = _options.multiline ?? false
+    this._maxLength = _options.maxLength
+    this._historyLimit = Math.max(0, _options.historyLimit ?? 100)
+    this.select(this._draft.length, this._draft.length)
   }
 
   /**
@@ -40,15 +40,15 @@ export class NovaTextInputController {
    */
   getState(): NovaTextInputSnapshot {
     return {
-      value: this.value,
-      draft: this.draft,
-      selectionStart: this.selectionStart,
-      selectionEnd: this.selectionEnd,
-      focused: this.focused,
-      composing: this.composing,
-      dirty: this.dirty,
-      readonly: this.options.readonly ?? false,
-      disabled: this.options.disabled ?? false,
+      value: this._value,
+      draft: this._draft,
+      selectionStart: this._selectionStart,
+      selectionEnd: this._selectionEnd,
+      focused: this._focused,
+      composing: this._composing,
+      dirty: this._dirty,
+      readonly: this._options.readonly ?? false,
+      disabled: this._options.disabled ?? false,
     }
   }
 
@@ -56,151 +56,151 @@ export class NovaTextInputController {
    * Обновляет значение состояния NovaTextInputController.
    */
   setValue(value: string | number, context: NovaTextInputContext = {}): void {
-    const next = this.clampValue(stringify(value))
-    this.value = next
-    this.draft = next
-    this.dirty = false
+    const next = this._clampValue(stringify(value))
+    this._value = next
+    this._draft = next
+    this._dirty = false
     this.select(next.length, next.length)
-    this.options.onValueChange?.(next, context)
+    this._options.onValueChange?.(next, context)
   }
 
   /**
    * Обновляет значение состояния NovaTextInputController.
    */
   setDraft(value: string | number, context: NovaTextInputContext = {}): void {
-    if (!this.canEdit()) {
+    if (!this._canEdit()) {
       return
     }
-    this.pushHistory()
-    this.draft = this.clampValue(stringify(value))
-    this.dirty = this.draft !== this.value
-    this.select(Math.min(this.selectionStart, this.draft.length), Math.min(this.selectionEnd, this.draft.length))
-    this.options.onValueChange?.(this.draft, context)
+    this._pushHistory()
+    this._draft = this._clampValue(stringify(value))
+    this._dirty = this._draft !== this._value
+    this.select(Math.min(this._selectionStart, this._draft.length), Math.min(this._selectionEnd, this._draft.length))
+    this._options.onValueChange?.(this._draft, context)
   }
 
   /**
    * Переводит focus в целевое состояние NovaTextInputController.
    */
   focus(): void {
-    if (this.options.disabled) {
+    if (this._options.disabled) {
       return
     }
-    this.focused = true
+    this._focused = true
   }
 
   /**
    * Снимает focus с целевого состояния NovaTextInputController.
    */
   blur(): void {
-    this.focused = false
+    this._focused = false
   }
 
   /**
    * Обновляет состояние выбора NovaTextInputController.
    */
   select(start = 0, end = start): void {
-    this.selectionStart = clamp(start, 0, this.draft.length)
-    this.selectionEnd = clamp(end, 0, this.draft.length)
+    this._selectionStart = clamp(start, 0, this._draft.length)
+    this._selectionEnd = clamp(end, 0, this._draft.length)
   }
 
   /**
    * Обновляет состояние выбора NovaTextInputController.
    */
   selectAll(): void {
-    this.select(0, this.draft.length)
+    this.select(0, this._draft.length)
   }
 
   /**
    * Возвращает значение состояния NovaTextInputController.
    */
   getSelection(): NovaTextSelection {
-    return { start: this.selectionStart, end: this.selectionEnd, direction: 'none' }
+    return { start: this._selectionStart, end: this._selectionEnd, direction: 'none' }
   }
 
   /**
    * Возвращает значение состояния NovaTextInputController.
    */
   getSelectedText(): string {
-    const [start, end] = this.selectionBounds()
-    return this.draft.slice(start, end)
+    const [start, end] = this._selectionBounds()
+    return this._draft.slice(start, end)
   }
 
   /**
    * Добавляет сущность в runtime-коллекцию NovaTextInputController.
    */
   insertText(text: string, context: NovaTextInputContext = {}): void {
-    if (!this.canEdit() || text.length === 0) {
+    if (!this._canEdit() || text.length === 0) {
       return
     }
-    const normalized = this.multiline ? text : text.replace(/\r?\n/g, ' ')
-    const [start, end] = this.selectionBounds()
-    const next = this.clampValue(this.draft.slice(0, start) + normalized + this.draft.slice(end))
-    const insertedLength = Math.max(0, next.length - (this.draft.length - (end - start)))
-    this.pushHistory()
-    this.draft = next
-    this.dirty = this.draft !== this.value
+    const normalized = this._multiline ? text : text.replace(/\r?\n/g, ' ')
+    const [start, end] = this._selectionBounds()
+    const next = this._clampValue(this._draft.slice(0, start) + normalized + this._draft.slice(end))
+    const insertedLength = Math.max(0, next.length - (this._draft.length - (end - start)))
+    this._pushHistory()
+    this._draft = next
+    this._dirty = this._draft !== this._value
     this.select(start + insertedLength, start + insertedLength)
-    this.options.onValueChange?.(this.draft, context)
+    this._options.onValueChange?.(this._draft, context)
   }
 
   /**
    * Удаляет сущность из runtime-коллекции NovaTextInputController.
    */
   deleteBackward(context: NovaTextInputContext = {}): void {
-    if (!this.canEdit()) {
+    if (!this._canEdit()) {
       return
     }
-    const [start, end] = this.selectionBounds()
+    const [start, end] = this._selectionBounds()
     if (start !== end) {
-      this.replaceRange(start, end, '', context)
+      this._replaceRange(start, end, '', context)
       return
     }
     if (start <= 0) {
       return
     }
-    const previous = previousGraphemeIndex(this.draft, start)
-    this.replaceRange(previous, start, '', context)
+    const previous = previousGraphemeIndex(this._draft, start)
+    this._replaceRange(previous, start, '', context)
   }
 
   /**
    * Удаляет сущность из runtime-коллекции NovaTextInputController.
    */
   deleteForward(context: NovaTextInputContext = {}): void {
-    if (!this.canEdit()) {
+    if (!this._canEdit()) {
       return
     }
-    const [start, end] = this.selectionBounds()
+    const [start, end] = this._selectionBounds()
     if (start !== end) {
-      this.replaceRange(start, end, '', context)
+      this._replaceRange(start, end, '', context)
       return
     }
-    if (start >= this.draft.length) {
+    if (start >= this._draft.length) {
       return
     }
-    const next = nextGraphemeIndex(this.draft, start)
-    this.replaceRange(start, next, '', context)
+    const next = nextGraphemeIndex(this._draft, start)
+    this._replaceRange(start, next, '', context)
   }
 
   /**
    * Выполняет действие moveCaret в рамках ответственности NovaTextInputController.
    */
   moveCaret(direction: 'left' | 'right' | 'home' | 'end' | 'up' | 'down', options: { shift?: boolean, word?: boolean, layout?: NovaTextInputLayoutResult } = {}): void {
-    const anchor = options.shift ? this.selectionStart : this.selectionEnd
-    let next = this.selectionEnd
+    const anchor = options.shift ? this._selectionStart : this._selectionEnd
+    let next = this._selectionEnd
     if (direction === 'left') {
-      next = options.word ? previousWordIndex(this.draft, next) : previousGraphemeIndex(this.draft, next)
+      next = options.word ? previousWordIndex(this._draft, next) : previousGraphemeIndex(this._draft, next)
     }
     if (direction === 'right') {
-      next = options.word ? nextWordIndex(this.draft, next) : nextGraphemeIndex(this.draft, next)
+      next = options.word ? nextWordIndex(this._draft, next) : nextGraphemeIndex(this._draft, next)
     }
     if (direction === 'home') {
-      next = lineBoundary(this.draft, next, 'start')
+      next = lineBoundary(this._draft, next, 'start')
     }
     if (direction === 'end') {
-      next = lineBoundary(this.draft, next, 'end')
+      next = lineBoundary(this._draft, next, 'end')
     }
     if (direction === 'up' || direction === 'down') {
-      next = verticalMoveIndex(this.selectionEnd, direction, options.layout)
+      next = verticalMoveIndex(this._selectionEnd, direction, options.layout)
     }
     this.select(options.shift ? anchor : next, next)
   }
@@ -209,7 +209,7 @@ export class NovaTextInputController {
    * Обрабатывает runtime-событие NovaTextInputController.
    */
   handleKeydown(event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey' | 'altKey' | 'shiftKey' | 'preventDefault'>, context: NovaTextInputContext = {}): boolean {
-    if (this.options.disabled) {
+    if (this._options.disabled) {
       return false
     }
     const command = event.metaKey || event.ctrlKey
@@ -239,7 +239,7 @@ export class NovaTextInputController {
       return true
     }
     if (event.key === 'Enter') {
-      if (this.multiline && !event.metaKey && !event.ctrlKey) {
+      if (this._multiline && !event.metaKey && !event.ctrlKey) {
         this.insertText('\n', context)
       }
       else {
@@ -265,33 +265,33 @@ export class NovaTextInputController {
    * Фиксирует подготовленные изменения NovaTextInputController.
    */
   commit(context: NovaTextInputContext = {}): void {
-    this.value = this.draft
-    this.dirty = false
-    this.options.onCommit?.(this.value, context)
+    this._value = this._draft
+    this._dirty = false
+    this._options.onCommit?.(this._value, context)
   }
 
   /**
    * Выполняет действие cancel в рамках ответственности NovaTextInputController.
    */
   cancel(context: NovaTextInputContext = {}): void {
-    this.draft = this.value
-    this.dirty = false
-    this.select(this.draft.length, this.draft.length)
-    this.options.onCancel?.(context)
+    this._draft = this._value
+    this._dirty = false
+    this.select(this._draft.length, this._draft.length)
+    this._options.onCancel?.(context)
   }
 
   /**
    * Запускает runtime-процесс NovaTextInputController.
    */
   startComposition(): void {
-    this.composing = true
+    this._composing = true
   }
 
   /**
    * Обновляет runtime-состояние NovaTextInputController.
    */
   updateComposition(text: string, context: NovaTextInputContext = {}): void {
-    if (!this.composing) {
+    if (!this._composing) {
       this.startComposition()
     }
     this.insertText(text, context)
@@ -301,68 +301,68 @@ export class NovaTextInputController {
    * Выполняет действие endComposition в рамках ответственности NovaTextInputController.
    */
   endComposition(): void {
-    this.composing = false
+    this._composing = false
   }
 
   /**
    * Выполняет действие undo в рамках ответственности NovaTextInputController.
    */
   undo(): void {
-    const previous = this.history.pop()
+    const previous = this._history.pop()
     if (!previous) {
       return
     }
-    this.draft = previous.draft
+    this._draft = previous.draft
     this.select(previous.selectionStart, previous.selectionEnd)
-    this.dirty = this.draft !== this.value
+    this._dirty = this._draft !== this._value
   }
 
   /**
    * Выполняет внутренний шаг replaceRange для NovaTextInputController.
    */
-  private replaceRange(start: number, end: number, text: string, context: NovaTextInputContext): void {
-    this.pushHistory()
-    this.draft = this.clampValue(this.draft.slice(0, start) + text + this.draft.slice(end))
+  private _replaceRange(start: number, end: number, text: string, context: NovaTextInputContext): void {
+    this._pushHistory()
+    this._draft = this._clampValue(this._draft.slice(0, start) + text + this._draft.slice(end))
     const caret = start + text.length
     this.select(caret, caret)
-    this.dirty = this.draft !== this.value
-    this.options.onValueChange?.(this.draft, context)
+    this._dirty = this._draft !== this._value
+    this._options.onValueChange?.(this._draft, context)
   }
 
   /**
    * Обновляет состояние выбора NovaTextInputController.
    */
-  private selectionBounds(): [number, number] {
-    return [Math.min(this.selectionStart, this.selectionEnd), Math.max(this.selectionStart, this.selectionEnd)]
+  private _selectionBounds(): [number, number] {
+    return [Math.min(this._selectionStart, this._selectionEnd), Math.max(this._selectionStart, this._selectionEnd)]
   }
 
   /**
    * Выполняет внутренний шаг canEdit для NovaTextInputController.
    */
-  private canEdit(): boolean {
-    return !(this.options.disabled || this.options.readonly)
+  private _canEdit(): boolean {
+    return !(this._options.disabled || this._options.readonly)
   }
 
   /**
    * Ограничивает значение допустимым диапазоном NovaTextInputController.
    */
-  private clampValue(value: string): string {
-    if (this.maxLength === undefined) {
+  private _clampValue(value: string): string {
+    if (this._maxLength === undefined) {
       return value
     }
-    return value.slice(0, Math.max(0, this.maxLength))
+    return value.slice(0, Math.max(0, this._maxLength))
   }
 
   /**
    * Выполняет внутренний шаг pushHistory для NovaTextInputController.
    */
-  private pushHistory(): void {
-    if (this.historyLimit <= 0) {
+  private _pushHistory(): void {
+    if (this._historyLimit <= 0) {
       return
     }
-    this.history.push({ draft: this.draft, selectionStart: this.selectionStart, selectionEnd: this.selectionEnd })
-    if (this.history.length > this.historyLimit) {
-      this.history.shift()
+    this._history.push({ draft: this._draft, selectionStart: this._selectionStart, selectionEnd: this._selectionEnd })
+    if (this._history.length > this._historyLimit) {
+      this._history.shift()
     }
   }
 }

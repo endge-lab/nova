@@ -29,7 +29,7 @@ export class NovaMetrics {
   /**
    * Создает instance и подготавливает внутреннее состояние.
    */
-  constructor(private readonly readUps: () => number) {}
+  constructor(private readonly _readUps: () => number) {}
 
   /**
    * Запускает связанную runtime-операцию.
@@ -38,7 +38,7 @@ export class NovaMetrics {
     if (this._rafId || typeof requestAnimationFrame === 'undefined') {
       return
     }
-    this._rafId = requestAnimationFrame(this.tickRaf)
+    this._rafId = requestAnimationFrame(this._tickRaf)
   }
 
   /**
@@ -97,13 +97,13 @@ export class NovaMetrics {
     return {
       rFps: this._rFps,
       fps: idle > 1000 ? 0 : this._fps,
-      ups: this.readUps(),
+      ups: this._readUps(),
       last: this._last,
       idle,
     }
   }
 
-  private tickRaf = (now: number): void => {
+  private _tickRaf = (now: number): void => {
     if (!this._rafLastAt) {
       this._rafLastAt = now
     }
@@ -117,6 +117,6 @@ export class NovaMetrics {
       this._rafLastAt = now
     }
 
-    this._rafId = requestAnimationFrame(this.tickRaf)
+    this._rafId = requestAnimationFrame(this._tickRaf)
   }
 }

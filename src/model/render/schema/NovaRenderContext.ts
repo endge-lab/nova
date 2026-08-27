@@ -35,7 +35,7 @@ export class NovaRenderContext {
   schema(schema: NovaSchema<any> | NovaSchemaItem<any>): void {
     const items = Array.isArray(schema) ? schema : [schema]
     for (const item of items) {
-      this.schemaItem(item as NovaSchemaItem<any>)
+      this._schemaItem(item as NovaSchemaItem<any>)
     }
   }
 
@@ -43,63 +43,63 @@ export class NovaRenderContext {
    * Выполняет внутреннюю операцию rect.
    */
   rect(params: NovaRect): void {
-    this.schemaItem({ ...params, type: 'rect' })
+    this._schemaItem({ ...params, type: 'rect' })
   }
 
   /**
    * Выполняет внутреннюю операцию border.
    */
   border(params: NovaBorder): void {
-    this.schemaItem({ ...params, type: 'border' })
+    this._schemaItem({ ...params, type: 'border' })
   }
 
   /**
    * Выполняет внутреннюю операцию text.
    */
   text(params: NovaText): void {
-    this.schemaItem({ ...params, type: 'text' })
+    this._schemaItem({ ...params, type: 'text' })
   }
 
   /**
    * Выполняет внутреннюю операцию line.
    */
   line(params: NovaLine): void {
-    this.schemaItem({ ...params, type: 'line' })
+    this._schemaItem({ ...params, type: 'line' })
   }
 
   /**
    * Выполняет внутреннюю операцию circle.
    */
   circle(params: NovaCircle): void {
-    this.schemaItem({ ...params, type: 'circle' })
+    this._schemaItem({ ...params, type: 'circle' })
   }
 
   /**
    * Выполняет внутреннюю операцию arc.
    */
   arc(params: NovaArc): void {
-    this.schemaItem({ ...params, type: 'arc' })
+    this._schemaItem({ ...params, type: 'arc' })
   }
 
   /**
    * Выполняет внутреннюю операцию polygon.
    */
   polygon(params: NovaPolygon): void {
-    this.schemaItem({ ...params, type: 'polygon' })
+    this._schemaItem({ ...params, type: 'polygon' })
   }
 
   /**
    * Выполняет внутреннюю операцию icon.
    */
   icon(params: NovaIcon): void {
-    this.schemaItem({ ...params, type: 'icon' })
+    this._schemaItem({ ...params, type: 'icon' })
   }
 
   /**
    * Выполняет внутреннюю операцию pattern rect.
    */
   patternRect(params: NovaPatternRect): void {
-    this.schemaItem({ ...params, type: 'pattern-rect' })
+    this._schemaItem({ ...params, type: 'pattern-rect' })
   }
 
   /**
@@ -139,7 +139,7 @@ export class NovaRenderContext {
   /**
    * Выполняет внутреннюю операцию schema item.
    */
-  private schemaItem(item: NovaSchemaItem<any>): void {
+  private _schemaItem(item: NovaSchemaItem<any>): void {
     if (item.active === false) {
       return
     }

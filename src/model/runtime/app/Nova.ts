@@ -90,7 +90,7 @@ export class Nova {
    */
   static createApp<E extends EventList = Record<string, any>>(options: NovaAppCreateOptions<E>): NovaApp<E> {
     const app = new NovaApp(options)
-    this.applySchemaPlugins(app.schema)
+    this._applySchemaPlugins(app.schema)
     app.setGlobalThemeDispose(NovaGlobalThemes.attach(app, {
       inheritActive: options.globalTheme?.inherit ?? !options.theme,
     }))
@@ -299,7 +299,7 @@ export class Nova {
   /**
    * Применяет глобальные schema-плагины к registry конкретного app.
    */
-  private static applySchemaPlugins(registry: NovaSchemaRegistry): void {
+  private static _applySchemaPlugins(registry: NovaSchemaRegistry): void {
     for (const plugin of this._schemaPlugins) {
       plugin(registry)
     }

@@ -10,8 +10,8 @@ export class NovaWebGLProgram {
     readonly program: WebGLProgram,
   ) {}
 
-  private readonly uniformLocationByName = new Map<string, WebGLUniformLocation>()
-  private readonly attribLocationByName = new Map<string, number>()
+  private readonly _uniformLocationByName = new Map<string, WebGLUniformLocation>()
+  private readonly _attribLocationByName = new Map<string, number>()
 
   /**
    * Выполняет внутреннюю операцию use.
@@ -24,7 +24,7 @@ export class NovaWebGLProgram {
    * Выполняет внутреннюю операцию uniform location.
    */
   uniformLocation(name: string): WebGLUniformLocation {
-    const cached = this.uniformLocationByName.get(name)
+    const cached = this._uniformLocationByName.get(name)
     if (cached) {
       return cached
     }
@@ -33,7 +33,7 @@ export class NovaWebGLProgram {
     if (!location) {
       throw new Error(`WebGL uniform "${name}" not found`)
     }
-    this.uniformLocationByName.set(name, location)
+    this._uniformLocationByName.set(name, location)
     return location
   }
 
@@ -41,7 +41,7 @@ export class NovaWebGLProgram {
    * Выполняет внутреннюю операцию attrib location.
    */
   attribLocation(name: string): number {
-    const cached = this.attribLocationByName.get(name)
+    const cached = this._attribLocationByName.get(name)
     if (cached !== undefined) {
       return cached
     }
@@ -50,7 +50,7 @@ export class NovaWebGLProgram {
     if (location < 0) {
       throw new Error(`WebGL attribute "${name}" not found`)
     }
-    this.attribLocationByName.set(name, location)
+    this._attribLocationByName.set(name, location)
     return location
   }
 
@@ -58,8 +58,8 @@ export class NovaWebGLProgram {
    * Освобождает runtime resources и снимает связанные ссылки.
    */
   destroy(): void {
-    this.uniformLocationByName.clear()
-    this.attribLocationByName.clear()
+    this._uniformLocationByName.clear()
+    this._attribLocationByName.clear()
     this.gl.deleteProgram(this.program)
   }
 

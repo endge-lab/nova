@@ -206,13 +206,13 @@ class RetainedRectNode extends NovaNode<Record<string, any>> {
 }
 
 class TemplateReconcileHostNode extends NovaNode<Record<string, any>> {
-  private readonly runtime = new NovaTemplateRuntime(this)
+  private readonly _runtime = new NovaTemplateRuntime(this)
 
   /**
    * Создает child прямо во время render, как это делает slot reconcile.
    */
   render(): void {
-    this.runtime.reconcile([{
+    this._runtime.reconcile([{
       type: RetainedRectNode,
       id: 'template-retained-child',
       props: { x: 4, y: 5, width: 20, height: 10 },

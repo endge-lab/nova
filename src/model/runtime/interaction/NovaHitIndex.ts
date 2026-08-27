@@ -31,7 +31,7 @@ export class NovaHitIndex<T extends object> {
   /**
    * Создает instance и подготавливает внутреннее состояние.
    */
-  constructor(private readonly options: NovaHitIndexOptions<T>) {}
+  constructor(private readonly _options: NovaHitIndexOptions<T>) {}
 
   /**
    * Полностью пересобирает индекс.
@@ -41,7 +41,7 @@ export class NovaHitIndex<T extends object> {
 
     const records: Array<NovaHitIndexRecord<T>> = []
     for (const item of items) {
-      const record = this.createRecord(item)
+      const record = this._createRecord(item)
       if (!record) {
         continue
       }
@@ -91,7 +91,7 @@ export class NovaHitIndex<T extends object> {
   update(item: T): void {
     this.remove(item)
 
-    const record = this.createRecord(item)
+    const record = this._createRecord(item)
     if (!record) {
       return
     }
@@ -139,12 +139,12 @@ export class NovaHitIndex<T extends object> {
   /**
    * Создает RBush record для item.
    */
-  private createRecord(item: T): NovaHitIndexRecord<T> | null {
-    if (this.options.isIndexable && !this.options.isIndexable(item)) {
+  private _createRecord(item: T): NovaHitIndexRecord<T> | null {
+    if (this._options.isIndexable && !this._options.isIndexable(item)) {
       return null
     }
 
-    const bounds = this.options.getBounds(item)
+    const bounds = this._options.getBounds(item)
     if (!isFiniteBounds(bounds) || bounds.width <= 0 || bounds.height <= 0) {
       return null
     }

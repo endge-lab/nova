@@ -344,8 +344,8 @@ describe('novaApp', () => {
     const shouldContinue = (metrics: Record<string, number>) => {
       surface.setRenderMetrics(metrics as never)
       return (app as unknown as {
-        shouldContinueTextRaster: (surface: NovaSurface<TestEvents>) => boolean
-      }).shouldContinueTextRaster(surface)
+        _shouldContinueTextRaster: (surface: NovaSurface<TestEvents>) => boolean
+      })._shouldContinueTextRaster(surface)
     }
 
     expect(shouldContinue({ textBudgetExhausted: 1, textRasterDeferred: 0 })).toBe(false)

@@ -52,8 +52,8 @@ type SnapshotHandler = (snap: Snapshot) => void
  * Собирает graphics telemetry events и статистику кадров.
  */
 export class GfxTelemetry {
-  private readonly eventsLimit: number
-  private readonly statsLimit: number
+  private readonly _eventsLimit: number
+  private readonly _statsLimit: number
   private _enabled = false
 
   private _events: Array<Evt> = []
@@ -127,8 +127,8 @@ export class GfxTelemetry {
    * Создает instance и подготавливает внутреннее состояние.
    */
   constructor(opts?: { eventsLimit?: number, statsLimit?: number }) {
-    this.eventsLimit = opts?.eventsLimit ?? 1000
-    this.statsLimit = opts?.statsLimit ?? 300
+    this._eventsLimit = opts?.eventsLimit ?? 1000
+    this._statsLimit = opts?.statsLimit ?? 300
   }
 
   /**
@@ -140,7 +140,7 @@ export class GfxTelemetry {
     }
     const e: Evt = { t: performance.now(), k, s, g, d }
     this._events.push(e)
-    if (this._events.length > this.eventsLimit) {
+    if (this._events.length > this._eventsLimit) {
       this._events.shift()
     }
   }
@@ -154,7 +154,7 @@ export class GfxTelemetry {
     }
     const rec: FrameStat = { t: performance.now(), ...partial }
     this._stats.push(rec)
-    if (this._stats.length > this.statsLimit) {
+    if (this._stats.length > this._statsLimit) {
       this._stats.shift()
     }
   }

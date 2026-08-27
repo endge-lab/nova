@@ -44,13 +44,13 @@ const VISUAL_KEYS = new Set(['opacity', 'visible'])
  * Управляет motion segments, timelines и playback в Nova runtime.
  */
 export class NovaMotionEngine {
-  private readonly playbacks = new Set<NovaMotionPlaybackController>()
-  private lease: RaphLoopLease | null = null
+  private readonly _playbacks = new Set<NovaMotionPlaybackController>()
+  private _lease: RaphLoopLease | null = null
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
    */
-  constructor(private readonly app: NovaApp<any>) {}
+  constructor(private readonly _app: NovaApp<any>) {}
 
   /**
    * Выполняет внутреннюю операцию to.
@@ -71,7 +71,7 @@ export class NovaMotionEngine {
         playback,
         target,
         key,
-        from: options.from?.[key] ?? this.readValue(target, key),
+        from: options.from?.[key] ?? this._readValue(target, key),
         to,
         startAt: delay,
         duration,
@@ -79,7 +79,7 @@ export class NovaMotionEngine {
       })
     }
 
-    this.addPlayback(playback, segments, options)
+    this._addPlayback(playback, segments, options)
     if (options.autoplay !== false) {
       playback.play()
     }
@@ -91,8 +91,8 @@ export class NovaMotionEngine {
    */
   timeline(options: NovaMotionTimelineOptions): NovaMotionPlayback {
     const playback = new NovaMotionPlaybackController(this, options)
-    const segments = compileNovaMotionTimeline(playback, options, (target, key) => this.readValue(target, key))
-    this.addPlayback(playback, segments, options)
+    const segments = compileNovaMotionTimeline(playback, options, (target, key) => this._readValue(target, key))
+    this._addPlayback(playback, segments, options)
     if (options.autoplay !== false) {
       playback.play()
     }
@@ -125,70 +125,70 @@ export class NovaMotionEngine {
    * Выполняет внутреннюю операцию cancel.
    */
   cancel(target?: NovaMotionTarget): void {
-    for (const playback of [...this.playbacks]) {
+    for (const playback of [...this._playbacks]) {
       if (!target || playback.hasTarget(target)) {
         playback.cancel()
       }
     }
-    this.syncLoopLease()
+    this._syncLoopLease()
   }
 
   /**
    * Выполняет внутреннюю операцию pause all.
    */
   pauseAll(): void {
-    for (const playback of this.playbacks) {
+    for (const playback of this._playbacks) {
       playback.pause()
     }
-    this.syncLoopLease()
+    this._syncLoopLease()
   }
 
   /**
    * Выполняет внутреннюю операцию resume all.
    */
   resumeAll(): void {
-    for (const playback of this.playbacks) {
+    for (const playback of this._playbacks) {
       playback.resume()
     }
-    this.syncLoopLease()
+    this._syncLoopLease()
   }
 
   /**
    * Выполняет один tick runtime-обработки.
    */
   tick(frame: NovaMotionTickContext): void {
-    if (this.playbacks.size === 0) {
-      this.syncLoopLease()
+    if (this._playbacks.size === 0) {
+      this._syncLoopLease()
       return
     }
 
     const patches = new Map<NovaMotionTarget, NovaMotionPatch>()
 
-    for (const playback of [...this.playbacks]) {
+    for (const playback of [...this._playbacks]) {
       playback.tick(frame.now, patches)
       if (playback.state === 'finished' || playback.state === 'cancelled') {
-        this.playbacks.delete(playback)
+        this._playbacks.delete(playback)
       }
     }
 
     for (const [target, patch] of patches) {
-      this.applyPatch(target, patch)
+      this._applyPatch(target, patch)
     }
 
-    this.syncLoopLease()
+    this._syncLoopLease()
   }
 
   /**
    * Освобождает runtime resources и снимает связанные ссылки.
    */
   destroy(): void {
-    for (const playback of [...this.playbacks]) {
+    for (const playback of [...this._playbacks]) {
       playback.cancel()
     }
-    this.playbacks.clear()
-    if (this.lease) {
-      this.lease.release()
-      this.lease = null
+    this._playbacks.clear()
+    if (this._lease) {
+      this._lease.release()
+      this._lease = null
     }
   }
 
@@ -196,39 +196,39 @@ export class NovaMotionEngine {
    * Выполняет внутреннюю операцию activate.
    */
   _activate(playback: NovaMotionPlaybackController): void {
-    this.playbacks.add(playback)
-    this.syncLoopLease()
+    this._playbacks.add(playback)
+    this._syncLoopLease()
   }
 
   /**
    * Выполняет внутреннюю операцию deactivate.
    */
   _deactivate(playback: NovaMotionPlaybackController): void {
-    this.playbacks.delete(playback)
-    this.syncLoopLease()
+    this._playbacks.delete(playback)
+    this._syncLoopLease()
   }
 
   /**
    * Добавляет playback.
    */
-  private addPlayback(
+  private _addPlayback(
     playback: NovaMotionPlaybackController,
     segments: Array<NovaMotionSegment>,
     options: NovaMotionOptions,
   ): void {
     playback.setSegments(segments)
     if (options.overwrite !== false) {
-      this.overwriteSegments(segments)
+      this._overwriteSegments(segments)
     }
   }
 
   /**
    * Выполняет внутреннюю операцию overwrite segments.
    */
-  private overwriteSegments(nextSegments: Array<NovaMotionSegment>): void {
+  private _overwriteSegments(nextSegments: Array<NovaMotionSegment>): void {
     const keys = new Set(nextSegments.map(segment => segmentKey(segment.target, segment.key)))
 
-    for (const playback of [...this.playbacks]) {
+    for (const playback of [...this._playbacks]) {
       playback.removeSegments(segment => keys.has(segmentKey(segment.target, segment.key)))
       if (playback.empty) {
         playback.cancel()
@@ -239,7 +239,7 @@ export class NovaMotionEngine {
   /**
    * Читает value.
    */
-  private readValue(target: NovaMotionTarget, key: string): NovaMotionValue {
+  private _readValue(target: NovaMotionTarget, key: string): NovaMotionValue {
     if (target instanceof NovaComponentNode && !NODE_MOTION_KEYS.has(key)) {
       return target.getProps()[key]
     }
@@ -259,7 +259,7 @@ export class NovaMotionEngine {
   /**
    * Выполняет внутреннюю операцию apply patch.
    */
-  private applyPatch(target: NovaMotionTarget, patch: NovaMotionPatch): void {
+  private _applyPatch(target: NovaMotionTarget, patch: NovaMotionPatch): void {
     const nodePatch: NovaMotionPatch = {}
     const componentPatch: NovaMotionPatch = {}
 
@@ -292,14 +292,14 @@ export class NovaMotionEngine {
   /**
    * Выполняет внутреннюю операцию sync loop lease.
    */
-  private syncLoopLease(): void {
-    const hasRunning = [...this.playbacks].some(playback => playback.state === 'running')
-    if (hasRunning && !this.lease) {
-      this.lease = this.app.raph.acquireLoop('nova-motion')
+  private _syncLoopLease(): void {
+    const hasRunning = [...this._playbacks].some(playback => playback.state === 'running')
+    if (hasRunning && !this._lease) {
+      this._lease = this._app.raph.acquireLoop('nova-motion')
     }
-    else if (!hasRunning && this.lease) {
-      this.lease.release()
-      this.lease = null
+    else if (!hasRunning && this._lease) {
+      this._lease.release()
+      this._lease = null
     }
   }
 }
@@ -308,25 +308,25 @@ export class NovaMotionEngine {
  * Управляет playback state одного motion timeline или tween.
  */
 class NovaMotionPlaybackController implements NovaMotionPlayback {
-  private segments: Array<NovaMotionSegment> = []
-  private startedAt = 0
-  private pausedAt = 0
-  private seekOffset = 0
+  private _segments: Array<NovaMotionSegment> = []
+  private _startedAt = 0
+  private _pausedAt = 0
+  private _seekOffset = 0
   private _state: NovaMotionPlaybackState = 'idle'
 
   /**
    * Создает instance и подготавливает внутреннее состояние.
    */
   constructor(
-    private readonly engine: NovaMotionEngine,
-    private readonly options: NovaMotionOptions,
+    private readonly _engine: NovaMotionEngine,
+    private readonly _options: NovaMotionOptions,
   ) {}
 
   /**
    * Возвращает id.
    */
   get id(): string | undefined {
-    return this.options.id
+    return this._options.id
   }
 
   /**
@@ -340,39 +340,39 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
    * Возвращает empty.
    */
   get empty(): boolean {
-    return this.segments.length === 0
+    return this._segments.length === 0
   }
 
   /**
    * Обновляет segments.
    */
   setSegments(segments: Array<NovaMotionSegment>): void {
-    this.segments = segments
+    this._segments = segments
   }
 
   /**
    * Проверяет наличие target.
    */
   hasTarget(target: NovaMotionTarget): boolean {
-    return this.segments.some(segment => segment.target === target)
+    return this._segments.some(segment => segment.target === target)
   }
 
   /**
    * Удаляет segments.
    */
   removeSegments(predicate: (segment: NovaMotionSegment) => boolean): void {
-    this.segments = this.segments.filter(segment => !predicate(segment))
+    this._segments = this._segments.filter(segment => !predicate(segment))
   }
 
   /**
    * Выполняет внутреннюю операцию play.
    */
   play(): void {
-    this.startedAt = performance.now()
-    this.pausedAt = 0
-    this.seekOffset = 0
+    this._startedAt = performance.now()
+    this._pausedAt = 0
+    this._seekOffset = 0
     this._state = 'running'
-    this.engine._activate(this)
+    this._engine._activate(this)
   }
 
   /**
@@ -382,7 +382,7 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     if (this._state !== 'running') {
       return
     }
-    this.pausedAt = performance.now()
+    this._pausedAt = performance.now()
     this._state = 'paused'
   }
 
@@ -393,10 +393,10 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     if (this._state !== 'paused') {
       return
     }
-    this.startedAt += performance.now() - this.pausedAt
-    this.pausedAt = 0
+    this._startedAt += performance.now() - this._pausedAt
+    this._pausedAt = 0
     this._state = 'running'
-    this.engine._activate(this)
+    this._engine._activate(this)
   }
 
   /**
@@ -407,14 +407,14 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
       return
     }
     this._state = 'cancelled'
-    this.engine._deactivate(this)
+    this._engine._deactivate(this)
   }
 
   /**
    * Выполняет внутреннюю операцию seek.
    */
   seek(time: number): void {
-    this.seekOffset = Math.max(0, time)
+    this._seekOffset = Math.max(0, time)
     if (this._state === 'idle') {
       this._state = 'paused'
     }
@@ -427,36 +427,36 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
     if (this._state !== 'running') {
       return
     }
-    if (this.segments.length === 0) {
+    if (this._segments.length === 0) {
       this._state = 'finished'
       return
     }
 
-    const duration = this.duration
-    const repeat = this.options.repeat ?? 0
-    const rawTime = Math.max(0, now - this.startedAt + this.seekOffset)
+    const duration = this._duration
+    const repeat = this._options.repeat ?? 0
+    const rawTime = Math.max(0, now - this._startedAt + this._seekOffset)
     const totalDuration = repeat === Infinity ? Infinity : duration * (repeat + 1)
 
     if (rawTime >= totalDuration) {
-      this.applyAt(duration, patches)
+      this._applyAt(duration, patches)
       this._state = 'finished'
       return
     }
 
     const cycle = duration === 0 ? 0 : Math.floor(rawTime / duration)
     let localTime = duration === 0 ? duration : rawTime % duration
-    if (this.options.yoyo && cycle % 2 === 1) {
+    if (this._options.yoyo && cycle % 2 === 1) {
       localTime = duration - localTime
     }
 
-    this.applyAt(localTime, patches)
+    this._applyAt(localTime, patches)
   }
 
   /**
    * Выполняет внутреннюю операцию apply at.
    */
-  private applyAt(time: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
-    for (const segment of this.segments) {
+  private _applyAt(time: number, patches: Map<NovaMotionTarget, NovaMotionPatch>): void {
+    for (const segment of this._segments) {
       const segmentEnd = segment.startAt + segment.duration
       if (time < segment.startAt) {
         continue
@@ -480,8 +480,8 @@ class NovaMotionPlaybackController implements NovaMotionPlayback {
   /**
    * Возвращает duration.
    */
-  private get duration(): number {
-    return Math.max(0, ...this.segments.map(segment => segment.startAt + segment.duration))
+  private get _duration(): number {
+    return Math.max(0, ...this._segments.map(segment => segment.startAt + segment.duration))
   }
 }
 

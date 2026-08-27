@@ -55,7 +55,7 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       const culling = surface.renderGraph
         ? collectVisibleNovaRenderGroups(surface.renderGraph.groupsById.values(), this._lastFrame.viewport)
         : null
-      const updatedTransforms = this.updateRetainedTransforms(surface, this._lastFrame)
+      const updatedTransforms = this._updateRetainedTransforms(surface, this._lastFrame)
       this._lastFrame.metrics = {
         ...this._lastFrame.metrics,
         compilerMs: performance.now() - startedAt,
@@ -101,7 +101,7 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
       const culling = collectVisibleNovaRenderGroups(surface.renderGraph.groupsById.values(), frame.viewport)
       frame.metrics.reusedGroups = culling.visibleGroups.length
     }
-    frame.metrics.batches = this.estimateBatches(frame.commands.map(command => command.itemId).filter(Boolean).length)
+    frame.metrics.batches = this._estimateBatches(frame.commands.map(command => command.itemId).filter(Boolean).length)
     surface.markRenderFrameClean(true)
     surface.renderGraph?.clearDirtyQueues()
     this._lastFrame = frame
@@ -112,21 +112,21 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
   /**
    * Выполняет внутреннюю операцию estimate batches.
    */
-  private estimateBatches(drawItems: number): number {
+  private _estimateBatches(drawItems: number): number {
     return Math.ceil(drawItems / this._rendererConfig.batching.maxBatchSize)
   }
 
   /**
    * Обновляет retained transforms.
    */
-  private updateRetainedTransforms(surface: NovaSurface<E>, frame: NovaRenderFrame): number {
+  private _updateRetainedTransforms(surface: NovaSurface<E>, frame: NovaRenderFrame): number {
     const graph = surface.renderGraph
     if (!graph || graph.transformDirtyNodeIds.size === 0) {
       return 0
     }
 
     const matrices = new Map<string, mat3>()
-    this.collectDirtyNodeMatrices(surface, graph.transformDirtyNodeIds, matrices)
+    this._collectDirtyNodeMatrices(surface, graph.transformDirtyNodeIds, matrices)
 
     let updated = 0
     for (const command of frame.commands) {
@@ -164,7 +164,7 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
   /**
    * Выполняет внутреннюю операцию collect dirty node matrices.
    */
-  private collectDirtyNodeMatrices(
+  private _collectDirtyNodeMatrices(
     node: NovaNode<any>,
     dirtyNodeIds: Set<string>,
     matrices: Map<string, mat3>,
@@ -178,7 +178,7 @@ export class NovaRenderCompiler<E extends EventList = EventList> {
 
     for (const child of node.children) {
       if (child instanceof NovaNode) {
-        this.collectDirtyNodeMatrices(child, dirtyNodeIds, matrices, transformDirty)
+        this._collectDirtyNodeMatrices(child, dirtyNodeIds, matrices, transformDirty)
       }
     }
   }

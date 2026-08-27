@@ -507,7 +507,8 @@ function createTextBatch(count: number, visibleCount: number): NovaTextBatch {
   const y = new Float32Array(count)
   const width = new Float32Array(count)
   const height = new Float32Array(count)
-  const text = new Array<string>(count)
+  const text: string[] = []
+  text.length = count
 
   for (let index = 0; index < count; index += 1) {
     const visible = index < visibleCount

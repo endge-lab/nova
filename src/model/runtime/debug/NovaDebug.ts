@@ -202,13 +202,13 @@ export class NovaDebug {
       console.groupCollapsed(`%c[${name}] ${ms.toFixed(2)}ms`, 'color:#0ff;')
       const logs = this._phaseLogs[name] || []
       for (const log of logs) {
-        this.printColored(log.type, log.message)
+        this._printColored(log.type, log.message)
       }
       console.groupEnd()
     }
 
     for (const log of this._frameLogs) {
-      this.printColored('info', log)
+      this._printColored('info', log)
     }
 
     console.groupEnd()
@@ -276,34 +276,34 @@ export class NovaDebug {
    * Выполняет внутреннюю операцию info.
    */
   info(message: string, timerLabel?: string): void {
-    this.logToPhase('info', message, timerLabel)
+    this._logToPhase('info', message, timerLabel)
   }
 
   /**
    * Выполняет внутреннюю операцию warn.
    */
   warn(message: string, timerLabel?: string): void {
-    this.logToPhase('warn', message, timerLabel)
+    this._logToPhase('warn', message, timerLabel)
   }
 
   /**
    * Выполняет внутреннюю операцию error.
    */
   error(message: string, timerLabel?: string): void {
-    this.logToPhase('error', message, timerLabel)
+    this._logToPhase('error', message, timerLabel)
   }
 
   /**
    * Выполняет внутреннюю операцию success.
    */
   success(message: string, timerLabel?: string): void {
-    this.logToPhase('success', message, timerLabel)
+    this._logToPhase('success', message, timerLabel)
   }
 
   /**
    * Выполняет внутреннюю операцию log to phase.
    */
-  private logToPhase(
+  private _logToPhase(
     type: PhaseLog['type'],
     message: string,
     timerLabel?: string,
@@ -328,7 +328,7 @@ export class NovaDebug {
   /**
    * Выполняет внутреннюю операцию print colored.
    */
-  private printColored(type: PhaseLog['type'], message: string): void {
+  private _printColored(type: PhaseLog['type'], message: string): void {
     const colors = {
       info: 'color:#888',
       warn: 'color:#f90;font-weight:bold;',

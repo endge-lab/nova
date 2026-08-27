@@ -116,29 +116,29 @@ function isComputedSubscriber(subscriber: NovaReactiveSubscriber): subscriber is
 }
 
 class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
-  private subscribers = new Set<NovaReactiveSubscriber>()
+  private _subscribers = new Set<NovaReactiveSubscriber>()
 
   /**
    * Creates a mutable signal.
    */
-  constructor(private currentValue: T) {}
+  constructor(private _currentValue: T) {}
 
   /**
    * Reads the signal value and registers a dependency when tracking is active.
    */
   get value(): T {
     registerDependency(this)
-    return this.currentValue
+    return this._currentValue
   }
 
   /**
    * Updates the signal and invalidates dependent Nova nodes/computeds.
    */
   set value(nextValue: T) {
-    if (Object.is(this.currentValue, nextValue)) {
+    if (Object.is(this._currentValue, nextValue)) {
       return
     }
-    this.currentValue = nextValue
+    this._currentValue = nextValue
     this.notify()
   }
 
@@ -146,98 +146,98 @@ class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
    * Adds a dependent node/computed.
    */
   addSubscriber(subscriber: NovaReactiveSubscriber): void {
-    this.subscribers.add(subscriber)
+    this._subscribers.add(subscriber)
   }
 
   /**
    * Removes a dependent node/computed.
    */
   removeSubscriber(subscriber: NovaReactiveSubscriber): void {
-    this.subscribers.delete(subscriber)
+    this._subscribers.delete(subscriber)
   }
 
   /**
    * Invalidates all dependents.
    */
   protected notify(): void {
-    for (const subscriber of [...this.subscribers]) {
+    for (const subscriber of [...this._subscribers]) {
       notifySubscriber(subscriber)
     }
   }
 }
 
 class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
-  private subscribers = new Set<NovaReactiveSubscriber>()
-  private dependencies = new Set<NovaReactiveSource>()
-  private dirty = true
-  private currentValue!: T
+  private _subscribers = new Set<NovaReactiveSubscriber>()
+  private _dependencies = new Set<NovaReactiveSource>()
+  private _dirty = true
+  private _currentValue!: T
 
   /**
    * Creates a lazy computed signal.
    */
-  constructor(private readonly compute: () => T) {}
+  constructor(private readonly _compute: () => T) {}
 
   /**
    * Reads the computed value and registers it as a dependency.
    */
   get value(): T {
     registerDependency(this)
-    if (this.dirty) {
-      this.recompute()
+    if (this._dirty) {
+      this._recompute()
     }
-    return this.currentValue
+    return this._currentValue
   }
 
   /**
    * Adds a dependent node/computed.
    */
   addSubscriber(subscriber: NovaReactiveSubscriber): void {
-    this.subscribers.add(subscriber)
+    this._subscribers.add(subscriber)
   }
 
   /**
    * Removes a dependent node/computed.
    */
   removeSubscriber(subscriber: NovaReactiveSubscriber): void {
-    this.subscribers.delete(subscriber)
+    this._subscribers.delete(subscriber)
   }
 
   /**
    * Records a source read while this computed is being evaluated.
    */
   addDependency(source: NovaReactiveSource): void {
-    this.dependencies.add(source)
+    this._dependencies.add(source)
   }
 
   /**
    * Marks this computed as dirty and invalidates downstream dependents.
    */
   markDirty(): void {
-    if (this.dirty) {
+    if (this._dirty) {
       return
     }
-    this.dirty = true
-    for (const subscriber of [...this.subscribers]) {
+    this._dirty = true
+    for (const subscriber of [...this._subscribers]) {
       notifySubscriber(subscriber)
     }
   }
 
-  private recompute(): void {
-    this.cleanupDependencies()
+  private _recompute(): void {
+    this._cleanupDependencies()
     trackingStack.push({ subscriber: this })
     try {
-      this.currentValue = this.compute()
+      this._currentValue = this._compute()
     }
     finally {
       trackingStack.pop()
-      this.dirty = false
+      this._dirty = false
     }
   }
 
-  private cleanupDependencies(): void {
-    for (const dependency of this.dependencies) {
+  private _cleanupDependencies(): void {
+    for (const dependency of this._dependencies) {
       dependency.removeSubscriber(this)
     }
-    this.dependencies.clear()
+    this._dependencies.clear()
   }
 }

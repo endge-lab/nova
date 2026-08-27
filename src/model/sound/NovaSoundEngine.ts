@@ -160,21 +160,21 @@ function createSilentHandle(id: string): NovaSoundHandle {
  * Управляет загрузкой, кэшированием и воспроизведением звуков Nova runtime.
  */
 export class NovaSoundEngine {
-  private readonly descriptors = new Map<string, ResolvedNovaSoundDescriptor>()
-  private readonly assets = new Map<string, NovaSoundAsset>()
-  private readonly activeHandles = new Set<NovaSoundPlaybackHandle>()
-  private readonly lastPlayedAt = new Map<string, number>()
-  private readonly categoryVolumes = new Map<string, number>()
-  private readonly formats: Array<string>
-  private readonly backend: NovaSoundBackend
-  private readonly maxVoices: number
-  private readonly unlockMode: NovaSoundOptions['unlock']
-  private enabled: boolean
-  private muted: boolean
-  private volume: number
-  private played = 0
-  private skipped = 0
-  private unlocked = false
+  private readonly _descriptors = new Map<string, ResolvedNovaSoundDescriptor>()
+  private readonly _assets = new Map<string, NovaSoundAsset>()
+  private readonly _activeHandles = new Set<NovaSoundPlaybackHandle>()
+  private readonly _lastPlayedAt = new Map<string, number>()
+  private readonly _categoryVolumes = new Map<string, number>()
+  private readonly _formats: Array<string>
+  private readonly _backend: NovaSoundBackend
+  private readonly _maxVoices: number
+  private readonly _unlockMode: NovaSoundOptions['unlock']
+  private _enabled: boolean
+  private _muted: boolean
+  private _volume: number
+  private _played = 0
+  private _skipped = 0
+  private _unlocked = false
 
   /**
    * Создает instance и выбирает audio backend.
@@ -183,16 +183,16 @@ export class NovaSoundEngine {
     _app: NovaApp<any>,
     options: NovaSoundOptions = {},
   ) {
-    this.enabled = options.enabled ?? true
-    this.muted = options.muted ?? false
-    this.volume = clamp01(options.volume ?? 1)
-    this.maxVoices = Math.max(1, Math.floor(options.maxVoices ?? 32))
-    this.formats = options.formats?.map(format => format.toLowerCase()) ?? DEFAULT_SOUND_FORMATS
-    this.unlockMode = options.unlock ?? 'first-input'
-    this.backend = this.createBackend()
-    this.backend.setMuted(this.muted)
-    this.backend.setVolume(this.volume)
-    if (this.unlockMode === 'immediate') {
+    this._enabled = options.enabled ?? true
+    this._muted = options.muted ?? false
+    this._volume = clamp01(options.volume ?? 1)
+    this._maxVoices = Math.max(1, Math.floor(options.maxVoices ?? 32))
+    this._formats = options.formats?.map(format => format.toLowerCase()) ?? DEFAULT_SOUND_FORMATS
+    this._unlockMode = options.unlock ?? 'first-input'
+    this._backend = this._createBackend()
+    this._backend.setMuted(this._muted)
+    this._backend.setVolume(this._volume)
+    if (this._unlockMode === 'immediate') {
       void this.unlock()
     }
   }
@@ -202,7 +202,7 @@ export class NovaSoundEngine {
    */
   async load(input: NovaSoundDescriptor | Array<NovaSoundDescriptor>): Promise<void> {
     const descriptors = Array.isArray(input) ? input : [input]
-    await Promise.all(descriptors.map(descriptor => this.loadOne(descriptor)))
+    await Promise.all(descriptors.map(descriptor => this._loadOne(descriptor)))
   }
 
   /**
@@ -216,39 +216,39 @@ export class NovaSoundEngine {
    * Запускает воспроизведение sound asset.
    */
   play(id: string, options: NovaSoundPlayOptions = {}): NovaSoundHandle {
-    if (!this.enabled) {
-      return this.skip(id)
+    if (!this._enabled) {
+      return this._skip(id)
     }
 
-    const asset = this.assets.get(id)
+    const asset = this._assets.get(id)
     if (!asset) {
-      return this.skip(id)
+      return this._skip(id)
     }
 
     const playOptions = resolvePlayOptions(asset.descriptor, options)
     const dedupeKey = playOptions.dedupeKey ?? id
-    if (!this.canPlay(asset.descriptor, playOptions, dedupeKey)) {
-      return this.skip(id)
+    if (!this._canPlay(asset.descriptor, playOptions, dedupeKey)) {
+      return this._skip(id)
     }
 
-    this.stopDedupeHandle(dedupeKey)
-    this.enforceVoicePool(asset.descriptor.id, playOptions.priority)
+    this._stopDedupeHandle(dedupeKey)
+    this._enforceVoicePool(asset.descriptor.id, playOptions.priority)
 
-    if (this.activeHandles.size >= this.maxVoices) {
-      return this.skip(id)
+    if (this._activeHandles.size >= this._maxVoices) {
+      return this._skip(id)
     }
 
     const handle = new NovaSoundPlaybackHandle(
       id,
       playOptions.priority,
       dedupeKey,
-      completed => this.finishHandle(completed),
+      completed => this._finishHandle(completed),
     )
-    this.activeHandles.add(handle)
-    this.lastPlayedAt.set(dedupeKey, Date.now())
-    this.played += 1
+    this._activeHandles.add(handle)
+    this._lastPlayedAt.set(dedupeKey, Date.now())
+    this._played += 1
 
-    const backendPlayback = this.backend.play(asset, playOptions, () => handle._end())
+    const backendPlayback = this._backend.play(asset, playOptions, () => handle._end())
     handle._attach(backendPlayback)
     return handle
   }
@@ -258,14 +258,14 @@ export class NovaSoundEngine {
    */
   stop(target?: NovaSoundHandle | string): void {
     if (!target) {
-      for (const handle of [...this.activeHandles]) {
+      for (const handle of [...this._activeHandles]) {
         handle.stop()
       }
       return
     }
 
     if (typeof target === 'string') {
-      for (const handle of [...this.activeHandles]) {
+      for (const handle of [...this._activeHandles]) {
         if (handle.id === target) {
           handle.stop()
         }
@@ -280,16 +280,16 @@ export class NovaSoundEngine {
    * Обновляет master mute.
    */
   setMuted(muted: boolean): void {
-    this.muted = muted
-    this.backend.setMuted(muted)
+    this._muted = muted
+    this._backend.setMuted(muted)
   }
 
   /**
    * Обновляет master volume.
    */
   setVolume(volume: number): void {
-    this.volume = clamp01(volume)
-    this.backend.setVolume(this.volume)
+    this._volume = clamp01(volume)
+    this._backend.setVolume(this._volume)
   }
 
   /**
@@ -297,26 +297,26 @@ export class NovaSoundEngine {
    */
   setCategoryVolume(category: string, volume: number): void {
     const resolved = clamp01(volume)
-    this.categoryVolumes.set(category, resolved)
-    this.backend.setCategoryVolume(category, resolved)
+    this._categoryVolumes.set(category, resolved)
+    this._backend.setCategoryVolume(category, resolved)
   }
 
   /**
    * Разблокирует browser audio context после пользовательского жеста.
    */
   async unlock(): Promise<void> {
-    if (this.unlocked) {
+    if (this._unlocked) {
       return
     }
-    await this.backend.unlock()
-    this.unlocked = true
+    await this._backend.unlock()
+    this._unlocked = true
   }
 
   /**
    * Разблокирует audio context только для режима first-input.
    */
   unlockFromInput(): void {
-    if (this.unlockMode !== 'first-input') {
+    if (this._unlockMode !== 'first-input') {
       return
     }
     void this.unlock()
@@ -334,14 +334,14 @@ export class NovaSoundEngine {
    */
   stats(): NovaSoundStats {
     return {
-      loaded: this.assets.size,
-      active: this.activeHandles.size,
-      played: this.played,
-      skipped: this.skipped,
-      decoded: this.backend.decoded,
-      unlocked: this.unlocked,
-      muted: this.muted,
-      volume: this.volume,
+      loaded: this._assets.size,
+      active: this._activeHandles.size,
+      played: this._played,
+      skipped: this._skipped,
+      decoded: this._backend.decoded,
+      unlocked: this._unlocked,
+      muted: this._muted,
+      volume: this._volume,
     }
   }
 
@@ -350,11 +350,11 @@ export class NovaSoundEngine {
    */
   destroy(): void {
     this.stop()
-    this.descriptors.clear()
-    this.assets.clear()
-    this.lastPlayedAt.clear()
-    this.categoryVolumes.clear()
-    this.backend.destroy()
+    this._descriptors.clear()
+    this._assets.clear()
+    this._lastPlayedAt.clear()
+    this._categoryVolumes.clear()
+    this._backend.destroy()
   }
 
   /**
@@ -374,7 +374,7 @@ export class NovaSoundEngine {
   /**
    * Загружает один descriptor.
    */
-  private async loadOne(descriptor: NovaSoundDescriptor): Promise<void> {
+  private async _loadOne(descriptor: NovaSoundDescriptor): Promise<void> {
     const resolved = resolveSoundDescriptor(descriptor)
     if (!resolved.id) {
       throw new Error('NovaSoundDescriptor.id is required')
@@ -383,14 +383,14 @@ export class NovaSoundEngine {
       throw new Error(`NovaSoundDescriptor.src is required for "${resolved.id}"`)
     }
 
-    this.descriptors.set(resolved.id, resolved)
-    if (this.assets.has(resolved.id)) {
+    this._descriptors.set(resolved.id, resolved)
+    if (this._assets.has(resolved.id)) {
       return
     }
 
-    const source = resolvePreferredSource(resolved.src, this.formats)
-    const resource = await this.backend.load(source)
-    this.assets.set(resolved.id, {
+    const source = resolvePreferredSource(resolved.src, this._formats)
+    const resource = await this._backend.load(source)
+    this._assets.set(resolved.id, {
       descriptor: resolved,
       source,
       resource,
@@ -400,26 +400,26 @@ export class NovaSoundEngine {
   /**
    * Проверяет cooldown и instance limits.
    */
-  private canPlay(
+  private _canPlay(
     descriptor: ResolvedNovaSoundDescriptor,
     options: ResolvedNovaSoundPlayOptions,
     dedupeKey: string,
   ): boolean {
     const cooldown = options.cooldownMs
-    const lastPlayedAt = this.lastPlayedAt.get(dedupeKey)
+    const lastPlayedAt = this._lastPlayedAt.get(dedupeKey)
     if (cooldown > 0 && lastPlayedAt !== undefined && Date.now() - lastPlayedAt < cooldown) {
       return false
     }
 
-    const instances = [...this.activeHandles].filter(handle => handle.id === descriptor.id)
+    const instances = [...this._activeHandles].filter(handle => handle.id === descriptor.id)
     return instances.length < descriptor.maxInstances
   }
 
   /**
    * Останавливает предыдущее воспроизведение с тем же dedupe key.
    */
-  private stopDedupeHandle(dedupeKey: string): void {
-    for (const handle of [...this.activeHandles]) {
+  private _stopDedupeHandle(dedupeKey: string): void {
+    for (const handle of [...this._activeHandles]) {
       if (handle.dedupeKey === dedupeKey) {
         handle.stop()
       }
@@ -429,10 +429,10 @@ export class NovaSoundEngine {
   /**
    * Освобождает место в voice pool при необходимости.
    */
-  private enforceVoicePool(id: string, priority: number): void {
-    const sameId = [...this.activeHandles].filter(handle => handle.id === id)
+  private _enforceVoicePool(id: string, priority: number): void {
+    const sameId = [...this._activeHandles].filter(handle => handle.id === id)
     for (const handle of sameId) {
-      if (this.activeHandles.size < this.maxVoices) {
+      if (this._activeHandles.size < this._maxVoices) {
         break
       }
       if (handle.priority <= priority) {
@@ -440,11 +440,11 @@ export class NovaSoundEngine {
       }
     }
 
-    if (this.activeHandles.size < this.maxVoices) {
+    if (this._activeHandles.size < this._maxVoices) {
       return
     }
 
-    const candidate = [...this.activeHandles]
+    const candidate = [...this._activeHandles]
       .filter(handle => handle.priority <= priority)
       .sort((a, b) => a.priority - b.priority || a.createdAt - b.createdAt)[0]
     candidate?.stop()
@@ -453,23 +453,23 @@ export class NovaSoundEngine {
   /**
    * Удаляет завершенный handle из active pool.
    */
-  private finishHandle(handle: NovaSoundPlaybackHandle): void {
-    this.activeHandles.delete(handle)
+  private _finishHandle(handle: NovaSoundPlaybackHandle): void {
+    this._activeHandles.delete(handle)
   }
 
   /**
    * Фиксирует skipped playback.
    */
-  private skip(id: string): NovaSoundHandle {
-    this.skipped += 1
+  private _skip(id: string): NovaSoundHandle {
+    this._skipped += 1
     return createSilentHandle(id)
   }
 
   /**
    * Создает лучший доступный backend.
    */
-  private createBackend(): NovaSoundBackend {
-    if (!this.enabled) {
+  private _createBackend(): NovaSoundBackend {
+    if (!this._enabled) {
       return new NovaNoopSoundBackend()
     }
     const audioGlobal = globalThis as NovaAudioGlobal
@@ -485,13 +485,13 @@ export class NovaSoundEngine {
  * Управляет playback handles в рамках scene/component scope.
  */
 export class NovaSoundScope {
-  private readonly handles = new Set<NovaSoundHandle>()
+  private readonly _handles = new Set<NovaSoundHandle>()
 
   /**
    * Создает scope.
    */
   constructor(
-    private readonly engine: NovaSoundEngine,
+    private readonly _engine: NovaSoundEngine,
     readonly name: string,
   ) {}
 
@@ -499,8 +499,8 @@ export class NovaSoundScope {
    * Запускает scoped sound.
    */
   play(id: string, options: NovaSoundPlayOptions = {}): NovaSoundHandle {
-    const handle = this.engine.play(id, options)
-    this.track(handle)
+    const handle = this._engine.play(id, options)
+    this._track(handle)
     return handle
   }
 
@@ -508,9 +508,9 @@ export class NovaSoundScope {
    * Запускает scoped sound cue.
    */
   playCue(input: NovaSoundCueInput | undefined): NovaSoundHandle | null {
-    const handle = this.engine.playCue(input)
+    const handle = this._engine.playCue(input)
     if (handle) {
-      this.track(handle)
+      this._track(handle)
     }
     return handle
   }
@@ -519,18 +519,18 @@ export class NovaSoundScope {
    * Останавливает и освобождает scope.
    */
   destroy(): void {
-    for (const handle of [...this.handles]) {
+    for (const handle of [...this._handles]) {
       handle.stop()
     }
-    this.handles.clear()
+    this._handles.clear()
   }
 
   /**
    * Отслеживает handle до завершения.
    */
-  private track(handle: NovaSoundHandle): void {
-    this.handles.add(handle)
-    void handle.ended.finally(() => this.handles.delete(handle))
+  private _track(handle: NovaSoundHandle): void {
+    this._handles.add(handle)
+    void handle.ended.finally(() => this._handles.delete(handle))
   }
 }
 
@@ -539,8 +539,8 @@ export class NovaSoundScope {
  */
 class NovaSoundPlaybackHandle implements NovaSoundHandle {
   readonly createdAt = Date.now()
-  private backendPlayback?: NovaSoundBackendPlayback
-  private resolveEnded!: () => void
+  private _backendPlayback?: NovaSoundBackendPlayback
+  private _resolveEnded!: () => void
   private _state: NovaSoundHandleState
   readonly ended: Promise<void>
 
@@ -551,15 +551,15 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
     readonly id: string,
     readonly priority: number,
     readonly dedupeKey: string | undefined,
-    private readonly onFinish: (handle: NovaSoundPlaybackHandle) => void,
+    private readonly _onFinish: (handle: NovaSoundPlaybackHandle) => void,
     state: NovaSoundHandleState = 'playing',
   ) {
     this._state = state
     this.ended = new Promise((resolve) => {
-      this.resolveEnded = resolve
+      this._resolveEnded = resolve
     })
     if (state === 'stopped' || state === 'ended') {
-      queueMicrotask(() => this.resolveEnded())
+      queueMicrotask(() => this._resolveEnded())
     }
   }
 
@@ -578,9 +578,9 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
       return
     }
     this._state = 'stopped'
-    this.backendPlayback?.stop()
-    this.resolveEnded()
-    this.onFinish(this)
+    this._backendPlayback?.stop()
+    this._resolveEnded()
+    this._onFinish(this)
   }
 
   /**
@@ -590,14 +590,14 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
     if (this._state !== 'playing') {
       return
     }
-    this.backendPlayback?.fadeTo(clamp01(volume), Math.max(0, durationMs))
+    this._backendPlayback?.fadeTo(clamp01(volume), Math.max(0, durationMs))
   }
 
   /**
    * Подключает backend playback.
    */
   _attach(backendPlayback: NovaSoundBackendPlayback): void {
-    this.backendPlayback = backendPlayback
+    this._backendPlayback = backendPlayback
   }
 
   /**
@@ -608,8 +608,8 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
       return
     }
     this._state = 'ended'
-    this.resolveEnded()
-    this.onFinish(this)
+    this._resolveEnded()
+    this._onFinish(this)
   }
 }
 
@@ -618,19 +618,19 @@ class NovaSoundPlaybackHandle implements NovaSoundHandle {
  */
 class NovaWebAudioBackend implements NovaSoundBackend {
   readonly kind = 'web-audio'
-  private readonly masterGain: GainNode
-  private readonly categoryGains = new Map<string, GainNode>()
+  private readonly _masterGain: GainNode
+  private readonly _categoryGains = new Map<string, GainNode>()
   private _decoded = 0
-  private masterVolume = 1
-  private muted = false
+  private _masterVolume = 1
+  private _muted = false
 
   /**
    * Создает backend.
    */
-  constructor(private readonly context: AudioContext) {
-    this.masterGain = context.createGain()
-    this.masterGain.gain.value = 1
-    this.masterGain.connect(context.destination)
+  constructor(private readonly _context: AudioContext) {
+    this._masterGain = _context.createGain()
+    this._masterGain.gain.value = 1
+    this._masterGain.connect(_context.destination)
   }
 
   /**
@@ -646,12 +646,12 @@ class NovaWebAudioBackend implements NovaSoundBackend {
   async load(source: string): Promise<AudioBuffer> {
     if (source.startsWith(NOVA_TONE_PROTOCOL)) {
       this._decoded += 1
-      return this.createToneBuffer(source)
+      return this._createToneBuffer(source)
     }
 
     const response = await fetch(source)
     const data = await response.arrayBuffer()
-    const buffer = await this.context.decodeAudioData(data.slice(0))
+    const buffer = await this._context.decodeAudioData(data.slice(0))
     this._decoded += 1
     return buffer
   }
@@ -660,12 +660,12 @@ class NovaWebAudioBackend implements NovaSoundBackend {
    * Запускает playback.
    */
   play(asset: NovaSoundAsset, options: ResolvedNovaSoundPlayOptions, onEnded: () => void): NovaSoundBackendPlayback {
-    const source = this.context.createBufferSource()
-    const gain = this.context.createGain()
-    const panner = typeof this.context.createStereoPanner === 'function'
-      ? this.context.createStereoPanner()
+    const source = this._context.createBufferSource()
+    const gain = this._context.createGain()
+    const panner = typeof this._context.createStereoPanner === 'function'
+      ? this._context.createStereoPanner()
       : null
-    const destination = this.resolveCategoryGain(options.category)
+    const destination = this._resolveCategoryGain(options.category)
 
     source.buffer = asset.resource as AudioBuffer
     source.loop = options.loop
@@ -696,7 +696,7 @@ class NovaWebAudioBackend implements NovaSoundBackend {
         }
       },
       fadeTo: (volume, durationMs) => {
-        const now = this.context.currentTime
+        const now = this._context.currentTime
         gain.gain.cancelScheduledValues(now)
         gain.gain.setValueAtTime(gain.gain.value, now)
         gain.gain.linearRampToValueAtTime(volume, now + durationMs / 1000)
@@ -708,8 +708,8 @@ class NovaWebAudioBackend implements NovaSoundBackend {
    * Разблокирует audio context.
    */
   async unlock(): Promise<void> {
-    if (this.context.state !== 'running') {
-      await this.context.resume()
+    if (this._context.state !== 'running') {
+      await this._context.resume()
     }
   }
 
@@ -717,44 +717,44 @@ class NovaWebAudioBackend implements NovaSoundBackend {
    * Обновляет mute.
    */
   setMuted(muted: boolean): void {
-    this.muted = muted
-    this.masterGain.gain.value = muted ? 0 : this.masterVolume
+    this._muted = muted
+    this._masterGain.gain.value = muted ? 0 : this._masterVolume
   }
 
   /**
    * Обновляет master volume.
    */
   setVolume(volume: number): void {
-    this.masterVolume = volume
-    this.masterGain.gain.value = this.muted ? 0 : volume
+    this._masterVolume = volume
+    this._masterGain.gain.value = this._muted ? 0 : volume
   }
 
   /**
    * Обновляет category volume.
    */
   setCategoryVolume(category: string, volume: number): void {
-    this.resolveCategoryGain(category).gain.value = volume
+    this._resolveCategoryGain(category).gain.value = volume
   }
 
   /**
    * Освобождает backend resources.
    */
   destroy(): void {
-    this.categoryGains.clear()
-    this.masterGain.disconnect()
-    void this.context.close().catch(() => undefined)
+    this._categoryGains.clear()
+    this._masterGain.disconnect()
+    void this._context.close().catch(() => undefined)
   }
 
   /**
    * Возвращает gain node категории.
    */
-  private resolveCategoryGain(category: string): GainNode {
-    let gain = this.categoryGains.get(category)
+  private _resolveCategoryGain(category: string): GainNode {
+    let gain = this._categoryGains.get(category)
     if (!gain) {
-      gain = this.context.createGain()
+      gain = this._context.createGain()
       gain.gain.value = 1
-      gain.connect(this.masterGain)
-      this.categoryGains.set(category, gain)
+      gain.connect(this._masterGain)
+      this._categoryGains.set(category, gain)
     }
     return gain
   }
@@ -762,14 +762,14 @@ class NovaWebAudioBackend implements NovaSoundBackend {
   /**
    * Создает короткий tone buffer без внешних файлов.
    */
-  private createToneBuffer(source: string): AudioBuffer {
+  private _createToneBuffer(source: string): AudioBuffer {
     const url = new URL(source)
     const frequency = Number.parseFloat(url.searchParams.get('frequency') ?? '660')
     const duration = Number.parseFloat(url.searchParams.get('duration') ?? '0.1')
     const type = url.searchParams.get('type') ?? 'sine'
-    const sampleRate = this.context.sampleRate
+    const sampleRate = this._context.sampleRate
     const length = Math.max(1, Math.floor(sampleRate * Math.max(0.02, duration)))
-    const buffer = this.context.createBuffer(1, length, sampleRate)
+    const buffer = this._context.createBuffer(1, length, sampleRate)
     const channel = buffer.getChannelData(0)
 
     for (let i = 0; i < length; i++) {
