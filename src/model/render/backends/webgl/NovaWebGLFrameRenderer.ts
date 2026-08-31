@@ -2202,8 +2202,8 @@ export class NovaWebGLFrameRenderer {
    */
   private _buildRectBatch(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats): RectBatchCache | null {
     const data: Array<number> = []
-    const itemOffsets: Array<number> = Array.from({ length: items.length }).fill(-1)
-    const signatures: Array<string> = Array.from({ length: items.length }).fill('')
+    const itemOffsets = createFilledArray(items.length, -1)
+    const signatures = createFilledArray(items.length, '')
     let instances = 0
 
     for (let index = 0; index < items.length; index += 1) {
@@ -2256,8 +2256,8 @@ export class NovaWebGLFrameRenderer {
    */
   private _buildPlainRectBatch(items: Array<NovaSchemaItem<any>>, transform: mat3, stats: RenderStats): RectBatchCache {
     const data: Array<number> = []
-    const itemOffsets: Array<number> = Array.from({ length: items.length }).fill(-1)
-    const signatures: Array<string> = Array.from({ length: items.length }).fill('')
+    const itemOffsets = createFilledArray(items.length, -1)
+    const signatures = createFilledArray(items.length, '')
     let instances = 0
 
     for (let index = 0; index < items.length; index += 1) {
@@ -2492,8 +2492,8 @@ export class NovaWebGLFrameRenderer {
     transform?: mat3,
   ): TextureBatchCache | null {
     const data: Array<number> = []
-    const itemOffsets: Array<number> = Array.from({ length: items.length }).fill(-1)
-    const signatures: Array<string> = Array.from({ length: items.length }).fill('')
+    const itemOffsets = createFilledArray(items.length, -1)
+    const signatures = createFilledArray(items.length, '')
     let texture: TextureEntry | null = null
     let instances = 0
 
@@ -8385,4 +8385,13 @@ function resolveSourceHeight(source: CanvasImageSource): number {
     return source.videoHeight
   }
   return 'height' in source && typeof source.height === 'number' ? source.height : 1
+}
+
+/**
+ * Создает типизированный массив и заполняет каждую позицию одним значением.
+ */
+function createFilledArray<T>(length: number, value: T): Array<T> {
+  const items: Array<T> = []
+  items.length = length
+  return items.fill(value)
 }

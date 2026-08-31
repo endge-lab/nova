@@ -7,11 +7,12 @@ import type {
   NovaElementSchema,
   NovaSchemaRenderMode,
 } from '@/domain/types/component.types'
-import type { NovaNodeContextOptions } from '@/domain/types/context.types'
+import type { NovaAddChildOptions, NovaNodeContextOptions } from '@/domain/types/context.types'
 import type { NovaRenderer } from '@/domain/types/renderer.types'
 import type { NovaDefinedComponentInput } from '@/model/runtime/components/nova-defined-component'
 import type { NovaNode } from '@/model/runtime/tree/NovaNode'
 import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { NovaPhase } from '@/domain/constants/nova-phase'
 import {
   createDefinedComponentNode,
   normalizeDefinedComponent,
@@ -158,10 +159,16 @@ export class NovaSchemaRegistry {
   createNode<E extends EventList>(
     surface: NovaSurface<E>,
     schema: NovaElementSchema<any>,
-    options: NovaNodeContextOptions = {},
+    options: NovaAddChildOptions = {},
   ): NovaNode<E> {
     const node = this._createDetachedNode(surface, schema, options)
-    surface.addChild(node, options)
+    surface.addChild(node, { ...options, invalidate: false })
+    node.markRenderFrameDirty(true)
+    surface.nova.raph.dirty(NovaPhase.Render, surface, { invalidate: false })
+    surface.nova.raph.dirty(NovaPhase.Flush, surface, { invalidate: false })
+    if (options.invalidate ?? true) {
+      surface.nova.invalidate()
+    }
     return node
   }
 
@@ -171,13 +178,19 @@ export class NovaSchemaRegistry {
   createChild<E extends EventList>(
     parent: NovaNode<E>,
     schema: NovaElementSchema<any>,
-    options: NovaNodeContextOptions = {},
+    options: NovaAddChildOptions = {},
   ): NovaNode<E> {
     const node = this._createDetachedNode(parent.surface, schema, {
       ...options,
       parent,
     })
-    parent.addChild(node, options)
+    parent.addChild(node, { ...options, invalidate: false })
+    node.markRenderFrameDirty(true)
+    parent.nova.raph.dirty(NovaPhase.Render, parent.surface, { invalidate: false })
+    parent.nova.raph.dirty(NovaPhase.Flush, parent.surface, { invalidate: false })
+    if (options.invalidate ?? true) {
+      parent.nova.invalidate()
+    }
     return node
   }
 

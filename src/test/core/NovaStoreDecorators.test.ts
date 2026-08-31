@@ -126,7 +126,7 @@ describe('nova store decorators', () => {
     const node = app.schema.createNode(surface, {
       type: 'test.store-reader',
       id: 'reader',
-    }) as StoreReader
+    }, { invalidate: false }) as StoreReader
 
     app.raph.run()
     expect(node.lastScale).toBe(1)
@@ -142,7 +142,7 @@ describe('nova store decorators', () => {
     expect(node.renderCount).toBe(2)
   })
 
-  it('keeps branch passthrough broad while compacting branch reads with leaf reads', () => {
+  it('tracks leaf and branch reads while rebuilding their shared retained surface', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, [StoreReader, StoreBranchReader] as never)
     const store = Nova.createStore(new TestStore(), { app, scope: 'branch-test' })
@@ -151,11 +151,11 @@ describe('nova store decorators', () => {
     const leaf = app.schema.createNode(surface, {
       type: 'test.store-reader',
       id: 'leaf',
-    }) as StoreReader
+    }, { invalidate: false }) as StoreReader
     const branch = app.schema.createNode(surface, {
       type: 'test.store-branch-reader',
       id: 'branch',
-    }) as StoreBranchReader
+    }, { invalidate: false }) as StoreBranchReader
 
     app.raph.run()
     expect(leaf.renderCount).toBe(1)
@@ -163,12 +163,12 @@ describe('nova store decorators', () => {
 
     store.viewport.x = 10
     app.raph.run()
-    expect(leaf.renderCount).toBe(1)
+    expect(leaf.renderCount).toBe(2)
     expect(branch.renderCount).toBe(2)
 
     store.viewport.scale = 3
     app.raph.run()
-    expect(leaf.renderCount).toBe(2)
+    expect(leaf.renderCount).toBe(3)
     expect(branch.renderCount).toBe(3)
   })
 
@@ -181,7 +181,7 @@ describe('nova store decorators', () => {
     const node = app.schema.createNode(surface, {
       type: 'test.store-reader',
       id: 'batch-reader',
-    }) as StoreReader
+    }, { invalidate: false }) as StoreReader
 
     app.raph.run()
     Nova.batchStore(store, () => {
@@ -203,7 +203,7 @@ describe('nova store decorators', () => {
     const node = app.schema.createNode(surface, {
       type: 'test.store-advanced-reader',
       id: 'advanced-reader',
-    }) as StoreAdvancedReader
+    }, { invalidate: false }) as StoreAdvancedReader
 
     app.raph.run()
     expect(node.lastValue).toBe('1:Initial')
@@ -226,7 +226,7 @@ describe('nova store decorators', () => {
     const node = app.schema.createNode(surface, {
       type: 'test.store-advanced-reader',
       id: 'multi-phase-reader',
-    }) as StoreAdvancedReader
+    }, { invalidate: false }) as StoreAdvancedReader
 
     app.raph.run()
     expect(node.updateCount).toBe(1)
@@ -249,7 +249,7 @@ describe('nova store decorators', () => {
     const node = app.schema.createNode(surface, {
       type: 'test.store-conditional-reader',
       id: 'conditional-reader',
-    }) as StoreConditionalReader
+    }, { invalidate: false }) as StoreConditionalReader
 
     app.raph.run()
     expect(node.lastValue).toBe(1)
@@ -282,11 +282,11 @@ describe('nova store decorators', () => {
     const firstNode = app.schema.createNode(firstSurface, {
       type: 'test.store-reader',
       id: 'scope-a-reader',
-    }) as StoreReader
+    }, { invalidate: false }) as StoreReader
     const secondNode = app.schema.createNode(secondSurface, {
       type: 'test.store-reader',
       id: 'scope-b-reader',
-    }) as StoreReader
+    }, { invalidate: false }) as StoreReader
 
     app.raph.run()
     firstStore.viewport.scale = 8
@@ -307,7 +307,7 @@ describe('nova store decorators', () => {
     const node = app.schema.createNode(surface, {
       type: 'test.store-reader',
       id: 'dispose-reader',
-    }) as StoreReader
+    }, { invalidate: false }) as StoreReader
 
     app.raph.run()
     node.remove()

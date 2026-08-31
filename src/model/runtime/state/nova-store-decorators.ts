@@ -23,7 +23,7 @@ export interface NovaStoreMetadata {
 
 const NOVA_STORE_METADATA = Symbol('nova.store.metadata')
 
-type NovaStoreConstructor = abstract new (...args: Array<any>) => object
+export type NovaStoreConstructor = abstract new (...args: Array<any>) => object
 
 /**
  * Помечает class как business store, поля которого могут быть привязаны к Raph data graph.

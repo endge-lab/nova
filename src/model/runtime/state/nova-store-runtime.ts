@@ -1,6 +1,6 @@
 import type { DataPathDef } from '@endge/raph'
 import type { NovaApp } from '@/model/runtime/app/NovaApp'
-import type { NovaReactiveFieldMetadata, NovaStorePhase } from '@/model/runtime/state/nova-store-decorators'
+import type { NovaReactiveFieldMetadata, NovaStoreConstructor, NovaStorePhase } from '@/model/runtime/state/nova-store-decorators'
 import {
   isNovaStoreObject,
   normalizeNovaStorePhases,
@@ -28,7 +28,7 @@ const STORE_RUNTIME = new WeakMap<object, NovaStoreRuntime>()
  * Создает reactive business store и подключает его к Raph data graph.
  */
 export function createNovaStore<T extends object>(instance: T, options: NovaCreateStoreOptions = {}): T {
-  const configuredScope = options.scope ?? readNovaStoreOptions(instance.constructor).scope
+  const configuredScope = options.scope ?? readNovaStoreOptions(instance.constructor as NovaStoreConstructor).scope
   const scope = configuredScope ?? `store:${instance.constructor.name || 'anonymous'}:${nextStoreId()}`
   attachNovaStore(instance, {
     app: options.app,
@@ -80,7 +80,7 @@ function attachNovaStore(store: object, runtime: NovaStoreRuntime): void {
   else {
     STORE_RUNTIME.set(store, runtime)
   }
-  const metadata = readNovaStoreMetadata(store.constructor)
+  const metadata = readNovaStoreMetadata(store.constructor as NovaStoreConstructor)
   if (!metadata) {
     return
   }
