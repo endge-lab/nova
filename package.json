@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova",
   "type": "module",
-  "version": "0.13.16",
+  "version": "0.14.0",
   "private": false,
   "sideEffects": false,
   "exports": {
@@ -30,8 +30,8 @@
     "lint-fix": "eslint . --fix --cache"
   },
   "dependencies": {
-    "@endge/raph": "^3.0.4",
-    "@endge/utils": "^0.25.0",
+    "@endge/raph": "^3.1.0",
+    "@endge/utils": "^0.26.0",
     "class-transformer": "^0.5.1",
     "gl-matrix": "^3.4.3",
     "rbush": "^4.0.1"
