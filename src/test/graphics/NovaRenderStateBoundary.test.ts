@@ -74,14 +74,14 @@ function createFrameBuilder(): NovaRenderFrameBuilder {
   })
 }
 
-describe('nova render state boundaries', () => {
+describe('границы состояния render Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('restores leaked clip and transform state to a saved boundary', () => {
+  it('восстанавливает утёкшее состояние clip и transform до сохранённой границы', () => {
     const frameBuilder = createFrameBuilder()
     const writer = new NovaRenderCommandWriter(frameBuilder)
     const builder = new NovaRenderBuilder(createCanvasStub(), new NovaSchemaRegistry(), writer)
@@ -105,7 +105,7 @@ describe('nova render state boundaries', () => {
     ])
   })
 
-  it('does not allow a child scope to clear parent clip state', () => {
+  it('не позволяет дочернему scope очищать состояние clip родителя', () => {
     const frameBuilder = createFrameBuilder()
     const writer = new NovaRenderCommandWriter(frameBuilder)
     const builder = new NovaRenderBuilder(createCanvasStub(), new NovaSchemaRegistry(), writer)
@@ -119,7 +119,7 @@ describe('nova render state boundaries', () => {
     expect(frameBuilder.build().commands.map(command => command.type)).toEqual(['clip', 'clearClip'])
   })
 
-  it('prevents a node clip leak from affecting following sibling render items', () => {
+  it('не позволяет утечке clip узла влиять на последующие соседние элементы render', () => {
     const app = createTestApp<TestEvents>()
     const surface = app.createSurface('state-boundary')
     surface.createNode(LeakyClipNode)

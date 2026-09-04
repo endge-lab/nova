@@ -49,7 +49,7 @@ const reparentFixture = createReparentFixture(REPARENT_NODE_COUNT)
 const observeDataFixture = createObserveDataFixture()
 const localPropertyFixture = createLocalPropertyFixture()
 
-describe('nova context/runtime benchmarks', () => {
+describe('бенчмарки контекста и runtime Nova', () => {
   bench('provide/inject: 20k cached lookups', () => {
     for (const node of injectFixture.nodes) {
       node.inject(injectFixture.token)

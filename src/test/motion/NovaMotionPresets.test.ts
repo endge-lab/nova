@@ -74,7 +74,7 @@ class VisualNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('novaMotion presets and patterns', () => {
+describe('проверка Presets и patterns NovaMotion', () => {
   let app: NovaApp<TestEvents>
   let surface: NovaSurface<TestEvents>
 
@@ -94,7 +94,7 @@ describe('novaMotion presets and patterns', () => {
     document.body.innerHTML = ''
   })
 
-  it('keeps catalog names unique and documented in Russian', () => {
+  it('сохраняет имена каталога уникальными и документированными на русском', () => {
     const presetNames = Object.keys(NOVA_MOTION_PRESETS)
     const patternNames = Object.keys(NOVA_MOTION_PATTERNS)
 
@@ -108,13 +108,13 @@ describe('novaMotion presets and patterns', () => {
     }
   })
 
-  it('does not use long dash or emoji in the preset source comments', () => {
+  it('не использует длинное тире или emoji в комментариях Source preset', () => {
     const source = readFileSync(join(process.cwd(), 'src/model/motion/nova-motion-presets.ts'), 'utf8')
     expect(source).not.toContain('—')
     expect(source).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('runs preset %s through start, middle and final ticks', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('выполняет preset %s через начальный, средний и конечный ticks', (name) => {
     const node = surface.createNode(VisualNode)
 
     const playback = app.motion.preset(node, name, {
@@ -137,7 +137,7 @@ describe('novaMotion presets and patterns', () => {
     expect(['running', 'finished']).toContain(playback.state)
   })
 
-  it('supports replay by cancelling and resetting the previous preset', () => {
+  it('поддерживает повторное воспроизведение через отмену и сброс предыдущего preset', () => {
     const node = surface.createNode(VisualNode)
     const first = app.motion.preset(node, 'fadeOut', { duration: 100, easing: 'linear' })
 
@@ -155,7 +155,7 @@ describe('novaMotion presets and patterns', () => {
     expect(node.opacity).toBe(1)
   })
 
-  it('animates visual preset properties on compatible targets', () => {
+  it('анимирует визуальные свойства preset на совместимых targets', () => {
     const node = surface.createNode(VisualNode)
 
     app.motion.preset(node, 'highlight', { duration: 100, easing: 'linear', fill: '#fff2a8' })
@@ -172,7 +172,7 @@ describe('novaMotion presets and patterns', () => {
     expect(node.strokeWidth).toBe(1)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('runs pattern %s on a target group', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('выполняет pattern %s на группе target', (name) => {
     const targets = Array.from({ length: 16 }, (_, index) => {
       const node = surface.createNode(VisualNode)
       node.options({ x: 20 + (index % 4) * 24, y: 20 + Math.floor(index / 4) * 22 })
@@ -196,7 +196,7 @@ describe('novaMotion presets and patterns', () => {
     expect(['running', 'finished']).toContain(playback.state)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('keeps looping pattern %s alive with repeat infinity', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>)('сохраняет циклический pattern %s активным через бесконечный repeat', (name) => {
     const targets = Array.from({ length: 16 }, (_, index) => {
       const node = surface.createNode(VisualNode)
       node.options({ x: 20 + (index % 4) * 24, y: 20 + Math.floor(index / 4) * 22 })

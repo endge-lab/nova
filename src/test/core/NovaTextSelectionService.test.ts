@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { NovaTextSelectionService } from '@/model/text-selection/NovaTextSelectionService'
 
-describe('novaTextSelectionService', () => {
-  it('selects text inside one target by pointer range', () => {
+describe('сервис выделения текста Nova', () => {
+  it('выделяет текст внутри одной target по диапазону pointer', () => {
     const service = new NovaTextSelectionService({
       enabled: true,
       mode: 'all-text',
@@ -28,7 +28,7 @@ describe('novaTextSelectionService', () => {
     expect(service.getSelectedText()).toBe('Flight')
   })
 
-  it('builds multi-target copy text through formatter', () => {
+  it('строит текст копирования для нескольких targets через formatter', () => {
     const service = new NovaTextSelectionService<{ rowIndex: number, columnIndex: number }>({
       enabled: true,
       mode: 'all-text',

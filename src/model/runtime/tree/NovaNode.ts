@@ -302,7 +302,7 @@ export class NovaNode<
   }
 
   //
-  // RAPH PROPERTIES - CORE
+  // СВОЙСТВА RAPH — ЯДРО
   //
 
   /**
@@ -383,7 +383,7 @@ export class NovaNode<
   }
 
   //
-  // RAPH PROPERTIES - GEOMETRY
+  // СВОЙСТВА RAPH — ГЕОМЕТРИЯ
   //
 
   /**
@@ -531,7 +531,7 @@ export class NovaNode<
   }
 
   //
-  // RAPH PROPERTIES - INTERACTIVE
+  // СВОЙСТВА RAPH — ИНТЕРАКТИВНОСТЬ
   //
 
   /**
@@ -608,7 +608,7 @@ export class NovaNode<
   }
 
   //
-  // RAPH HANDLERS
+  // ОБРАБОТЧИКИ RAPH
   //
 
   /**
@@ -1936,7 +1936,7 @@ export class NovaNode<
   protected onResume(): void {}
 
   //
-  // CHILD LOGIC
+  // ЛОГИКА ДОЧЕРНИХ ЭЛЕМЕНТОВ
   //
 
   /**

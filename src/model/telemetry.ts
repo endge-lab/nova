@@ -197,14 +197,14 @@ export function analyzeSnapshot(snap: { stats: Array<FrameStat>, events: Array<E
     flags.push('lost_loop')
   }
 
-  // resize bursts
+  // серии изменения размера
   const now = performance.now()
   const recentResize = ev.filter(e => e.k === 'canvas:resize' && now - e.t < 1000).length
   if (recentResize >= 3) {
     flags.push('resize_loop')
   }
 
-  // gl errors
+  // ошибки GL
   const gle = ev.filter(e => e.k === 'gl:error')
   if (gle.length) {
     flags.push('gl_error_guard')

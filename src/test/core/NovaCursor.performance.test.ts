@@ -148,7 +148,7 @@ function measure(label: string, run: () => void): number {
   return elapsed
 }
 
-describe('nova cursor performance', () => {
+describe('производительность курсора Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
@@ -156,7 +156,7 @@ describe('nova cursor performance', () => {
     installCanvasMocks()
   })
 
-  it('queries 10000 cursor-capable nodes and reuses component cursors inside budget', () => {
+  it('запрашивает 10000 узлов с поддержкой курсора и повторно использует компонентные курсоры в рамках бюджета', () => {
     const app = createApp()
     const surface = app.createSurface('cursor-perf')
     app.schema.register(PERF_CURSOR_DESCRIPTOR)

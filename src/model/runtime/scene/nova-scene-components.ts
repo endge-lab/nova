@@ -321,7 +321,7 @@ export const NOVA_SCENES_DESCRIPTOR: NovaScenesDescriptor = novaScenesDescriptor
     NOVA_SCENES_DESCRIPTOR,
   ),
 }
-/** No-op declaration node for invalid direct <Scene> usage outside <Scenes>. */
+/** Узел объявления no-op для недопустимого прямого использования <Scene> вне <Scenes>. */
 let novaSceneDescriptor: NovaSceneDefinitionDescriptor
 
 export class NovaSceneDefinitionNode<E extends EventList = Record<string, any>>

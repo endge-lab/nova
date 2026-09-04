@@ -16,8 +16,8 @@ import {
   splitGraphemes,
 } from '@/index'
 
-describe('nova input core', () => {
-  it('edits text, moves caret by grapheme and commits values', () => {
+describe('ядро input Nova', () => {
+  it('редактирует текст, перемещает каретку по графемам и фиксирует значения', () => {
     const commits: Array<string> = []
     const controller = new NovaTextInputController({
       value: 'A🙂B',
@@ -38,7 +38,7 @@ describe('nova input core', () => {
     expect(commits).toEqual(['A🙂B'])
   })
 
-  it('supports ranged selection, select all and cancel', () => {
+  it('поддерживает диапазонное выделение, выбор всего и отмену', () => {
     const controller = new NovaTextInputController({ value: 'abcdef' })
     controller.select(1, 4)
     controller.insertText('X')
@@ -51,7 +51,7 @@ describe('nova input core', () => {
     expect(controller.getState().draft).toBe('abcdef')
   })
 
-  it('deletes exactly the selected tail character or previous tail grapheme', () => {
+  it('удаляет ровно выбранный последний символ или предыдущую последнюю графему', () => {
     const selectedTail = new NovaTextInputController({ value: 'abcd' })
     selectedTail.select(3, 4)
     selectedTail.deleteBackward()
@@ -63,7 +63,7 @@ describe('nova input core', () => {
     expect(caretAtEnd.getState().draft).toBe('abc')
   })
 
-  it('computes single-line and multiline caret/selection geometry', () => {
+  it('вычисляет геометрию каретки и выделения для одной и нескольких строк', () => {
     const layout = layoutNovaTextInput({
       text: 'one two\nthree',
       width: 120,
@@ -82,7 +82,7 @@ describe('nova input core', () => {
     expect(novaSelectionRects(layout, 0, layout.text.length).length).toBeGreaterThan(1)
   })
 
-  it('aligns caret and hit-test geometry to measured proportional glyphs', () => {
+  it('выравнивает геометрию каретки и hit-test по измеренным пропорциональным glyphs', () => {
     const measureText = createMeasuredText({ 'W': 12, 'i': 3, '.': 4 })
     const layout = layoutNovaTextInput({
       text: 'Wi.',
@@ -105,7 +105,7 @@ describe('nova input core', () => {
     expect(novaTextIndexAtPoint(layout, 69.5, 17)).toBe(3)
   })
 
-  it('keeps right aligned and empty-line caret positions inside the visual text line', () => {
+  it('удерживает позиции каретки для выравнивания вправо и пустой строки внутри визуальной строки текста', () => {
     const measureText = createMeasuredText({ a: 5, b: 5 })
     const rightAligned = layoutNovaTextInput({
       text: 'ab',
@@ -144,7 +144,7 @@ describe('nova input core', () => {
     })
   })
 
-  it('roundtrips caret indexes through wrapped lines and grapheme widths', () => {
+  it('обеспечивает round-trip индексов каретки через перенесённые строки и ширины графем', () => {
     const measureText = createMeasuredText({ 'A': 8, '🙂': 14, 'B': 8, 'C': 8 })
     const layout = layoutNovaTextInput({
       text: 'A🙂BC',
@@ -170,7 +170,7 @@ describe('nova input core', () => {
     }
   })
 
-  it('wraps textarea text to the available content width', () => {
+  it('переносит текст textarea по доступной ширине содержимого', () => {
     const layout = layoutNovaTextInput({
       text: 'abcdefghijklmnop',
       width: 46,
@@ -187,7 +187,7 @@ describe('nova input core', () => {
     expect(layout.lines.every(line => line.width <= layout.contentWidth)).toBe(true)
   })
 
-  it('cancels stale async validation results', async () => {
+  it('отменяет устаревшие результаты асинхронной проверки', async () => {
     let resolveFirst: (value: NovaInputValidationResult) => void = () => {}
     const validator = new NovaInputValidationController<string, string>((value) => {
       if (value === 'first') {
@@ -207,7 +207,7 @@ describe('nova input core', () => {
     expect(validator.getState().result).toBe(true)
   })
 
-  it('bridges clipboard through Clipboard API and proxy fallback', async () => {
+  it('подключает буфер обмена через Clipboard API и proxy fallback', async () => {
     const service = new NovaClipboardService()
     const writeText = vi.fn()
     const readText = vi.fn(async () => 'copied')
@@ -228,7 +228,7 @@ describe('nova input core', () => {
     expect(textarea.value).toBe('fallback')
   })
 
-  it('attaches hidden proxy only for proxy and auto engines', () => {
+  it('подключает скрытый proxy только для движков proxy и auto', () => {
     const canvasProxy = new NovaInputProxy_Adapter({ engine: 'canvas' })
     expect(canvasProxy.attach()).toBeNull()
 
@@ -241,7 +241,7 @@ describe('nova input core', () => {
     expect(document.querySelector('textarea')).toBeNull()
   })
 
-  it('uses one shared caret blink scheduler for active inputs', () => {
+  it('использует единый планировщик мигания каретки для активных inputs', () => {
     vi.useFakeTimers()
     const ticks: Array<boolean> = []
     const first = new NovaCaretBlinkController(value => ticks.push(value), 10)

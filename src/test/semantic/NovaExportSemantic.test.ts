@@ -103,8 +103,8 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('nova engine export and semantic service', () => {
-  it('exports png/webp dataUrl and Blob without resizing the source canvas', async () => {
+describe('сервис экспорта и семантики движка Nova', () => {
+  it('экспортирует png/webp dataUrl и Blob без изменения размера исходного canvas', async () => {
     const app = createApp()
     const before = { width: app.canvas.pixelWidth, height: app.canvas.pixelHeight }
 
@@ -120,7 +120,7 @@ describe('nova engine export and semantic service', () => {
     expect(app.canvas.pixelHeight).toBe(before.height)
   })
 
-  it('normalizes export failures and includes semantic snapshot on demand', async () => {
+  it('нормализует ошибки экспорта и по запросу включает семантический snapshot', async () => {
     const app = createApp()
     app.semantics.register({ id: 'chart', role: 'chart', label: 'Revenue', scope: 'demo' })
 
@@ -138,7 +138,7 @@ describe('nova engine export and semantic service', () => {
     await expect(app.exportImage()).rejects.toMatchObject({ code: 'tainted-canvas' })
   })
 
-  it('registers, queries, focuses and clears semantic regions in stable order', () => {
+  it('регистрирует, запрашивает, фокусирует и очищает семантические области в стабильном порядке', () => {
     const service = new NovaSemanticService()
     service.register({ id: 'b', role: 'button', label: 'B', scope: 'chart', focusable: true, order: 2 })
     service.register({ id: 'a', role: 'mark', label: 'A', scope: 'chart', focusable: true, order: 1 })
@@ -153,7 +153,7 @@ describe('nova engine export and semantic service', () => {
     expect(service.snapshot({ scope: 'chart' }).regions).toEqual([])
   })
 
-  it('syncs schema item semantics and removes them when the node is disposed', () => {
+  it('синхронизирует семантику элементов схемы и удаляет её при освобождении узла', () => {
     const app = createApp()
     const surface = app.createSurface('semantic-node-test')
     const node = new SemanticNode(app, surface)

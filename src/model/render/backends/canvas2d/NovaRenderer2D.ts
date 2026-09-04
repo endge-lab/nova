@@ -214,8 +214,8 @@ export class NovaRenderer2D implements NovaRenderer, NovaRenderBackend {
         case 'beginRenderTarget':
         case 'endRenderTarget':
         case 'drawRenderTarget':
-          // Canvas2D backend intentionally replays commands between target markers
-          // directly to root canvas. Offscreen target acceleration is WebGL-only.
+          // Backend Canvas2D намеренно повторяет команды между маркерами цели
+          // прямо в корневой canvas. Ускорение offscreen-целей доступно только в WebGL.
           break
         case 'drawItem': {
           const item = command.itemId ? itemsById.get(command.itemId) : undefined

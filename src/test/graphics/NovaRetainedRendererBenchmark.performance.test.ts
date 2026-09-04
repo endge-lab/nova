@@ -634,30 +634,30 @@ function byId(testCase: RetainedBenchmarkCase): string {
   return testCase.id
 }
 
-describe('nova retained WebGL2 benchmark acceptance matrix', () => {
-  it('keeps benchmark scenario ids unique', () => {
+describe('матрица приёмки retained-бенчмарка WebGL2 Nova', () => {
+  it('сохраняет ID сценариев бенчмарка уникальными', () => {
     expect(new Set(RETAINED_BENCHMARKS.map(byId)).size).toBe(RETAINED_BENCHMARKS.length)
   })
 
-  it('covers every required workload type', () => {
+  it('покрывает каждый обязательный тип нагрузки', () => {
     const workloads = new Set(RETAINED_BENCHMARKS.map(testCase => testCase.workload))
 
     expect(workloads).toEqual(REQUIRED_WORKLOADS)
   })
 
-  it('covers every required renderer subsystem', () => {
+  it('покрывает каждую обязательную подсистему renderer', () => {
     const areas = new Set(RETAINED_BENCHMARKS.map(testCase => testCase.area))
 
     expect(areas).toEqual(REQUIRED_AREAS)
   })
 
-  it('requires Pixi baselines for visible rendering scenarios', () => {
+  it('требует baseline Pixi для сценариев видимого render', () => {
     const renderingCases = RETAINED_BENCHMARKS.filter(testCase => testCase.area !== 'input' && testCase.id !== 'atlas-eviction')
 
     expect(renderingCases.every(testCase => testCase.pixiBaseline === 'required' || testCase.id === 'rect-shader-animation-10k')).toBe(true)
   })
 
-  it('defines measurable targets for every benchmark scenario', () => {
+  it('задаёт измеримые цели для каждого сценария бенчмарка', () => {
     for (const testCase of RETAINED_BENCHMARKS) {
       expect(Object.keys(testCase.target).length).toBeGreaterThan(0)
       expect(testCase.count).toBeGreaterThan(0)

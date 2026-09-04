@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RendererType } from '@/domain/types/renderer.types'
 import { NovaCanvas } from '@/model/platform/NovaCanvas'
 
-describe('novaCanvas', () => {
+describe('холст Nova', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
   })
 
-  it('does not bind WebGL1 or experimental-webgl for the target WebGL renderer', () => {
+  it('не подключает WebGL1 или experimental-webgl для целевого renderer WebGL', () => {
     const requestedContextTypes: Array<string> = []
 
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {

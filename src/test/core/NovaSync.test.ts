@@ -118,14 +118,14 @@ function createBox(app: NovaApp<TestEvents>, id: string, props: Partial<BoxProps
   }) as SyncBoxNode<TestEvents>
 }
 
-describe('novaSyncScope', () => {
+describe('область NovaSync', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('creates app-local sync scopes by default and accepts shared scopes', () => {
+  it('по умолчанию создаёт локальные scopes синхронизации приложения и принимает общие scopes', () => {
     const localA = createApp()
     const localB = createApp()
     const sharedScope = new NovaSyncScope({ id: 'shared' })
@@ -144,7 +144,7 @@ describe('novaSyncScope', () => {
     sharedScope.dispose()
   })
 
-  it('resolves component prop ports and synchronizes one-way values', () => {
+  it('разрешает порты props компонента и синхронизирует значения в одном направлении', () => {
     const app = createApp()
     const source = createBox(app, 'source', { value: 2 })
     const target = createBox(app, 'target', { value: 0 })
@@ -157,7 +157,7 @@ describe('novaSyncScope', () => {
     app.destroy()
   })
 
-  it('supports transform, filter and custom equality', () => {
+  it('поддерживает transform, filter и пользовательское сравнение', () => {
     const app = createApp()
     const source = createBox(app, 'source', { value: 1 })
     const target = createBox(app, 'target', { value: 0 })
@@ -181,7 +181,7 @@ describe('novaSyncScope', () => {
     app.destroy()
   })
 
-  it('supports bidirectional links without ping-pong cycles', () => {
+  it('поддерживает двунаправленные связи без ping-pong циклов', () => {
     const app = createApp()
     const left = createBox(app, 'left')
     const right = createBox(app, 'right')
@@ -195,7 +195,7 @@ describe('novaSyncScope', () => {
     app.destroy()
   })
 
-  it('coalesces microtask and frame scheduled writes', async () => {
+  it('объединяет записи, запланированные через microtask и кадр', async () => {
     const frameCallbacks: Array<FrameRequestCallback> = []
     Object.defineProperty(globalThis, 'requestAnimationFrame', {
       value: vi.fn((callback: FrameRequestCallback) => {
@@ -227,7 +227,7 @@ describe('novaSyncScope', () => {
     app.destroy()
   })
 
-  it('unregisters disposed node ports and rejects invalid links', () => {
+  it('снимает регистрацию портов освобождённых узлов и отклоняет некорректные связи', () => {
     const app = createApp()
     const source = createBox(app, 'source')
     const target = createBox(app, 'target')
@@ -243,7 +243,7 @@ describe('novaSyncScope', () => {
     app.destroy()
   })
 
-  it('synchronizes ports across two Nova apps with the same scope', () => {
+  it('синхронизирует порты двух приложений Nova с одинаковым scope', () => {
     const scope = new NovaSyncScope({ id: 'cross-app' })
     const appA = createApp(scope)
     const appB = createApp(scope)

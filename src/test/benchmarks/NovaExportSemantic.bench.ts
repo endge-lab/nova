@@ -14,7 +14,7 @@ vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockImplementation((mime?: st
   return `data:${mime ?? 'image/png'};base64,ZmFrZQ==`
 })
 
-describe('nova export and semantic benchmarks', () => {
+describe('бенчмарки экспорта и семантики Nova', () => {
   bench('exportImage png current frame', async () => {
     const app = createTestApp({ width: 640, height: 360 })
     await app.exportImage({ format: 'png', pixelRatio: 1 })

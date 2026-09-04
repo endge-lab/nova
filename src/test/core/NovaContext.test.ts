@@ -55,14 +55,14 @@ function createNode(surface: NovaSurface<Record<string, any>>): TestNode {
   return node
 }
 
-describe('nova context provide/inject', () => {
+describe('проверка Provide/inject контекста Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('creates unique tokens even when descriptions match', () => {
+  it('создаёт уникальные tokens даже при совпадающих описаниях', () => {
     const first = Nova.createContextToken<{ value: number }>('Duplicate')
     const second = Nova.createContextToken<{ value: number }>('Duplicate')
 
@@ -70,7 +70,7 @@ describe('nova context provide/inject', () => {
     expect(first.description).toBe('Duplicate')
   })
 
-  it('injects the nearest ancestor provider', () => {
+  it('внедряет provider ближайшего предка', () => {
     const { app, surface } = createSurface()
     const token = Nova.createContextToken<string>('nearest')
     const root = createNode(surface)
@@ -87,7 +87,7 @@ describe('nova context provide/inject', () => {
     app.destroy()
   })
 
-  it('returns fallback for optional inject and throws for required inject', () => {
+  it('возвращает fallback для необязательного inject и выбрасывает ошибку для обязательного', () => {
     const { app, surface } = createSurface()
     const token = Nova.createContextToken<string>('missing')
     const node = createNode(surface)
@@ -98,7 +98,7 @@ describe('nova context provide/inject', () => {
     app.destroy()
   })
 
-  it('uses cache for repeated inject and invalidates it when provider changes', () => {
+  it('использует cache для повторного inject и инвалидирует его при изменении provider', () => {
     const { app, surface } = createSurface()
     const token = Nova.createContextToken<string>('cached')
     const parent = createNode(surface)
@@ -119,7 +119,7 @@ describe('nova context provide/inject', () => {
     app.destroy()
   })
 
-  it('clears inject cache on reparent and resolves the new scope', () => {
+  it('очищает cache inject при смене родителя и разрешает новый scope', () => {
     const { app, surface } = createSurface()
     const token = Nova.createContextToken<string>('reparent')
     const firstParent = createNode(surface)
@@ -140,7 +140,7 @@ describe('nova context provide/inject', () => {
     app.destroy()
   })
 
-  it('keeps sibling scopes isolated', () => {
+  it('сохраняет изоляцию соседних scopes', () => {
     const { app, surface } = createSurface()
     const token = Nova.createContextToken<string>('sibling')
     const firstParent = createNode(surface)
@@ -161,14 +161,14 @@ describe('nova context provide/inject', () => {
   })
 })
 
-describe('nova explicit child context', () => {
+describe('явный дочерний контекст Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('sets and reads node context directly', () => {
+  it('напрямую задаёт и читает контекст узла', () => {
     const { app, surface } = createSurface()
     const node = createNode(surface)
 
@@ -180,7 +180,7 @@ describe('nova explicit child context', () => {
     app.destroy()
   })
 
-  it('does not inherit context implicitly', () => {
+  it('не наследует контекст неявно', () => {
     const { app, surface } = createSurface()
     const parent = createNode(surface)
     const child = new TestNode(app, surface)
@@ -193,7 +193,7 @@ describe('nova explicit child context', () => {
     app.destroy()
   })
 
-  it('passes context through addChild options', () => {
+  it('передаёт контекст через параметры addChild', () => {
     const { app, surface } = createSurface()
     const parent = createNode(surface)
     const child = new TestNode(app, surface)
@@ -207,7 +207,7 @@ describe('nova explicit child context', () => {
     app.destroy()
   })
 
-  it('passes context through schema registry createChild', () => {
+  it('передаёт контекст через createChild реестра схем', () => {
     const { app, surface } = createSurface()
     const parent = createNode(surface)
     const descriptor: NovaComponentDescriptor<TestProps, unknown, Record<string, unknown>, TestProps> = {
@@ -245,7 +245,7 @@ describe('nova explicit child context', () => {
     app.destroy()
   })
 
-  it('keeps old schema createChild signature working', () => {
+  it('сохраняет работоспособность старой сигнатуры createChild схемы', () => {
     const { app, surface } = createSurface()
     const parent = createNode(surface)
     const descriptor: NovaComponentDescriptor<TestProps, unknown, Record<string, unknown>, TestProps> = {

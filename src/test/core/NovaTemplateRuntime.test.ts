@@ -216,14 +216,14 @@ function createDescriptor(): NovaComponentDescriptor<TestProps, unknown, Record<
   return descriptor
 }
 
-describe('nova template runtime', () => {
+describe('проверка Runtime шаблонов Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('reuses keyed nodes and patches props without recreating identity', () => {
+  it('повторно использует узлы с ключами и обновляет props без пересоздания identity', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
     const surface = app.createSurface('template')
@@ -252,7 +252,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('reuses registry alias nodes when createNode returns a canonical descriptor', () => {
+  it('повторно использует узлы alias реестра, когда createNode возвращает канонический descriptor', () => {
     const app = createTestApp()
     const descriptor = createDescriptor()
     app.schema.register(descriptor)
@@ -281,7 +281,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('forwards explicit context while reconciling children', () => {
+  it('передаёт явный контекст при согласовании дочерних узлов', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
     const surface = app.createSurface('template-context')
@@ -296,7 +296,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('does not schedule generated template hosts into a sync self-update loop', () => {
+  it('не планирует сгенерированные hosts шаблона в синхронный цикл самообновления', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
     const surface = app.createSurface('template-host')
@@ -310,7 +310,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('creates compiled constructor children and patches props/listeners', () => {
+  it('создаёт скомпилированных дочерних конструкторов и обновляет props/listeners', () => {
     const app = createTestApp()
     const surface = app.createSurface('compiled-template')
     const parent = surface.createNode()
@@ -346,7 +346,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('creates compiled constructor children and patches slots without recreating identity', () => {
+  it('создаёт скомпилированных дочерних конструкторов и обновляет slots без пересоздания identity', () => {
     const app = createTestApp()
     const surface = app.createSurface('compiled-template-slots')
     const parent = surface.createNode()
@@ -383,7 +383,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('mounts compiled templates with props, listeners, slots and scoped refs', () => {
+  it('монтирует скомпилированные шаблоны с props, listeners, slots и refs в scope', () => {
     const app = createTestApp()
     const surface = app.createSurface('compiled-template-mount')
     const counter = Nova.ref<RefTestApi>('counter')
@@ -424,7 +424,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('preserves keyed identity when reconciling slot factory output', () => {
+  it('сохраняет identity с ключом при согласовании output фабрики slot', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
     const surface = app.createSurface('slot-output')
@@ -446,7 +446,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('keeps repeated slot output reconcile under budget without node churn', () => {
+  it('удерживает повторное согласование output slot в рамках бюджета без churn узлов', () => {
     const app = createTestApp()
     app.schema.register(createDescriptor())
     const surface = app.createSurface('slot-output-perf')
@@ -489,7 +489,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('keeps repeated mountHandle prop updates on a large keyed template under budget', () => {
+  it('удерживает повторные обновления props mountHandle большого шаблона с ключами в рамках бюджета', () => {
     const app = createTestApp()
     const surface = app.createSurface('large-compiled-template-perf')
     const handle = Nova.mount(LargeCompiledTemplateNode, {
@@ -519,7 +519,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('recreates compiled constructor children when constructor changes', () => {
+  it('пересоздаёт скомпилированных дочерних конструкторов при изменении constructor', () => {
     const app = createTestApp()
     const surface = app.createSurface('compiled-template-hmr')
     const parent = surface.createNode()
@@ -537,7 +537,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('binds proxy refs, resolves ready promises and preserves method this', async () => {
+  it('связывает proxy refs, разрешает promises готовности и сохраняет this методов', async () => {
     const app = createTestApp()
     const surface = app.createSurface('compiled-template-ref')
     const parent = surface.createNode()
@@ -565,7 +565,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('unbinds proxy refs on parent dispose', () => {
+  it('отвязывает proxy refs при освобождении родителя', () => {
     const app = createTestApp()
     const surface = app.createSurface('compiled-template-ref-dispose')
     const parent = surface.createNode()
@@ -585,7 +585,7 @@ describe('nova template runtime', () => {
     app.destroy()
   })
 
-  it('binds keyed ref maps and unbinds removed keys', () => {
+  it('связывает maps refs с ключами и отвязывает удалённые ключи', () => {
     const app = createTestApp()
     const surface = app.createSurface('compiled-template-ref-map')
     const parent = surface.createNode()

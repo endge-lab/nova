@@ -226,8 +226,8 @@ function findNodeItemTransform(surface: NovaSurface<Record<string, any>>, node: 
   return item!.transform!
 }
 
-describe('nova render pipeline contracts', () => {
-  it('records schema calls into render frame commands and items', () => {
+describe('контракты pipeline render Nova', () => {
+  it('записывает вызовы схемы в команды и элементы кадра render', () => {
     const frameBuilder = createFrameBuilder()
     const writer = new NovaRenderCommandWriter(frameBuilder)
     const builder = new NovaRenderBuilder(createCanvasStub(), new NovaSchemaRegistry(), writer)
@@ -252,7 +252,7 @@ describe('nova render pipeline contracts', () => {
     expect(frame.commands.filter(command => command.type === 'drawItem')).toHaveLength(2)
   })
 
-  it('merges renderer config defaults without mutating zoom buckets', () => {
+  it('объединяет стандартные значения config renderer без изменения buckets масштаба', () => {
     const config = resolveNovaRendererConfig({
       text: {
         maxAtlasMemoryMB: 32,
@@ -286,7 +286,7 @@ describe('nova render pipeline contracts', () => {
     })
   })
 
-  it('normalizes nested text pipeline config without dropping defaults', () => {
+  it('нормализует вложенный config текстового pipeline без потери стандартных значений', () => {
     const config = resolveNovaRendererConfig({
       text: {
         interaction: {
@@ -331,7 +331,7 @@ describe('nova render pipeline contracts', () => {
     })
   })
 
-  it('selects text atlas zoom buckets and reuses cached text runs', () => {
+  it('выбирает buckets масштаба атласа текста и повторно использует закешированные text runs', () => {
     const config: NovaRendererConfig = resolveNovaRendererConfig({
       text: {
         zoomBuckets: [1, 1.5, 2],
@@ -349,7 +349,7 @@ describe('nova render pipeline contracts', () => {
     expect(second.entry).toBe(first.entry)
   })
 
-  it('keys glyph atlas entries by glyph, script, color and zoom bucket with LRU budget', () => {
+  it('задаёт ключи записей атласа glyph по символу, script, цвету и bucket масштаба с LRU-бюджетом', () => {
     const config = resolveNovaRendererConfig({
       text: {
         maxGlyphAtlasMemoryMB: 0.009,
@@ -373,7 +373,7 @@ describe('nova render pipeline contracts', () => {
     expect(atlas.memoryMB).toBeLessThanOrEqual(config.text.maxGlyphAtlasMemoryMB)
   })
 
-  it('resolves text raster policy from renderer config', () => {
+  it('разрешает политику растеризации текста из config renderer', () => {
     const quality = resolveNovaRendererConfig({
       text: {
         quality: 'quality',
@@ -396,7 +396,7 @@ describe('nova render pipeline contracts', () => {
     expect(resolveNovaTextRasterScale({ ...quality, maxRasterScale: 3 }, 1.8, 2)).toBe(3)
   })
 
-  it('builds display-order-preserving batches', () => {
+  it('строит пакеты с сохранением порядка отображения', () => {
     const frameBuilder = createFrameBuilder()
     const writer = new NovaRenderCommandWriter(frameBuilder)
     const builder = new NovaRenderBuilder(createCanvasStub(), new NovaSchemaRegistry(), writer)
@@ -413,7 +413,7 @@ describe('nova render pipeline contracts', () => {
     expect(batches.map(batch => batch.items.length)).toEqual([2, 1, 1])
   })
 
-  it('renders a compiled frame through the new WebGL renderer facade', () => {
+  it('отрисовывает скомпилированный кадр через новый facade renderer WebGL', () => {
     const gl = createWebGLContextStub()
     const renderer = new NovaRendererWebGL(createCanvasStub(gl), new NovaSchemaRegistry())
     renderer.diagnostics.enabled = true
@@ -437,7 +437,7 @@ describe('nova render pipeline contracts', () => {
     expect(gl.drawArrays).toHaveBeenCalled()
   })
 
-  it('syncs template-created child matrices before retained frame item recording', () => {
+  it('синхронизирует матрицы дочерних узлов шаблона до записи элементов retained-кадра', () => {
     const gl = createWebGLContextStub()
     const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
       if (type === RendererType.Web2D) {
@@ -480,7 +480,7 @@ describe('nova render pipeline contracts', () => {
     getContextSpy.mockRestore()
   })
 
-  it('patches retained item transforms for dirty transform subtrees', () => {
+  it('обновляет transforms retained-элементов для изменённых поддеревьев transform', () => {
     const gl = createWebGLContextStub()
     const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
       if (type === RendererType.Web2D) {
@@ -535,7 +535,7 @@ describe('nova render pipeline contracts', () => {
     getContextSpy.mockRestore()
   })
 
-  it('keeps compiler construction explicit for surface-level orchestration', () => {
+  it('сохраняет явное создание компилятора для оркестрации уровня поверхности', () => {
     const compiler = new NovaRenderCompiler({
       schemaRegistry: new NovaSchemaRegistry(),
       rendererConfig: resolveNovaRendererConfig(),

@@ -116,8 +116,8 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('nova store decorators', () => {
-  it('tracks reactive field reads during render and dirties only dependent nodes', () => {
+describe('декораторы Store Nova', () => {
+  it('отслеживает чтение реактивных полей во время render и помечает только зависимые узлы', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreReader as never)
     const store = Nova.createStore(new TestStore(), { app, scope: 'store-test' })
@@ -142,7 +142,7 @@ describe('nova store decorators', () => {
     expect(node.renderCount).toBe(2)
   })
 
-  it('tracks leaf and branch reads while rebuilding their shared retained surface', () => {
+  it('отслеживает чтение листьев и ветвей при перестроении их общей retained-поверхности', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, [StoreReader, StoreBranchReader] as never)
     const store = Nova.createStore(new TestStore(), { app, scope: 'branch-test' })
@@ -172,7 +172,7 @@ describe('nova store decorators', () => {
     expect(branch.renderCount).toBe(3)
   })
 
-  it('batches store writes through Raph transactions', () => {
+  it('объединяет записи Store в транзакции Raph', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreReader as never)
     const store = Nova.createStore(new TestStore(), { app, scope: 'batch-test' })
@@ -194,7 +194,7 @@ describe('nova store decorators', () => {
     expect(node.renderCount).toBe(2)
   })
 
-  it('supports explicit and dynamic reactive paths', () => {
+  it('поддерживает явные и динамические реактивные пути', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreAdvancedReader as never)
     const store = Nova.createStore(new TestAdvancedStore(), { app, scope: 'advanced-test' })
@@ -217,7 +217,7 @@ describe('nova store decorators', () => {
     expect(node.lastValue).toBe('2:Updated')
   })
 
-  it('registers one field read against multiple requested phases', () => {
+  it('регистрирует одно чтение поля для нескольких запрошенных фаз', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreAdvancedReader as never)
     const store = Nova.createStore(new TestAdvancedStore(), { app, scope: 'multi-phase-test' })
@@ -239,7 +239,7 @@ describe('nova store decorators', () => {
     expect(node.lastCollapsed).toBe(true)
   })
 
-  it('replaces conditional dependencies after rerender', () => {
+  it('заменяет условные зависимости после повторного render', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreConditionalReader as never)
     const store = Nova.createStore(new TestStore(), { app, scope: 'conditional-test' })
@@ -270,7 +270,7 @@ describe('nova store decorators', () => {
     expect(node.renderCount).toBe(3)
   })
 
-  it('isolates identical paths by store scope', () => {
+  it('изолирует одинаковые пути по scope Store', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreReader as never)
     const firstStore = Nova.createStore(new TestStore(), { app, scope: 'scope-a' })
@@ -298,7 +298,7 @@ describe('nova store decorators', () => {
     expect(secondNode.renderCount).toBe(1)
   })
 
-  it('disposes automatic store observers with the node', () => {
+  it('освобождает автоматические observers Store вместе с узлом', () => {
     const app = createTestApp()
     Nova.registerComponents(app.schema, StoreReader as never)
     const store = Nova.createStore(new TestStore(), { app, scope: 'dispose-test' })

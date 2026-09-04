@@ -267,7 +267,7 @@ class ThemeAwareNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('novaApp', () => {
+describe('приложение Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     Nova.__resetGlobalThemesForTests()
@@ -275,7 +275,7 @@ describe('novaApp', () => {
     installCanvasMocks()
   })
 
-  it('creates an app from an external canvas target and keeps that canvas on destroy', () => {
+  it('создаёт приложение на внешнем canvas и сохраняет этот canvas при destroy', () => {
     const canvas = createCanvas()
     const app = Nova.createApp<TestEvents>({
       target: canvas,
@@ -296,7 +296,7 @@ describe('novaApp', () => {
     expect(canvas.height).toBe(320)
   })
 
-  it('keeps diagnostics collectors disabled by default', () => {
+  it('оставляет сборщики диагностики отключёнными по умолчанию', () => {
     const raf = vi.fn(() => 1)
     vi.stubGlobal('requestAnimationFrame', raf)
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
@@ -311,7 +311,7 @@ describe('novaApp', () => {
     vi.unstubAllGlobals()
   })
 
-  it('collects diagnostics snapshots when enabled', () => {
+  it('собирает snapshots диагностики после включения', () => {
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
 
@@ -338,7 +338,7 @@ describe('novaApp', () => {
     vi.unstubAllGlobals()
   })
 
-  it('continues idle text raster only for unresolved visible text', () => {
+  it('продолжает фоновую растеризацию текста только для неразрешённого видимого текста', () => {
     const app = createApp()
     const surface = app.createSurface('text-raster')
     const shouldContinue = (metrics: Record<string, number>) => {
@@ -354,7 +354,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('reads browser diagnostics with unavailable fallbacks', async () => {
+  it('читает диагностику браузера с fallback для недоступных значений', async () => {
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
     Object.defineProperty(performance, 'memory', {
@@ -386,7 +386,7 @@ describe('novaApp', () => {
     vi.unstubAllGlobals()
   })
 
-  it('toggles diagnostics options without recreating the app', () => {
+  it('переключает параметры диагностики без пересоздания приложения', () => {
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 1))
     vi.stubGlobal('cancelAnimationFrame', vi.fn())
 
@@ -404,7 +404,7 @@ describe('novaApp', () => {
     vi.unstubAllGlobals()
   })
 
-  it('resizes logical and pixel sizes with maxDpr guard', () => {
+  it('изменяет логический и пиксельный размеры с ограничением maxDpr', () => {
     const app = createApp({ width: 100, height: 80 })
 
     app.resize({ width: 200, height: 120, dpr: 3, maxDpr: 1.5 })
@@ -418,7 +418,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('handles global keyboard events without canvas focus', () => {
+  it('обрабатывает глобальные события клавиатуры без фокуса canvas', () => {
     const app = createApp({ keyboardScope: 'global' })
     const node = createInteractiveNode(app)
     const onKeyDown = vi.fn((event: KeyboardEvent) => {
@@ -438,7 +438,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('does not prevent browser shortcuts when no keyboard handler processes the event', () => {
+  it('не блокирует сочетания клавиш браузера, если событие не обработано ни одним keyboard handler', () => {
     const app = createApp({ keyboardScope: 'global' })
     createInteractiveNode(app)
 
@@ -454,7 +454,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('does not prevent browser shortcuts when a keyboard handler ignores the event', () => {
+  it('не блокирует сочетания клавиш браузера, если keyboard handler игнорирует событие', () => {
     const app = createApp({ keyboardScope: 'global' })
     const node = createInteractiveNode(app)
     const onKeyDown = vi.fn()
@@ -473,7 +473,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('does not prevent page wheel scroll when the hit node has no wheel handler', () => {
+  it('не блокирует прокрутку страницы, если найденный узел не имеет wheel handler', () => {
     const app = createApp()
     createInteractiveNode(app)
 
@@ -491,7 +491,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('prevents page wheel scroll when Nova handles wheel on the hit node', () => {
+  it('блокирует прокрутку страницы, когда Nova обрабатывает wheel на найденном узле', () => {
     const app = createApp()
     const node = createInteractiveNode(app)
     const onWheel = vi.fn()
@@ -512,7 +512,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('routes canvas lifecycle events only through nodes that subscribe to them', () => {
+  it('маршрутизирует события lifecycle canvas только через подписанные на них узлы', () => {
     const app = createApp()
     const canvasNode = createInteractiveNode(app)
     const moveNode = createInteractiveNode(app)
@@ -542,7 +542,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('keeps active keyboard scope silent until the canvas receives pointer activity', () => {
+  it('не активирует keyboard scope, пока canvas не получит pointer-событие', () => {
     const app = createApp({ keyboardScope: 'active' })
     const node = createInteractiveNode(app)
     const onKeyDown = vi.fn()
@@ -558,7 +558,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('focuses canvas on pointer input for focused keyboard scope', () => {
+  it('фокусирует canvas при pointer input для сфокусированного keyboard scope', () => {
     const app = createApp({ keyboardScope: 'focused' })
     const node = createInteractiveNode(app)
     const onKeyDown = vi.fn()
@@ -576,7 +576,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('updates node interactive flag and allows zIndex zero', () => {
+  it('обновляет флаг интерактивности узла и разрешает нулевой zIndex', () => {
     const app = createApp()
     const surface: NovaSurface<TestEvents> = app.createSurface('test-surface')
     const node = surface.createNode()
@@ -593,7 +593,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('exposes renderer config and node renderPolicy defaults with overrides', () => {
+  it('предоставляет config renderer и стандартные renderPolicy узла с переопределениями', () => {
     const app = createApp()
     const surface = app.createSurface('policy-surface')
     const node = surface.createNode()
@@ -632,7 +632,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('creates a logical surface without exposing a backend renderer', () => {
+  it('создаёт логическую поверхность без публикации backend renderer', () => {
     const app = createApp()
     const surface = app.createSurface('logical')
 
@@ -642,7 +642,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('removes a logical surface from the app graph', () => {
+  it('удаляет логическую поверхность из графа приложения', () => {
     const app = createApp()
     const surface = app.createSurface('removable')
 
@@ -656,7 +656,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('stores active theme in Raph kernel and resolves tokens through Nova theme service', () => {
+  it('хранит активную тему в ядре Raph и разрешает tokens через сервис тем Nova', () => {
     const app = createApp()
 
     app.theme.registerMany([
@@ -693,7 +693,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('initializes active theme from create options without an intermediate version bump', () => {
+  it('инициализирует активную тему из параметров создания без промежуточного повышения версии', () => {
     const app = Nova.createApp<TestEvents>({
       target: createCanvas(),
       size: { width: 300, height: 160, dpr: 1 },
@@ -724,7 +724,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('guards unregistered themes and supports fallbacks for missing tokens', () => {
+  it('защищает от незарегистрированных тем и поддерживает fallback для отсутствующих tokens', () => {
     const app = createApp()
 
     app.theme.register({
@@ -741,7 +741,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('bumps theme version when the active theme tokens are re-registered', () => {
+  it('повышает версию темы при повторной регистрации tokens активной темы', () => {
     const app = createApp()
 
     app.theme.register({
@@ -766,7 +766,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('delivers shared theme changes to subscribed Nova runtime lanes through Raph', () => {
+  it('доставляет изменения общей темы подписанным runtime lanes Nova через Raph', () => {
     const kernel = new RaphKernel()
     const first = createApp({ kernel })
     const second = createApp({ kernel })
@@ -800,7 +800,7 @@ describe('novaApp', () => {
     second.destroy()
   })
 
-  it('registers imported NovaCSS themes globally and switches live apps', () => {
+  it('глобально регистрирует импортированные темы NovaCSS и переключает работающие приложения', () => {
     Nova.import({
       themes: [
         {
@@ -828,7 +828,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('keeps local app theme active when global theme changes', () => {
+  it('сохраняет локальную тему приложения активной при изменении глобальной темы', () => {
     Nova.import({
       themes: [
         {
@@ -865,7 +865,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('does not inherit global theme when app disables global inheritance', () => {
+  it('не наследует глобальную тему, когда приложение отключает глобальное наследование', () => {
     Nova.import({
       themes: [
         {
@@ -894,7 +894,7 @@ describe('novaApp', () => {
     app.destroy()
   })
 
-  it('resolves global theme selector tokens for TimelineChart target identity', () => {
+  it('разрешает tokens селектора глобальной темы для identity цели TimelineChart', () => {
     Nova.import({
       themes: [
         {

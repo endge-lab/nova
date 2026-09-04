@@ -56,8 +56,8 @@ function createCanvasStub(context: CanvasRenderingContext2D): NovaCanvas {
   } as unknown as NovaCanvas
 }
 
-describe('novaRenderer2D', () => {
-  it('clears the real pixel buffer without inheriting the previous transform', () => {
+describe('двумерный renderer Nova', () => {
+  it('очищает реальный пиксельный buffer без наследования предыдущего transform', () => {
     const context = createContextSpy()
     const renderer = new NovaRenderer2D(createCanvasStub(context))
 
@@ -70,7 +70,7 @@ describe('novaRenderer2D', () => {
     ])
   })
 
-  it('draws asset-backed rect fills and icons through the drawable registry', () => {
+  it('рисует заливки прямоугольников и иконки на основе assets через реестр drawable', () => {
     const context = createContextSpy()
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context)
     const registry = new NovaAssetRegistry()
@@ -114,7 +114,7 @@ describe('novaRenderer2D', () => {
     getContext.mockRestore()
   })
 
-  it('draws nine-slice images as nine source regions', () => {
+  it('рисует nine-slice изображения как девять областей Source', () => {
     const context = createContextSpy()
     const registry = new NovaAssetRegistry()
     const canvasAsset = document.createElement('canvas')

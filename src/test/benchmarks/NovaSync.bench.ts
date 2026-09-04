@@ -25,7 +25,7 @@ function createPort(value = 0) {
   }
 }
 
-describe('novaSync benchmarks', () => {
+describe('бенчмарки NovaSync', () => {
   bench('1k one-to-one links immediate', () => {
     const scope = new NovaSyncScope()
     const nodes = Array.from({ length: 1000 }, (_, index) => {

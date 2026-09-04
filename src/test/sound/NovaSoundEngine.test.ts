@@ -12,7 +12,7 @@ const CLICK_SOUND = {
   maxInstances: 2,
 }
 
-describe('novaSoundEngine', () => {
+describe('звуковой движок Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.useRealTimers()
@@ -20,7 +20,7 @@ describe('novaSoundEngine', () => {
     installCanvasMocks()
   })
 
-  it('loads descriptors once and resolves source by format preference', async () => {
+  it('однократно загружает descriptors и разрешает Source по приоритету форматов', async () => {
     const app = createTestApp({ sound: { formats: ['ogg', 'mp3'] } })
 
     await app.sound.load(CLICK_SOUND)
@@ -33,7 +33,7 @@ describe('novaSoundEngine', () => {
     app.destroy()
   })
 
-  it('plays noop handles and applies cooldown skips', async () => {
+  it('воспроизводит noop handles и применяет пропуски cooldown', async () => {
     vi.useFakeTimers()
     const app = createTestApp()
     await app.sound.load(CLICK_SOUND)
@@ -53,7 +53,7 @@ describe('novaSoundEngine', () => {
     app.destroy()
   })
 
-  it('enforces voice pool and stop variants', async () => {
+  it('обеспечивает ограничения пула голосов и варианты остановки', async () => {
     vi.useFakeTimers()
     const app = createTestApp({ sound: { maxVoices: 1 } })
     await app.sound.load([
@@ -74,7 +74,7 @@ describe('novaSoundEngine', () => {
     app.destroy()
   })
 
-  it('stops scoped and node-scoped handles on cleanup', async () => {
+  it('останавливает handles scope и узла при очистке', async () => {
     vi.useFakeTimers()
     const app = createTestApp()
     await app.sound.load({ id: 'loop', src: 'loop.ogg', loop: true })
@@ -95,7 +95,7 @@ describe('novaSoundEngine', () => {
     app.destroy()
   })
 
-  it('unlocks from first pointer input and dispatches node sound after hit-test click', async () => {
+  it('разблокируется при первом pointer input и отправляет звук узла после клика hit-test', async () => {
     vi.useFakeTimers()
     const app = createPointerApp()
     await app.sound.load({ id: 'ui.click', src: 'click.ogg' })

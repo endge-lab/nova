@@ -44,14 +44,14 @@ function createSceneChildDescriptor(): NovaComponentDescriptor<SceneChildProps, 
   return descriptor
 }
 
-describe('nova scene DSL components', () => {
+describe('проверка DSL-компоненты сцен Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('activates one Scene and keeps inactive cached scenes in memory', () => {
+  it('активирует одну Scene и хранит неактивные закешированные сцены в памяти', () => {
     const app = createTestApp()
     app.schema.register(createSceneChildDescriptor())
     const surface = app.createSurface('scene-dsl')
@@ -100,7 +100,7 @@ describe('nova scene DSL components', () => {
     app.destroy()
   })
 
-  it('destroys cached Scene roots when the manager node is removed', () => {
+  it('уничтожает закешированные корни Scene при удалении узла-менеджера', () => {
     const app = createTestApp()
     app.schema.register(createSceneChildDescriptor())
     const surface = app.createSurface('scene-dsl-cleanup')

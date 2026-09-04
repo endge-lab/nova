@@ -19,7 +19,7 @@ function createApi(): CounterApi {
   }
 }
 
-describe('nova proxy ref benchmarks', () => {
+describe('бенчмарки proxy ref Nova', () => {
   bench('direct API method call', () => {
     const api = createApi()
     for (let index = 0; index < 10_000; index += 1) {

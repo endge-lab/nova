@@ -11,7 +11,7 @@ const benchOptions = {
 
 installAssetBenchCanvasMocks()
 
-describe('nova assets benchmarks', () => {
+describe('бенчмарки assets Nova', () => {
   for (const size of [256, 512, 1024]) {
     bench(`materialize procedural fills / ${size}px`, () => {
       const registry = new NovaAssetRegistry()

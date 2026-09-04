@@ -35,14 +35,14 @@ class ThemePerfNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('nova theme runtime performance', () => {
+describe('производительность runtime тем Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('resolves active theme tokens inside a hot-path budget', () => {
+  it('разрешает tokens активной темы в рамках бюджета hot path', () => {
     const app = createTestApp<TestEvents>()
     const tokenCount = 128
     const readCount = 50_000
@@ -70,7 +70,7 @@ describe('nova theme runtime performance', () => {
     app.destroy()
   })
 
-  it('delivers one theme switch to many subscribed nodes inside a mock frame budget', () => {
+  it('доставляет одно переключение темы множеству подписанных узлов в рамках бюджета mock-кадра', () => {
     const app = createTestApp<TestEvents>()
     app.theme.registerMany([
       {

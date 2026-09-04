@@ -77,7 +77,7 @@ const DECORATOR_NODE_COUNT = 250
 const DECORATOR_COMMAND_COUNT = 10_000
 const DECORATOR_BENCH_OPTIONS = { time: 100, warmupTime: 10 }
 
-describe('nova component decorators benchmarks', () => {
+describe('бенчмарки декораторов компонентов Nova', () => {
   const dirtyApp = createBenchApp()
   const dirtySurface = dirtyApp.createSurface('bench-dirty')
   const dirtyNodes = Array.from({ length: DECORATOR_NODE_COUNT }, (_item, index) => dirtyApp.schema.createNode(dirtySurface, {

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { isNovaAssetRef, Nova, NovaAssetRegistry } from '@/index'
 
-describe('nova assets registry', () => {
-  it('creates deterministic refs for scoped assets', () => {
+describe('реестр assets Nova', () => {
+  it('создаёт детерминированные refs для assets в scope', () => {
     const bundle = Nova.assets.define('test-assets', {
       icons: {
         warning: Nova.assets.canvas(document.createElement('canvas')),
@@ -27,7 +27,7 @@ describe('nova assets registry', () => {
     expect(fontBundle.fonts.inter.id).toBe('font-assets/fonts/inter')
   })
 
-  it('resolves child scope before global parent', () => {
+  it('разрешает дочерний scope раньше глобального родителя', () => {
     const parentCanvas = document.createElement('canvas')
     const childCanvas = document.createElement('canvas')
     const globalBundle = Nova.assets.define('scope-test', {
@@ -50,7 +50,7 @@ describe('nova assets registry', () => {
     expect(child.resolveDrawable(childBundle.icons.same)).toBe(childCanvas)
   })
 
-  it('keeps shared scoped assets until the last unuse', () => {
+  it('сохраняет общие assets scope до последнего unuse', () => {
     const canvas = document.createElement('canvas')
     const bundle = Nova.assets.define('shared-scope-test', {
       icons: {
@@ -70,7 +70,7 @@ describe('nova assets registry', () => {
     expect(registry.resolveDrawable(bundle.icons.same)).toBeUndefined()
   })
 
-  it('materializes stripe fills synchronously', () => {
+  it('синхронно материализует полосатые заливки', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
@@ -98,7 +98,7 @@ describe('nova assets registry', () => {
     getContext.mockRestore()
   })
 
-  it('materializes linear gradient fills synchronously', () => {
+  it('синхронно материализует линейные градиентные заливки', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)
     const addColorStop = vi.fn()
@@ -127,7 +127,7 @@ describe('nova assets registry', () => {
     getContext.mockRestore()
   })
 
-  it('materializes v2 procedural fills synchronously with fill modes', () => {
+  it('синхронно материализует процедурные заливки v2 с режимами заполнения', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)
     const canvas = document.createElement('canvas')
@@ -180,7 +180,7 @@ describe('nova assets registry', () => {
     getContext.mockRestore()
   })
 
-  it('returns an SVG canvas before async image materialization completes', () => {
+  it('возвращает SVG canvas до завершения асинхронной материализации изображения', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
@@ -213,7 +213,7 @@ describe('nova assets registry', () => {
     restoreUrlObjectMethods(previousCreateObjectURL, previousRevokeObjectURL)
   })
 
-  it('uses auto DPR for SVG canvas materialization and caps it at 2', () => {
+  it('использует автоматический DPR для материализации SVG canvas и ограничивает его значением 2', () => {
     const previousDpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio')
     Object.defineProperty(window, 'devicePixelRatio', { value: 3, configurable: true })
     const onUpdate = vi.fn()
@@ -248,7 +248,7 @@ describe('nova assets registry', () => {
     restoreWindowDevicePixelRatio(previousDpr)
   })
 
-  it('allows explicit SVG pixel ratio override', () => {
+  it('разрешает явное переопределение pixel ratio SVG', () => {
     const previousDpr = Object.getOwnPropertyDescriptor(window, 'devicePixelRatio')
     Object.defineProperty(window, 'devicePixelRatio', { value: 2, configurable: true })
     const registry = new NovaAssetRegistry()
@@ -282,7 +282,7 @@ describe('nova assets registry', () => {
     restoreWindowDevicePixelRatio(previousDpr)
   })
 
-  it('bumps drawable key when an async SVG asset becomes ready', () => {
+  it('повышает ключ drawable, когда асинхронный SVG asset готов', () => {
     const onUpdate = vi.fn()
     const registry = new NovaAssetRegistry(undefined, onUpdate)
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
@@ -336,7 +336,7 @@ describe('nova assets registry', () => {
     restoreUrlObjectMethods(previousCreateObjectURL, previousRevokeObjectURL)
   })
 
-  it('loads and removes font assets through document fonts', async () => {
+  it('загружает и удаляет assets шрифтов через document.fonts', async () => {
     const onUpdate = vi.fn()
     const load = vi.fn()
     const add = vi.fn()

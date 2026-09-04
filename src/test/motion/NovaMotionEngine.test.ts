@@ -38,7 +38,7 @@ class CounterNode extends NovaComponentNode<CounterProps, unknown, Record<string
     super(app, surface, COUNTER_DESCRIPTOR, { value: 0, color: '#000000' })
   }
 }
-describe('novaMotionEngine', () => {
+describe('движок NovaMotion', () => {
   let app: NovaApp<TestEvents>
 
   beforeEach(() => {
@@ -56,7 +56,7 @@ describe('novaMotionEngine', () => {
     document.body.innerHTML = ''
   })
 
-  it('applies tween number values at deterministic frame times', () => {
+  it('применяет числовые значения tween в детерминированные моменты кадров', () => {
     const surface = app.createSurface('motion')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })
@@ -70,7 +70,7 @@ describe('novaMotionEngine', () => {
     expect(node.x).toBe(100)
   })
 
-  it('overwrites active target/key segments by default', () => {
+  it('по умолчанию перезаписывает активные сегменты target/key', () => {
     const surface = app.createSurface('motion')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })
@@ -82,7 +82,7 @@ describe('novaMotionEngine', () => {
     expect(node.x).toBe(25)
   })
 
-  it('cancels target animations and stops patching disposed nodes', () => {
+  it('отменяет анимации target и прекращает обновление освобождённых узлов', () => {
     const surface = app.createSurface('motion')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })
@@ -94,7 +94,7 @@ describe('novaMotionEngine', () => {
     expect(node.x).toBe(0)
   })
 
-  it('applies component patches through setProps', () => {
+  it('применяет изменения компонента через setProps', () => {
     const surface = app.createSurface('motion')
     const node = surface.createNode(CounterNode)
 

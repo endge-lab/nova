@@ -8,7 +8,7 @@ import {
   splitGraphemes,
 } from '@/index'
 
-describe('nova input core benchmarks', () => {
+describe('бенчмарки ядра input Nova', () => {
   bench('10k random single-line edits', () => {
     const controller = new NovaTextInputController({ value: '' })
     for (let index = 0; index < 10_000; index += 1) {

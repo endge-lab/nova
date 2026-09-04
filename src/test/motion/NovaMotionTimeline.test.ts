@@ -4,7 +4,7 @@ import { Nova, RaphSchedulerType, RendererType } from '@/index'
 
 type TestEvents = Record<string, any>
 
-describe('novaMotionTimeline', () => {
+describe('временная шкала NovaMotion', () => {
   let app: NovaApp<TestEvents>
 
   beforeEach(() => {
@@ -22,7 +22,7 @@ describe('novaMotionTimeline', () => {
     document.body.innerHTML = ''
   })
 
-  it('compiles keyframes and stagger segments deterministically', () => {
+  it('детерминированно компилирует keyframes и stagger-сегменты', () => {
     const surface = app.createSurface('timeline')
     const first = surface.createNode()
     const second = surface.createNode()
@@ -53,7 +53,7 @@ describe('novaMotionTimeline', () => {
     expect(second.opacity).toBe(0.5)
   })
 
-  it('supports repeat and yoyo cycles', () => {
+  it('поддерживает циклы repeat и yoyo', () => {
     const surface = app.createSurface('timeline')
     const node = surface.createNode()
     node.options({ x: 0, y: 0, width: 10, height: 10 })

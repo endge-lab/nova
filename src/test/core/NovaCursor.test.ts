@@ -205,7 +205,7 @@ function createRuntimeState(patch: Partial<NovaCursorRuntimeState<TestEvents>> =
   }
 }
 
-describe('nova cursor system', () => {
+describe('система курсоров Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
@@ -213,7 +213,7 @@ describe('nova cursor system', () => {
     installCanvasMocks()
   })
 
-  it('resolves native/url/component state maps by priority', () => {
+  it('разрешает maps состояний native/url/component по приоритету', () => {
     const declaration = {
       default: 'default',
       hover: 'pointer',
@@ -228,7 +228,7 @@ describe('nova cursor system', () => {
     expect(resolveNovaCursorValue(declaration, createRuntimeState({ disabled: true, dragging: true }))).toBe('not-allowed')
   })
 
-  it('resolves cursor rules with state and cursorContext values', () => {
+  it('разрешает правила курсора со значениями state и cursorContext', () => {
     const declaration = [
       { when: { state: 'dragging', axis: 'x' }, use: { type: 'component', component: 'test.cursor', props: { active: true } } },
       { when: { state: 'hover', axis: 'x' }, use: 'ew-resize' },
@@ -244,7 +244,7 @@ describe('nova cursor system', () => {
     expect(resolveNovaCursorValue(declaration, createRuntimeState({ context: { axis: 'y' } }))).toBe('pointer')
   })
 
-  it('applies native and url cursors from node declarations and root fallback', () => {
+  it('применяет native- и URL-курсоры из объявлений узла и fallback корня', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')
     const root = surface.createNode(CursorBoxNode)
@@ -269,7 +269,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('keeps cursor-only nodes out of pointer event dispatch', () => {
+  it('не включает узлы только для курсора в отправку pointer-событий', () => {
     const app = createApp(true)
     const surface = app.createSurface('cursor')
     const interactive = surface.createNode(CursorBoxNode)
@@ -288,7 +288,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('respects shape-level hit-test for cursor source resolution', () => {
+  it('учитывает hit-test уровня формы при разрешении источника курсора', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')
     const bottom = surface.createNode(CursorBoxNode)
@@ -316,7 +316,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('reapplies hover cursor when an external writer resets the canvas style', () => {
+  it('повторно применяет hover-курсор после сброса стиля canvas внешним writer', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')
     const node = surface.createNode(CursorBoxNode)
@@ -334,7 +334,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('keeps cursor manager value authoritative after render flush cursor commands', () => {
+  it('сохраняет значение менеджера курсора авторитетным после команд курсора при flush render', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')
     const reset = surface.createNode(CursorResetRenderNode)
@@ -355,7 +355,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('keeps previous cursor source while a dirty cursor index temporarily misses it', () => {
+  it('сохраняет предыдущий источник курсора, пока изменённый индекс временно его не находит', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')
     const node = surface.createNode(CursorBoxNode)
@@ -374,7 +374,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('reuses component cursor nodes per effective component signature', () => {
+  it('повторно использует узлы компонентного курсора для каждой эффективной сигнатуры компонента', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')
     app.schema.register(TEST_CURSOR_DESCRIPTOR)
@@ -400,7 +400,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('marks component cursor overlay dirty when pointer leaves component cursor source', () => {
+  it('помечает overlay компонентного курсора изменённым, когда pointer покидает его источник', () => {
     const app = createApp()
     const surface = app.createSurface('cursor')
     app.schema.register(TEST_CURSOR_DESCRIPTOR)
@@ -432,7 +432,7 @@ describe('nova cursor system', () => {
     app.destroy()
   })
 
-  it('resets cursor on canvas leave and destroys cursor overlay state', () => {
+  it('сбрасывает курсор при выходе с canvas и уничтожает состояние overlay курсора', () => {
     const app = createApp(true)
     const surface = app.createSurface('cursor')
     app.schema.register(TEST_CURSOR_DESCRIPTOR)
@@ -458,7 +458,7 @@ describe('nova cursor system', () => {
     expect(app.cursors.cursorNodes.size).toBe(0)
   })
 
-  it('keeps legacy app.cursor native setter compatible', () => {
+  it('сохраняет совместимость legacy-setter app.cursor для native-курсора', () => {
     const app = createApp()
 
     app.cursor('pointer')

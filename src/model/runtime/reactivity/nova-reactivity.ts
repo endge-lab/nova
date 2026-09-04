@@ -38,12 +38,12 @@ class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
   private _subscribers = new Set<NovaReactiveSubscriber>()
 
   /**
-   * Creates a mutable signal.
+   * Создаёт изменяемый signal.
    */
   constructor(private _currentValue: T) {}
 
   /**
-   * Reads the signal value and registers a dependency when tracking is active.
+   * Читает значение signal и регистрирует зависимость при активном отслеживании.
    */
   get value(): T {
     registerDependency(this)
@@ -51,7 +51,7 @@ class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
   }
 
   /**
-   * Updates the signal and invalidates dependent Nova nodes/computeds.
+   * Обновляет signal и инвалидирует зависимые узлы и computed Nova.
    */
   set value(nextValue: T) {
     if (Object.is(this._currentValue, nextValue)) {
@@ -62,21 +62,21 @@ class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
   }
 
   /**
-   * Adds a dependent node/computed.
+   * Добавляет зависимый узел или computed.
    */
   addSubscriber(subscriber: NovaReactiveSubscriber): void {
     this._subscribers.add(subscriber)
   }
 
   /**
-   * Removes a dependent node/computed.
+   * Удаляет зависимый узел или computed.
    */
   removeSubscriber(subscriber: NovaReactiveSubscriber): void {
     this._subscribers.delete(subscriber)
   }
 
   /**
-   * Invalidates all dependents.
+   * Инвалидирует все зависимости.
    */
   protected notify(): void {
     for (const subscriber of [...this._subscribers]) {
@@ -86,7 +86,7 @@ class NovaSignalImpl<T> implements NovaSignal<T>, NovaReactiveSource {
 }
 
 /**
- * Creates a mutable Nova signal.
+ * Создаёт изменяемый signal Nova.
  */
 export function createNovaSignal<T>(initialValue: T): NovaSignal<T> {
   return new NovaSignalImpl(initialValue)
@@ -99,12 +99,12 @@ class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
   private _currentValue!: T
 
   /**
-   * Creates a lazy computed signal.
+   * Создаёт ленивый computed-signal.
    */
   constructor(private readonly _compute: () => T) {}
 
   /**
-   * Reads the computed value and registers it as a dependency.
+   * Читает computed-значение и регистрирует его как зависимость.
    */
   get value(): T {
     registerDependency(this)
@@ -115,28 +115,28 @@ class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
   }
 
   /**
-   * Adds a dependent node/computed.
+   * Добавляет зависимый узел или computed.
    */
   addSubscriber(subscriber: NovaReactiveSubscriber): void {
     this._subscribers.add(subscriber)
   }
 
   /**
-   * Removes a dependent node/computed.
+   * Удаляет зависимый узел или computed.
    */
   removeSubscriber(subscriber: NovaReactiveSubscriber): void {
     this._subscribers.delete(subscriber)
   }
 
   /**
-   * Records a source read while this computed is being evaluated.
+   * Записывает чтение source во время вычисления этого computed.
    */
   addDependency(source: NovaReactiveSource): void {
     this._dependencies.add(source)
   }
 
   /**
-   * Marks this computed as dirty and invalidates downstream dependents.
+   * Помечает computed как dirty и инвалидирует нижележащие зависимости.
    */
   markDirty(): void {
     if (this._dirty) {
@@ -169,14 +169,14 @@ class NovaComputedImpl<T> implements NovaComputed<T>, NovaComputedSubscriber {
 }
 
 /**
- * Creates a lazy Nova computed signal.
+ * Создаёт ленивый computed-signal Nova.
  */
 export function createNovaComputed<T>(compute: () => T): NovaComputed<T> {
   return new NovaComputedImpl(compute)
 }
 
 /**
- * Tracks signal reads performed by a NovaNode update/template pass.
+ * Отслеживает чтения signal во время прохода update или template NovaNode.
  */
 export function trackNovaNode<T>(node: NovaNode<any>, callback: () => T, options: NovaTrackNodeOptions = {}): T {
   if (options.mode !== 'append') {

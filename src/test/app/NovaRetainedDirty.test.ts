@@ -27,14 +27,14 @@ class RetainedAuditNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('nova retained dirty lifecycle', () => {
+describe('жизненный цикл retained dirty в Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('promotes retained dirty to full compile when a node has no retained handles yet', () => {
+  it('повышает retained dirty до полной компиляции, если у узла ещё нет retained handles', () => {
     const app = createTestApp<TestEvents>()
     const surface = app.createSurface('late-retained')
     const node = surface.createNode(RetainedAuditNode)
@@ -52,7 +52,7 @@ describe('nova retained dirty lifecycle', () => {
     expect(surface.renderMetrics?.nodeRenderCalls).toBeGreaterThan(0)
   })
 
-  it('keeps layout-unready nodes out of render frames until layout is resolved', () => {
+  it('не включает узлы с неготовым layout в кадры render до разрешения layout', () => {
     const app = createTestApp<TestEvents>()
     const surface = app.createSurface('layout-ready')
     const node = surface.createNode(RetainedAuditNode)

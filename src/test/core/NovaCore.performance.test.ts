@@ -279,14 +279,14 @@ function waitFrame(): Promise<void> {
   return new Promise(resolve => requestAnimationFrame(() => resolve()))
 }
 
-describe('nova core behavior and performance smoke', () => {
+describe('проверка Smoke-проверка поведения и производительности ядра Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('renders direct surface children by zIndex while keeping zIndex as weight', () => {
+  it('отрисовывает прямых детей поверхности по zIndex, сохраняя zIndex как вес', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -307,7 +307,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps direct surface child insertion order when zIndex values are equal', () => {
+  it('сохраняет порядок добавления прямых детей поверхности при одинаковом zIndex', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -325,7 +325,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('flushes surfaces by zIndex while keeping zIndex as weight', () => {
+  it('выводит поверхности по zIndex, сохраняя zIndex как вес', () => {
     const log = createAuditLog()
     const app = createApp()
 
@@ -340,7 +340,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('clears the app-owned root canvas without per-surface compositing', () => {
+  it('очищает принадлежащий приложению корневой canvas без композитинга каждой поверхности', () => {
     const log = createAuditLog()
     const app = createApp({ width: 100, height: 80 })
     app.createSurface('scene', AuditSurface, log)
@@ -356,7 +356,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps surface insertion order when zIndex values are equal', () => {
+  it('сохраняет порядок добавления поверхностей при одинаковом zIndex', () => {
     const log = createAuditLog()
     const app = createApp()
 
@@ -372,7 +372,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('renders nested descendants during surface-level redraw', () => {
+  it('отрисовывает вложенных потомков при перерисовке уровня поверхности', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -392,7 +392,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('marks the whole surface for redraw when one direct child becomes render-dirty', () => {
+  it('помечает всю поверхность для перерисовки, когда прямой дочерний узел получает render-dirty', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -412,7 +412,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('computes active from local active and restores inherited active when parent is reactivated', () => {
+  it('вычисляет active из локального active и восстанавливает наследуемое значение при повторной активации родителя', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -445,7 +445,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps visible render-only and active update-only for node lifecycle', () => {
+  it('сохраняет visible только для render, а active только для update в lifecycle узла', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -471,7 +471,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('computes visible from local visible and inherited parent visibility', () => {
+  it('вычисляет visible из локального значения и унаследованной видимости родителя', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -509,7 +509,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('uses NovaContainer API to add, remove, clear and bulk-toggle children', () => {
+  it('использует API NovaContainer для добавления, удаления, очистки и массового переключения детей', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -549,7 +549,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('calculates local, world and container bounds', () => {
+  it('вычисляет локальные, мировые границы и границы контейнера', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -568,7 +568,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('calculates exact render bounds from schema items', () => {
+  it('вычисляет точные границы render по элементам схемы', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -594,7 +594,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('uses transform hierarchy for hit testing and coordinate conversion', () => {
+  it('использует иерархию transform для hit-test и преобразования координат', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -613,7 +613,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('refines bounds hit-test with custom shape handlers', () => {
+  it('уточняет hit-test границ пользовательскими handlers формы', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -653,7 +653,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('culls nodes outside surface bounds when bounds culling is enabled', () => {
+  it('отсекает узлы за границами поверхности при включённом bounds culling', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -673,7 +673,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps a culling root renderable when it exposes viewport bounds before children exist', () => {
+  it('сохраняет возможность render корня отсечения, если он предоставляет границы viewport до появления детей', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -716,7 +716,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('culls an empty container before it can create children without explicit render bounds', () => {
+  it('отсекает пустой контейнер до создания детей без явных границ render', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -748,7 +748,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('returns the visual top node during overlapping hit-test', () => {
+  it('возвращает верхний визуальный узел при пересекающемся hit-test', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -766,7 +766,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('uses render-order stamps for equal z-index direct sibling hit-test', () => {
+  it('использует метки порядка render для hit-test прямых соседей с одинаковым z-index', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -785,7 +785,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('hit-tests a node by custom render bounds when local bounds are only a placeholder', () => {
+  it('выполняет hit-test узла по пользовательским границам render, когда локальные границы служат только placeholder', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -826,7 +826,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('updates spatial index incrementally when one node moves or is removed', () => {
+  it('инкрементально обновляет пространственный индекс при перемещении или удалении одного узла', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -850,7 +850,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('dispatches pointer events through capture, target and bubble phases', () => {
+  it('отправляет pointer-события через фазы capture, target и bubble', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -873,7 +873,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('stops pointer bubbling when target cancels propagation', () => {
+  it('останавливает всплытие pointer-события, когда target отменяет распространение', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -899,7 +899,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('treats return false from pointer handlers as stop propagation', () => {
+  it('считает return false из pointer handlers остановкой распространения', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -925,7 +925,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps automatic pointer capture when handler stops bubbling with return false', async () => {
+  it('сохраняет автоматический pointer capture, когда handler останавливает всплытие через return false', async () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -956,7 +956,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps spatial hit-test target equal to linear hit-test target', () => {
+  it('сохраняет совпадение target пространственного и линейного hit-test', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -989,7 +989,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps spatial indexes in sync across reparent, visibility and transform changes', () => {
+  it('синхронизирует пространственные индексы при смене родителя, видимости и transform', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1024,7 +1024,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('unregisters interactive nodes when handlers are removed', () => {
+  it('снимает регистрацию интерактивных узлов при удалении handlers', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1040,7 +1040,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('publishes the supported native event contract without pointer-event aliases', () => {
+  it('публикует поддерживаемый контракт нативных событий без aliases pointer-событий', () => {
     expect(NovaSupportedNativeEvents).toEqual(expect.arrayContaining([
       'click',
       'dblclick',
@@ -1068,7 +1068,7 @@ describe('nova core behavior and performance smoke', () => {
     expect(NovaSupportedNativeEvents).not.toContain('pointermove')
   })
 
-  it('redraws 500 direct children inside a mock frame budget', () => {
+  it('перерисовывает 500 прямых детей в рамках бюджета mock-кадра', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1091,7 +1091,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('sorts 1000 z-indexed direct children inside a mock frame budget', () => {
+  it('сортирует 1000 прямых детей по z-index в рамках бюджета mock-кадра', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1122,7 +1122,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('renders a 1000-node nested chain recursively inside a mock frame budget', () => {
+  it('рекурсивно отрисовывает вложенную цепочку из 1000 узлов в рамках бюджета mock-кадра', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1152,7 +1152,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('sorts 500 z-indexed surfaces during flush inside a mock frame budget', () => {
+  it('сортирует 500 поверхностей по z-index при flush в рамках бюджета mock-кадра', () => {
     const log = createAuditLog()
     const app = createApp()
 
@@ -1175,7 +1175,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('hit-tests 1000 interactive nodes with the current linear event path', () => {
+  it('выполняет hit-test 1000 интерактивных узлов текущим линейным путём событий', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1208,7 +1208,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('hit-tests 10000 interactive nodes and 5000 clicks inside the spatial event budget', () => {
+  it('выполняет hit-test 10000 интерактивных узлов и 5000 кликов в рамках бюджета пространственных событий', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1250,7 +1250,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('patches 10000 listener handlers without growing interactive node registry', () => {
+  it('обновляет 10000 listener handlers без роста реестра интерактивных узлов', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1274,7 +1274,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('queries 10000 spatial-indexed nodes inside a mock budget', () => {
+  it('запрашивает 10000 узлов пространственного индекса в рамках mock-бюджета', () => {
     const nodes = Array.from({ length: 10_000 }, (_, index) => ({
       active: true,
       visible: true,
@@ -1301,7 +1301,7 @@ describe('nova core behavior and performance smoke', () => {
     expect(queryElapsedMs).toBeLessThan(80)
   })
 
-  it('queries rbush-backed hit index with negative, zero and large bounds', () => {
+  it('запрашивает hit-индекс на основе rbush с отрицательными, нулевыми и большими границами', () => {
     const items = [
       { id: 'negative', bounds: { x: -50, y: -50, width: 40, height: 40 }, active: true },
       { id: 'zero', bounds: { x: 0, y: 0, width: 0, height: 40 }, active: true },
@@ -1335,7 +1335,7 @@ describe('nova core behavior and performance smoke', () => {
     expect(index.queryPoint(120, 120)).toEqual([])
   })
 
-  it('queries spatial-indexed nodes by bounds without duplicates', () => {
+  it('запрашивает узлы пространственного индекса по границам без дубликатов', () => {
     const nodes = Array.from({ length: 4 }, (_, index) => ({
       active: true,
       visible: true,
@@ -1359,7 +1359,7 @@ describe('nova core behavior and performance smoke', () => {
     expect(result).not.toContain(nodes[3])
   })
 
-  it('updates 1000 spatial-indexed nodes incrementally inside a mock budget', () => {
+  it('инкрементально обновляет 1000 узлов пространственного индекса в рамках mock-бюджета', () => {
     const positions = Array.from({ length: 10_000 }, (_, index) => ({
       x: (index % 200) * 12,
       y: Math.floor(index / 200) * 12,
@@ -1389,7 +1389,7 @@ describe('nova core behavior and performance smoke', () => {
     expect(updateElapsedMs).toBeLessThan(80)
   })
 
-  it('keeps rbush hit-test within large and clustered scene budgets', () => {
+  it('удерживает hit-test rbush в рамках бюджетов большой и кластеризованной сцены', () => {
     const items = Array.from({ length: 50_000 }, (_, index) => ({
       id: index,
       active: true,
@@ -1440,7 +1440,7 @@ describe('nova core behavior and performance smoke', () => {
     expect(clusteredElapsedMs).toBeLessThan(800)
   })
 
-  it('culls 1000 offscreen nodes inside a mock frame budget', () => {
+  it('отсекает 1000 заэкранных узлов в рамках бюджета mock-кадра', () => {
     const log = createAuditLog()
     const app = createApp({ width: 320, height: 180 })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1463,7 +1463,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('toggles active for a 1000-node group through propagation inside a mock budget', () => {
+  it('переключает active группы из 1000 узлов через распространение в рамках mock-бюджета', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1486,7 +1486,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('toggles visible for a 1000-node group inside a mock budget', () => {
+  it('переключает visible группы из 1000 узлов в рамках mock-бюджета', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1518,7 +1518,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('adds and clears 1000 container children inside a mock budget', () => {
+  it('добавляет и очищает 1000 дочерних узлов контейнера в рамках mock-бюджета', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1545,7 +1545,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('removes interactive descendants from input state when a group is disposed', () => {
+  it('удаляет интерактивных потомков из состояния input при освобождении группы', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1568,7 +1568,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('runs NovaScene lifecycle hooks and removes roots on unmount', () => {
+  it('запускает lifecycle hooks NovaScene и удаляет корни при unmount', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1618,7 +1618,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('hides and shows a 5000-node container through the parent flag inside a mock budget', () => {
+  it('скрывает и показывает контейнер из 5000 узлов через флаг родителя в рамках mock-бюджета', () => {
     const log = createAuditLog()
     const app = createApp()
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1645,7 +1645,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('switches scenes without accumulating interactive nodes', () => {
+  it('переключает сцены без накопления интерактивных узлов', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1681,7 +1681,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps drag events on the captured node when pointer leaves its bounds', async () => {
+  it('сохраняет drag-события на захваченном узле после выхода pointer за его границы', async () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1710,7 +1710,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('honors disabled automatic pointer capture while keeping manual capture available', () => {
+  it('учитывает отключённый автоматический pointer capture, сохраняя доступность ручного захвата', () => {
     const log = createAuditLog()
     const app = createApp({ input: true, pointerCapture: false })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1735,7 +1735,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps independent pointer captures by pointerId', () => {
+  it('сохраняет независимые pointer captures по pointerId', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1772,7 +1772,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('emits hover enter and leave when the top target changes', async () => {
+  it('отправляет hover enter и leave при изменении верхней target', async () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1796,7 +1796,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('routes keyboard events to the focused node and supports selection state', () => {
+  it('направляет события клавиатуры сфокусированному узлу и поддерживает состояние выбора', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1833,7 +1833,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('keeps selection and focus isolated by explicit scopes', () => {
+  it('изолирует выбор и фокус явными scopes', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)
@@ -1866,7 +1866,7 @@ describe('nova core behavior and performance smoke', () => {
     app.destroy()
   })
 
-  it('processes 1000 captured drag moves inside a mock budget', () => {
+  it('обрабатывает 1000 захваченных перемещений drag в рамках mock-бюджета', () => {
     const log = createAuditLog()
     const app = createApp({ input: true })
     const surface = app.createSurface('scene', AuditSurface, log)

@@ -30,7 +30,7 @@ class PerfMotionNode extends NovaNode<TestEvents> {
   }
 }
 
-describe('novaMotion performance', () => {
+describe('производительность NovaMotion', () => {
   let app: NovaApp<TestEvents>
 
   beforeEach(() => {
@@ -48,7 +48,7 @@ describe('novaMotion performance', () => {
     document.body.innerHTML = ''
   })
 
-  it('ticks 10k transform-only animated rects under a local budget', () => {
+  it('обновляет 10 тысяч анимированных прямоугольников только с transform в рамках локального бюджета', () => {
     const surface = app.createSurface('perf')
     const nodes = Array.from({ length: 10_000 }, (_, index) => {
       const node = surface.createNode()
@@ -75,7 +75,7 @@ describe('novaMotion performance', () => {
     expect(elapsed).toBeLessThan(1_000)
   })
 
-  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('ticks preset %s under a local budget', (name) => {
+  it.each(Object.keys(NOVA_MOTION_PRESETS) as Array<NovaMotionPresetName>)('обновляет preset %s в рамках локального бюджета', (name) => {
     const surface = app.createSurface(`preset-${name}`)
     const nodes = Array.from({ length: 160 }, (_, index) => {
       const node = surface.createNode(PerfMotionNode)
@@ -100,7 +100,7 @@ describe('novaMotion performance', () => {
     expect(elapsed).toBeLessThan(1_000)
   })
 
-  it.each([100, 500, 1000])('ticks all motion patterns with %s targets under a local budget', (count) => {
+  it.each([100, 500, 1000])('обновляет все patterns движения с %s targets в рамках локального бюджета', (count) => {
     for (const name of Object.keys(NOVA_MOTION_PATTERNS) as Array<NovaMotionPatternName>) {
       const surface = app.createSurface(`pattern-${name}-${count}`)
       const columns = Math.max(1, Math.ceil(Math.sqrt(count)))

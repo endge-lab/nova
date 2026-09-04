@@ -57,14 +57,14 @@ function createAuditNode(
   return node
 }
 
-describe('nova Raph runtime bridge', () => {
+describe('проверка Runtime-мост Nova и Raph', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('creates a Nova runtime lane with custom RaphKernel and runtime id', () => {
+  it('создаёт runtime lane Nova с пользовательским RaphKernel и ID runtime', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({
       raph: {
@@ -81,7 +81,7 @@ describe('nova Raph runtime bridge', () => {
     app.destroy()
   })
 
-  it('keeps two Nova runtimes isolated on one kernel', () => {
+  it('изолирует два runtime Nova в одном ядре', () => {
     const kernel = new RaphKernel()
     const firstApp = createTestApp({ raph: { kernel, runtimeId: 'nova-a' } })
     const secondApp = createTestApp({ raph: { kernel, runtimeId: 'nova-b' } })
@@ -102,7 +102,7 @@ describe('nova Raph runtime bridge', () => {
     secondApp.destroy()
   })
 
-  it('uses update phase as default observeData target', () => {
+  it('по умолчанию использует фазу update как цель observeData', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-default-update' } })
     const node = createAuditNode(app, app.createSurface('default-update'))
@@ -117,7 +117,7 @@ describe('nova Raph runtime bridge', () => {
     app.destroy()
   })
 
-  it('allows observeData to target render phase explicitly', () => {
+  it('позволяет observeData явно выбирать фазу render', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-render' } })
     const node = createAuditNode(app, app.createSurface('render'))
@@ -134,7 +134,7 @@ describe('nova Raph runtime bridge', () => {
     app.destroy()
   })
 
-  it('allows observeData to target matrix phase explicitly', () => {
+  it('позволяет observeData явно выбирать фазу matrix', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-matrix' } })
     const node = createAuditNode(app, app.createSurface('matrix'))
@@ -151,7 +151,7 @@ describe('nova Raph runtime bridge', () => {
     app.destroy()
   })
 
-  it('removes observeData subscriptions when node is disposed', () => {
+  it('удаляет подписки observeData при освобождении узла', () => {
     const kernel = new RaphKernel()
     const app = createTestApp({ raph: { kernel, runtimeId: 'nova-cleanup' } })
     const node = createAuditNode(app, app.createSurface('cleanup'))
@@ -167,7 +167,7 @@ describe('nova Raph runtime bridge', () => {
     app.destroy()
   })
 
-  it('keeps local properties on the instant Raph path', () => {
+  it('сохраняет локальные свойства в немедленном пути Raph', () => {
     const app = createTestApp()
     const node = createAuditNode(app, app.createSurface('local-properties'))
 

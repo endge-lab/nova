@@ -41,7 +41,7 @@ function createIndex(items: Array<BenchHitItem>): NovaHitIndex<BenchHitItem> {
   return index
 }
 
-describe('nova hit-test benchmarks', () => {
+describe('бенчмарки hit-test Nova', () => {
   bench('rbush rebuild: 50k interactive nodes', () => {
     createIndex(createItems(50_000))
   }, benchOptions)

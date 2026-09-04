@@ -91,8 +91,8 @@ function createWebGLBackend(metrics: NovaRenderMetrics = createMetrics({ backend
   }
 }
 
-describe('novaRenderOrchestrator', () => {
-  it('re-enters retained compiler for dirty surfaces so transform updates can patch cached frame', () => {
+describe('оркестратор render Nova', () => {
+  it('повторно входит в retained-компилятор для изменённых поверхностей, чтобы обновления transform могли изменить закешированный кадр', () => {
     const compiledFrame = createFrame({ compilerMs: 3, nodeRenderCalls: 2 })
     const backendMetrics = createMetrics({ backendMs: 1, drawMs: 1, drawCalls: 1 })
     const backend: NovaRenderBackend = {
@@ -120,7 +120,7 @@ describe('novaRenderOrchestrator', () => {
     )
   })
 
-  it('recompiles retained frame when surface render frame is dirty', () => {
+  it('повторно компилирует retained-кадр, когда кадр render поверхности изменён', () => {
     const firstFrame = createFrame({ compilerMs: 2, nodeRenderCalls: 1 })
     const secondFrame = createFrame({ compilerMs: 4, nodeRenderCalls: 3 })
     const backend: NovaRenderBackend = {
@@ -143,7 +143,7 @@ describe('novaRenderOrchestrator', () => {
     expect(surface.compileRenderFrame).toHaveBeenCalledTimes(2)
   })
 
-  it('replays cached frame without compiler when surface stayed clean', () => {
+  it('воспроизводит закешированный кадр без компилятора, когда поверхность не изменилась', () => {
     const compiledFrame = createFrame({ compilerMs: 2, nodeRenderCalls: 1 })
     const backend: NovaRenderBackend = {
       clearRoot: vi.fn(),
@@ -163,7 +163,7 @@ describe('novaRenderOrchestrator', () => {
     expect(backend.renderFrame).toHaveBeenCalledTimes(2)
   })
 
-  it('renders WebGL surfaces directly while surface target compositor is disabled', () => {
+  it('напрямую отрисовывает поверхности WebGL при отключённом compositor target поверхности', () => {
     const compiledFrame = createFrame({ compilerMs: 2, nodeRenderCalls: 1 })
     const backend = createWebGLBackend()
     const orchestrator = new NovaRenderOrchestrator(backend)
@@ -182,7 +182,7 @@ describe('novaRenderOrchestrator', () => {
     expect(backend.renderFrame).toHaveBeenNthCalledWith(2, compiledFrame)
   })
 
-  it('renders WebGL controls and world surfaces directly in z-order', () => {
+  it('напрямую отрисовывает элементы управления WebGL и мировые поверхности в z-порядке', () => {
     const worldFrame = createFrame({ compilerMs: 2, nodeRenderCalls: 1 }, 'root:world')
     const controlsFrame = createFrame({ compilerMs: 1, nodeRenderCalls: 1 }, 'root:controls')
     const backend = createWebGLBackend()

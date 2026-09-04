@@ -255,7 +255,7 @@ function expectFastRenderer(name: string, result: RendererMeasure): void {
   expect(result.fps).toBeGreaterThan(MIN_MOCK_FPS)
 }
 
-describe('nova renderer performance smoke tests', () => {
+describe('проверка Smoke-тесты производительности renderer Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((type: string) => {
@@ -266,14 +266,14 @@ describe('nova renderer performance smoke tests', () => {
     })
   })
 
-  it('keeps Canvas2D dense rect rendering within a 60fps mock budget', () => {
+  it('удерживает плотный render прямоугольников Canvas2D в рамках mock-бюджета 60 fps', () => {
     const renderer = new NovaRenderer2D(createCanvasStub(1600, 900, create2DContextStub()))
     const result = measureRenderer(renderer, createRectStressSchema())
 
     expectFastRenderer('canvas2d rect stress', result)
   })
 
-  it('keeps new WebGL compiled frame replay within a mock benchmark budget', () => {
+  it('удерживает воспроизведение нового скомпилированного кадра WebGL в рамках mock-бюджета бенчмарка', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(1600, 900, gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -298,7 +298,7 @@ describe('nova renderer performance smoke tests', () => {
     expect(renderer.diagnostics.lastFrame?.commands.some(command => command.type === 'drawSchemaBatch')).toBe(true)
   })
 
-  it('keeps render state boundary compilation overhead within a mock benchmark budget', () => {
+  it('удерживает накладные расходы компиляции границ состояния render в рамках mock-бюджета бенчмарка', () => {
     const canvas = createCanvasStub(1600, 900, create2DContextStub())
     const frameBuilder = new NovaRenderFrameBuilder('state-boundary-perf', {
       x: 0,
@@ -335,7 +335,7 @@ describe('nova renderer performance smoke tests', () => {
     expect(elapsedMs).toBeLessThan(400)
   })
 
-  it('keeps TextRunAtlas static and partial-change workloads within a mock budget', () => {
+  it('удерживает статическую нагрузку TextRunAtlas и нагрузку частичных изменений в рамках mock-бюджета', () => {
     const atlas = new NovaTextAtlasManager(resolveNovaRendererConfig().text)
     const labels = Array.from({ length: 1000 }, (_, index) => ({
       type: 'text' as const,

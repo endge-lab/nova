@@ -140,8 +140,8 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('nova component decorators', () => {
-  it('generates descriptor metadata, defaults and size bounds', () => {
+describe('декораторы компонентов Nova', () => {
+  it('создаёт метаданные descriptor, значения по умолчанию и границы размера', () => {
     const { app, descriptor } = createDecoratedFixture()
 
     expect(descriptor.fields).toMatchObject({
@@ -160,7 +160,7 @@ describe('nova component decorators', () => {
     })).toEqual({ x: 0, y: 0, width: 240, height: 80 })
   })
 
-  it('uses static normalizeProps and attaches children for decorated node components', () => {
+  it('использует статический normalizeProps и присоединяет дочерние узлы декорированных компонентов', () => {
     const app = createTestApp()
     const surface = app.createSurface('decorated-container')
     Nova.registerComponents(app.schema, [DecoratedCounterNode, DecoratedContainerNode] as never)
@@ -182,7 +182,7 @@ describe('nova component decorators', () => {
     expect(app.components.requireApi<DecoratedApi>('container-counter').readLabel()).toBe('Child')
   })
 
-  it('runs immediate and phase watchers for versioned paths', () => {
+  it('запускает немедленные и фазовые watchers для версионированных путей', () => {
     const { node } = createDecoratedFixture()
 
     expect(node.watcherCalls).toEqual([{ next: 1, prev: undefined, path: 'model.version' }])
@@ -192,7 +192,7 @@ describe('nova component decorators', () => {
     expect(node.watcherCalls.at(-1)).toEqual({ next: 2, prev: 1, path: 'model.version' })
   })
 
-  it('routes dirty policy paths and public API through decorated metadata', () => {
+  it('маршрутизирует пути dirty policy и публичный API через метаданные декораторов', () => {
     const { app, node } = createDecoratedFixture()
     const dirty = vi.spyOn(node, 'dirty')
 
@@ -202,7 +202,7 @@ describe('nova component decorators', () => {
     expect(app.components.requireApi<DecoratedApi>('counter').readLabel()).toBe('Updated')
   })
 
-  it('registers commands on mount, disposes them and requires target when ambiguous', () => {
+  it('регистрирует команды при mount, освобождает их и требует target при неоднозначности', () => {
     const { app, surface, node } = createDecoratedFixture()
     const second = app.schema.createNode(surface, {
       type: 'test.decorated-counter',

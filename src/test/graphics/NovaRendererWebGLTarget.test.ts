@@ -21,14 +21,14 @@ function createFrameBuilder(): NovaRenderFrameBuilder {
   })
 }
 
-describe('nova target WebGL2 renderer contracts', () => {
-  it('keeps target render context schema-first without ordered/batched public methods', () => {
+describe('контракты целевого renderer WebGL2 Nova', () => {
+  it('сохраняет schema-first контекст целевого render без упорядоченных или пакетных публичных методов', () => {
     expect('schema' in NovaRenderContext.prototype).toBe(true)
     expect('schemaOrdered' in NovaRenderContext.prototype).toBe(false)
     expect('schemaBatched' in NovaRenderContext.prototype).toBe(false)
   })
 
-  it('emits primitive helpers through the same schema item path', () => {
+  it('отправляет helpers примитивов через тот же путь элемента схемы', () => {
     const frameBuilder = createFrameBuilder()
     const writer = new NovaRenderCommandWriter(frameBuilder)
     const context = new NovaRenderContext(writer, new NovaSchemaRegistry())
@@ -47,7 +47,7 @@ describe('nova target WebGL2 renderer contracts', () => {
     expect(frame.commands.some(command => command.type === 'clearClip')).toBe(true)
   })
 
-  it('compiles hot-path styles into numeric colors and resolved defaults', () => {
+  it('компилирует стили hot path в числовые цвета и разрешённые значения по умолчанию', () => {
     const color = parseNovaColor('rgba(255, 0, 128, 0.5)')
     const rect = compileNovaRectStyle({
       x: 0,
@@ -90,7 +90,7 @@ describe('nova target WebGL2 renderer contracts', () => {
     expect(text.ellipsis).toBe(true)
   })
 
-  it('does not depend on webgl-old or drawImage replay in the target backend', () => {
+  it('не зависит от webgl-old или воспроизведения drawImage в целевом backend', () => {
     const rendererSource = readFileSync(resolve(process.cwd(), 'src/model/render/backends/webgl/NovaRendererWebGL.ts'), 'utf8')
     const frameRendererSource = readFileSync(resolve(process.cwd(), 'src/model/render/backends/webgl/NovaWebGLFrameRenderer.ts'), 'utf8')
     const combined = `${rendererSource}\n${frameRendererSource}`

@@ -22,7 +22,7 @@ const benchOptions = {
 
 installCanvasMocks()
 
-describe('nova reactive signal benchmarks', () => {
+describe('бенчмарки реактивных сигналов Nova', () => {
   bench('signal update with one subscriber', () => {
     const signal = Nova.signal(0)
     const node = createBenchNode()

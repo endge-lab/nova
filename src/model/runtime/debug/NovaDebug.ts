@@ -241,7 +241,7 @@ export class NovaDebug {
   }
 
   //
-  // FACE LOG
+  // ЛОГИКА ГРАНИ
   //
 
   /**

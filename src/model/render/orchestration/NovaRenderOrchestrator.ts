@@ -100,9 +100,9 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
    * WebGL backend может композитить surfaces через cached render targets.
    */
   private _shouldCompositeSurfaces(): boolean {
-    // Surface-target compositing is intentionally disabled for now: the current
-    // full-canvas texture path corrupts DPR/WebGL UI scenes with icon/text
-    // artefacts. Resident per-batch caches stay active in the backend.
+    // Компоновка surface-target пока намеренно отключена: текущий
+    // путь полноразмерной canvas-текстуры повреждает UI-сцены DPR/WebGL артефактами
+    // иконок и текста. Постоянные кеши на batch остаются активными в backend.
     return false
   }
 
@@ -175,7 +175,7 @@ export class NovaRenderOrchestrator<E extends EventList = EventList> {
   }
 
   /**
-   * Screen-space controls stay direct to avoid texture-target artefacts on UI icons.
+   * Экранные элементы управления отображаются напрямую, чтобы избежать артефактов texture-target на UI-иконках.
    */
   private _shouldCacheSurface(surface: NovaSurface<E>): boolean {
     return !String(surface.name ?? '').endsWith(':controls')

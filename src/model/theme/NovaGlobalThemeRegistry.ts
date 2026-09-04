@@ -47,7 +47,7 @@ interface AttachedApp {
 }
 
 /**
- * Global registry for imported NovaCSS assets and app-wide theme switching.
+ * Глобальный реестр импортированных ресурсов NovaCSS и переключения темы всего приложения.
  */
 export class NovaGlobalThemeRegistry {
   private readonly _assets: Array<NovaGlobalThemeAsset> = []
@@ -175,7 +175,7 @@ export class NovaGlobalThemeRegistry {
       }
     }
     catch {
-      // Local apps may have their own strict theme state. Selector-level consumers can still resolve globally.
+      // Локальные приложения могут иметь строгое состояние темы; consumers уровня селектора всё ещё могут разрешать её глобально.
     }
   }
 
@@ -204,7 +204,7 @@ export class NovaGlobalThemeRegistry {
       app.theme.use(id)
     }
     catch {
-      // Theme may be selector-only with no plain token definition for this app.
+      // Тема может существовать только как селектор без обычного определения token для приложения.
     }
   }
 

@@ -131,14 +131,14 @@ function createApp(): NovaApp<TestEvents> {
   })
 }
 
-describe('nova component registry', () => {
+describe('реестр компонентов Nova', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
     installCanvasMocks()
   })
 
-  it('creates node components from schema and exposes them by public component id', () => {
+  it('создаёт компоненты узлов из схемы и предоставляет их по публичному ID компонента', () => {
     const app = createApp()
     const surface = app.createSurface('components')
     app.schema.register(COUNTER_DESCRIPTOR)
@@ -165,7 +165,7 @@ describe('nova component registry', () => {
     app.destroy()
   })
 
-  it('creates child components owned by a parent node', () => {
+  it('создаёт дочерние компоненты во владении родительского узла', () => {
     const app = createApp()
     const surface = app.createSurface('components')
     const parent = surface.createNode()
@@ -186,7 +186,7 @@ describe('nova component registry', () => {
     app.destroy()
   })
 
-  it('creates constructor components directly from schema and exposes generic runtime props api', () => {
+  it('создаёт компоненты-конструкторы напрямую из схемы и предоставляет общий runtime API props', () => {
     const app = createApp()
     const surface = app.createSurface('constructor-components')
 
@@ -205,7 +205,7 @@ describe('nova component registry', () => {
     app.destroy()
   })
 
-  it('registers decorated class components by global tag and resolves them in O(1) maps', () => {
+  it('регистрирует декорированные class-компоненты по глобальному тегу и разрешает их в maps за O(1)', () => {
     const app = createApp()
     const surface = app.createSurface('tag-components')
 
@@ -223,7 +223,7 @@ describe('nova component registry', () => {
     app.destroy()
   })
 
-  it('rejects duplicate and reserved global tags', () => {
+  it('отклоняет повторяющиеся и зарезервированные глобальные теги', () => {
     const registry = new NovaSchemaRegistry()
 
     Nova.registerComponents(registry, InspectorNode)
@@ -273,7 +273,7 @@ describe('nova component registry', () => {
     )).toThrow(/already registered/)
   })
 
-  it('expands schema components through descriptor renderSchema', () => {
+  it('разворачивает компоненты схемы через renderSchema descriptor', () => {
     const registry = new NovaSchemaRegistry()
     const schema = vi.fn()
     registry.register({

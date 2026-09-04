@@ -553,25 +553,25 @@ function createTextBatchFrame(canvas: NovaCanvas, batch: NovaTextBatch) {
   }
 }
 
-describe('nova retained WebGL2 renderer target contract matrix', () => {
-  it('keeps retained-renderer contract case ids unique', () => {
+describe('матрица контрактов целевого retained-renderer WebGL2 Nova', () => {
+  it('сохраняет ID сценариев контракта retained-renderer уникальными', () => {
     expect(new Set(ids(RETAINED_CONTRACT_CASES)).size).toBe(RETAINED_CONTRACT_CASES.length)
   })
 
-  it('covers all P0 target areas required before Pixi parity work', () => {
+  it('покрывает все целевые области P0, необходимые до работы над паритетом с Pixi', () => {
     const p0Areas = new Set(RETAINED_CONTRACT_CASES.filter(testCase => testCase.priority === 'P0').map(testCase => testCase.area))
 
     expect(p0Areas).toEqual(new Set(['dirty', 'compiler', 'streams', 'gpu', 'resources']))
   })
 
-  it('keeps every retained contract case measurable', () => {
+  it('сохраняет измеримость каждого сценария retained-контракта', () => {
     for (const testCase of RETAINED_CONTRACT_CASES) {
       expect(testCase.assertion.length).toBeGreaterThan(20)
       expect(testCase.assertion).toMatch(/\.$/)
     }
   })
 
-  it('uses one ordered schema batch for large target WebGL schema arrays', () => {
+  it('использует один упорядоченный пакет схемы для больших массивов целевой схемы WebGL', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const frame = createCompiledFrame(canvas, createRectSchema(100))
@@ -580,7 +580,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(frame.items).toHaveLength(0)
   })
 
-  it('does not compile inactive schema items into large WebGL schema batches', () => {
+  it('не компилирует неактивные элементы схемы в большие пакеты схемы WebGL', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const schema = Array.from({ length: 100 }, (_, index) => ({
@@ -602,7 +602,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(frame.items).toHaveLength(0)
   })
 
-  it('keeps semantic scope on compiled schema batch commands', () => {
+  it('сохраняет семантический scope в командах скомпилированного пакета схемы', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const frame = createCompiledFrame(canvas, createMixedSemanticSchema(40))
@@ -612,7 +612,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(command?.schemaContentVersion).toBe(1)
   })
 
-  it('stores nodeId to render handles for compiled schema batches', () => {
+  it('хранит соответствие nodeId и handles render для скомпилированных пакетов схемы', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const { graph } = createCompiledFrameWithGraph(canvas, createMixedSemanticSchema(4))
@@ -624,7 +624,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(handles.some(handle => handle.streamKind === 'text-run')).toBe(true)
   })
 
-  it('stores retained streams and safe semantic batch plans on the render graph', () => {
+  it('хранит retained streams и безопасные планы семантических пакетов в графе render', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const { graph } = createCompiledFrameWithGraph(canvas, createMixedSemanticSchema(4))
@@ -644,7 +644,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(plan.batches.every(batch => batch.slotCount > 0)).toBe(true)
   })
 
-  it('updates retained graph handles and stream slots by item id', () => {
+  it('обновляет handles retained-графа и слоты stream по ID элемента', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const { graph } = createCompiledFrameWithGraph(canvas, createRectSchema(4))
@@ -665,7 +665,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(handle!.versions.paint).toBe(1)
   })
 
-  it('compiles ctx.particles into retained particle stream handles', () => {
+  it('компилирует ctx.particles в handles retained stream частиц', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const batch = createParticleBatch(16)
@@ -678,7 +678,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(handles[0].count).toBe(16)
   })
 
-  it('compiles ctx.rects into retained rect batch stream handles', () => {
+  it('компилирует ctx.rects в handles retained stream пакета прямоугольников', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const batch = createRectBatch(32)
@@ -691,7 +691,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(handles[0].count).toBe(32)
   })
 
-  it('routes plain rect batches through the smaller solid stream instead of the rounded stream', () => {
+  it('направляет пакеты обычных прямоугольников через меньший solid stream вместо rounded stream', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -713,7 +713,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(rounded.uploadBytes).toBeGreaterThan(plain.uploadBytes!)
   })
 
-  it('renders repeated fills and nine-slice images through WebGL texture quads', () => {
+  it('отрисовывает повторяющиеся заливки и nine-slice изображения через texture quads WebGL', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -763,7 +763,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     registry.unuse(bundle)
   })
 
-  it('renders procedural pattern rects as a single WebGL draw call', () => {
+  it('отрисовывает прямоугольники процедурного pattern одним вызовом draw WebGL', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -794,7 +794,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     renderer.destroy()
   })
 
-  it('merges GPU arena dirty byte ranges and detects full-upload thresholds', () => {
+  it('объединяет изменённые диапазоны байтов GPU arena и определяет пороги полной загрузки', () => {
     const arena = new NovaGpuBufferArena(0.5, 16)
 
     expect(arena.ensureCapacity(1024)).toBe(true)
@@ -812,7 +812,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(arena.shouldUploadFull(100, [{ start: 0, end: 50 }])).toBe(true)
   })
 
-  it('allocates reusable GPU arena slots and exposes merged dirty byte ranges', () => {
+  it('выделяет повторно используемые слоты GPU arena и предоставляет объединённые изменённые диапазоны байтов', () => {
     const arena = new NovaGpuBufferArena(0.6, 8)
     const first = arena.allocateSlot(32)
     const second = arena.allocateSlot(32)
@@ -829,7 +829,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     ])
   })
 
-  it('replays unchanged cached rect streams without a second GPU upload', () => {
+  it('воспроизводит неизменённые закешированные streams прямоугольников без повторной загрузки в GPU', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -846,7 +846,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(gl.drawArrays).toHaveBeenCalledTimes(2)
   })
 
-  it('keeps multiple plain rect schema batches resident across pan frames', () => {
+  it('сохраняет несколько резидентных пакетов схемы обычных прямоугольников между кадрами pan', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -879,7 +879,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(panned.uniformOnlyFrames).toBe(1)
   })
 
-  it('uploads only the dirty resident schema batch when one content version changes', () => {
+  it('загружает только изменённый резидентный пакет схемы при изменении одной версии содержимого', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -916,7 +916,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(dirty.uploadBytes).toBeLessThan(first.uploadBytes!)
   })
 
-  it('keeps multiple rounded rect schema batches resident across pan frames', () => {
+  it('сохраняет несколько резидентных пакетов схемы скруглённых прямоугольников между кадрами pan', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -952,7 +952,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(panned.uniformOnlyFrames).toBe(1)
   })
 
-  it('uploads only dirty rect ranges when a stable schema batch changes paint', () => {
+  it('загружает только изменённые диапазоны прямоугольников при изменении paint стабильного пакета схемы', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -979,7 +979,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(dirty.updatedHandles).toBe(5)
   })
 
-  it('uses schema dirty indices to skip full batch scans on retained paint updates', () => {
+  it('использует индексы изменений схемы, чтобы не сканировать весь пакет при retained-обновлениях paint', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -1008,7 +1008,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(dirty.fullUploads).toBe(0)
   })
 
-  it('refreshes semantic child batches when a retained schema buffer is refilled with new rect objects', () => {
+  it('обновляет семантические дочерние пакеты при повторном заполнении retained-buffer схемы новыми прямоугольниками', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -1043,7 +1043,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(settled.uploadBytes).toBe(0)
   })
 
-  it('renders shader-animation frames through uniforms without stream uploads after warmup', () => {
+  it('отрисовывает кадры shader-анимации через uniforms без загрузки streams после прогрева', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -1075,7 +1075,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.nodeRenderCalls).toBe(0)
   })
 
-  it('uploads only particle position data when a retained particle batch moves', () => {
+  it('загружает только данные позиций частиц при перемещении retained-пакета частиц', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -1103,7 +1103,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(gl.drawArraysInstanced).toHaveBeenCalled()
   })
 
-  it('keeps SlayLines motion data stable and moves via shader metadata', () => {
+  it('сохраняет данные движения SlayLines стабильными и перемещает через метаданные shader', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(canvas, new NovaSchemaRegistry())
@@ -1138,7 +1138,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.drawCalls).toBeLessThanOrEqual(1)
   })
 
-  it('semantic-batches non-overlapping mixed rect/icon/text grids into layered draws', () => {
+  it('семантически группирует непересекающиеся смешанные сетки прямоугольников, иконок и текста в послойный draw', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1165,7 +1165,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.bufferSubDataCalls).toBe(0)
   })
 
-  it('keeps text texture batches alive when offscreen runs are culled', () => {
+  it('сохраняет пакеты текстовых textures при отсечении заэкранных runs', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1218,7 +1218,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.uploadBytes).toBe(0)
   })
 
-  it('culls retained text batch runs before run-atlas raster and upload work', () => {
+  it('отсекает runs retained-пакета текста до растеризации run-atlas и загрузки', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1251,7 +1251,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(settled.uploadBytes).toBe(0)
   })
 
-  it('rasterizes run-atlas text into a tight rect smaller than the layout box', () => {
+  it('растеризует текст run-atlas в плотный прямоугольник меньше layout box', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1291,7 +1291,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textRasterSavedPixels).toBe(metrics.textRasterBoxPixels! - metrics.textRasterPixels!)
   })
 
-  it('keeps the full layout box when tight run-atlas is disabled', () => {
+  it('сохраняет полный layout box при отключённом плотном run-atlas', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1329,7 +1329,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textRasterSavedPixels).toBe(0)
   })
 
-  it('keeps clipped retained long-ellipsis run-atlas batches warm with tight raster rects', () => {
+  it('сохраняет прогретыми обрезанные retained-пакеты run-atlas с длинным многоточием и плотными raster-прямоугольниками', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1378,7 +1378,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.uploadBytes).toBe(0)
   })
 
-  it('defers visible text without falling back to per-text rendering when raster budget is exhausted', () => {
+  it('откладывает видимый текст без перехода к отдельному render каждого текста при исчерпании raster-бюджета', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1416,7 +1416,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textBudgetExhausted).toBe(1)
   })
 
-  it('applies resolved auto run-atlas mode to the raster budget', () => {
+  it('применяет разрешённый режим auto run-atlas к raster-бюджету', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1458,7 +1458,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textBudgetExhausted).toBe(1)
   })
 
-  it('uses task label zone mode to reuse bitmap glyphs across Cyrillic and Latin labels', () => {
+  it('использует режим зоны меток задач для повторного применения bitmap glyphs в кириллических и латинских метках', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1527,7 +1527,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.atlasUploads).toBe(0)
   })
 
-  it('routes retained text batches through task label glyph mode', () => {
+  it('направляет retained-пакеты текста через glyph-режим меток задач', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1580,7 +1580,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(warm.atlasUploads).toBe(0)
   })
 
-  it('routes short auto retained task label batches through run atlas by default', () => {
+  it('по умолчанию направляет короткие auto retained-пакеты меток задач через run atlas', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1628,7 +1628,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textModeFallbacks).toBe(0)
   })
 
-  it('routes long and complex auto retained task label batches through run atlas', () => {
+  it('направляет длинные и сложные auto retained-пакеты меток задач через run atlas', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1678,7 +1678,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textModeFallbacks).toBe(0)
   })
 
-  it('drops retained text runs by screen-space LOD before glyph raster work', () => {
+  it('отбрасывает retained text runs по экранному LOD до растеризации glyphs', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1721,7 +1721,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.glyphRasterCount).toBe(0)
   })
 
-  it('keeps MSDF glyph keys stable across zoom bucket changes after warmup', () => {
+  it('сохраняет ключи glyph MSDF стабильными при изменении bucket масштаба после прогрева', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1778,7 +1778,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(zoomed.msdfGlyphCount).toBeGreaterThan(0)
   })
 
-  it('routes MSDF text through distance-field shader instead of texture shader', () => {
+  it('направляет текст MSDF через distance-field shader вместо texture shader', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub() as WebGL2RenderingContext & { __shaderSources: Array<string> }
     const canvas = createCanvasStub(gl)
@@ -1820,7 +1820,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.textModeFallbacks).toBe(0)
   })
 
-  it('reuses runtime SDF glyph atlas entries across colors', () => {
+  it('повторно использует runtime-записи атласа glyph SDF для разных цветов', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1872,7 +1872,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.distanceFieldGlyphQuads).toBe(2)
   })
 
-  it('uses prebuilt MSDF atlas metrics when a font atlas is configured', () => {
+  it('использует готовые метрики атласа MSDF при настроенном атласе шрифта', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1928,7 +1928,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.distanceFieldDrawCalls).toBeGreaterThan(0)
   })
 
-  it('lets item textMode override zone mode and falls back unsupported glyph text to run atlas', () => {
+  it('позволяет textMode элемента переопределять режим зоны и переводит неподдерживаемый glyph-текст на run atlas', () => {
     mockCanvas2D()
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
@@ -1993,7 +1993,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(metrics.glyphRasterCount).toBe(0)
   })
 
-  it('keeps plain rect pan frames in uniform-only mode after warmup', () => {
+  it('сохраняет кадры pan обычных прямоугольников в режиме только uniforms после прогрева', () => {
     const gl = createWebGLContextStub()
     const canvas = createCanvasStub(gl)
     const renderer = new NovaRendererWebGL(
@@ -2032,7 +2032,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(panned.uniformOnlyFrames).toBe(1)
   })
 
-  it('uses atlas pages for text, glyph and texture resources', () => {
+  it('использует страницы атласа для ресурсов текста, glyph и texture', () => {
     const config = resolveNovaRendererConfig()
     const textAtlas = new NovaTextAtlasManager(config.text)
     const glyphAtlas = new NovaGlyphAtlasManager(config.text)
@@ -2067,7 +2067,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(textureAtlas.pages).toHaveLength(1)
   })
 
-  it('culls invisible render groups before retained draw/update work', () => {
+  it('отсекает невидимые группы render до retained-операций draw/update', () => {
     const visible = createNovaRenderGroup({ id: 'visible', layerId: 'main' })
     visible.chunkBounds = { x: 10, y: 10, width: 20, height: 20 }
     const hidden = createNovaRenderGroup({ id: 'hidden', layerId: 'main' })
@@ -2086,7 +2086,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(result.culledGroupIds).toEqual(['hidden'])
   })
 
-  it('tracks cache-as-texture render target memory', () => {
+  it('отслеживает память render target в режиме cache-as-texture', () => {
     const targets = new NovaRenderTargetManager()
 
     targets.ensure({ id: 'cache:root', kind: 'cache', width: 100, height: 50, dpr: 2, ownerGroupId: 'main:root' })
@@ -2098,7 +2098,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(targets.memoryBytes).toBe(0)
   })
 
-  it('uses local-space hit indexes without rebuilding for moving groups', () => {
+  it('использует hit-индексы локального пространства без перестроения для движущихся групп', () => {
     const hitIndex = new NovaRenderHitIndex('grid')
     hitIndex.set({
       id: 'cell:1',
@@ -2116,7 +2116,7 @@ describe('nova retained WebGL2 renderer target contract matrix', () => {
     expect(hitIndex.size).toBe(2)
   })
 
-  it('keeps render hit index policy aliases backed by rbush queries', () => {
+  it('поддерживает aliases политики hit-индекса render запросами rbush', () => {
     for (const policy of ['grid', 'rbush', 'row-interval'] as const) {
       const hitIndex = new NovaRenderHitIndex(policy)
 

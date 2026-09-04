@@ -7,7 +7,7 @@ class ReactiveTestNode extends NovaNode<Record<string, any>> {
   reads: Array<unknown> = []
 
   /**
-   * Records a value during update.
+   * Записывает значение во время update.
    */
   read(value: unknown): void {
     this.reads.push(value)
@@ -25,8 +25,8 @@ beforeEach(() => {
   installCanvasMocks()
 })
 
-describe('nova reactivity', () => {
-  it('reads and writes mutable signals', () => {
+describe('реактивность Nova', () => {
+  it('читает и записывает изменяемые сигналы', () => {
     const count = Nova.signal(0)
 
     expect(count.value).toBe(0)
@@ -34,7 +34,7 @@ describe('nova reactivity', () => {
     expect(count.value).toBe(2)
   })
 
-  it('lazily recomputes computed signals when a source changes', () => {
+  it('лениво пересчитывает вычисляемые сигналы при изменении источника', () => {
     const count = Nova.signal(1)
     const compute = vi.fn(() => count.value * 2)
     const doubled = Nova.computed(compute)
@@ -49,7 +49,7 @@ describe('nova reactivity', () => {
     expect(compute).toHaveBeenCalledTimes(2)
   })
 
-  it('invalidates nodes that read computed signals', () => {
+  it('инвалидирует узлы, читающие вычисляемые сигналы', () => {
     const count = Nova.signal(1)
     const doubled = Nova.computed(() => count.value * 2)
     const node = createNode().node
@@ -63,7 +63,7 @@ describe('nova reactivity', () => {
     expect(dirty).toHaveBeenCalledWith({ update: true, render: true })
   })
 
-  it('marks only dependent Nova nodes dirty when a signal changes', () => {
+  it('помечает изменёнными только зависимые узлы Nova при изменении сигнала', () => {
     const source = Nova.signal('#2563eb')
     const first = createNode()
     const second = createNode()
@@ -82,7 +82,7 @@ describe('nova reactivity', () => {
     expect(secondInvalidate).not.toHaveBeenCalled()
   })
 
-  it('replaces node dependencies after branch changes', () => {
+  it('заменяет зависимости узла после изменения ветви', () => {
     const primary = Nova.signal('primary')
     const secondary = Nova.signal('secondary')
     const node = createNode().node
@@ -101,7 +101,7 @@ describe('nova reactivity', () => {
     expect(dirty).toHaveBeenCalledWith({ update: true, render: true })
   })
 
-  it('unsubscribes disposed nodes from signal changes', () => {
+  it('отписывает освобождённые узлы от изменений сигнала', () => {
     const source = Nova.signal(1)
     const node = createNode().node
     const dirty = vi.spyOn(node, 'dirty')
@@ -114,7 +114,7 @@ describe('nova reactivity', () => {
     expect(dirty).not.toHaveBeenCalled()
   })
 
-  it('supports one imported signal across multiple Nova apps', () => {
+  it('поддерживает один импортированный сигнал в нескольких приложениях Nova', () => {
     const source = Nova.signal(1)
     const first = createNode().node
     const second = createNode().node
