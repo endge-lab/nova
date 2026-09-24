@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@endge/utils':
-        specifier: ^0.27.0
-        version: 0.27.0
+        specifier: 1.0.0-dev
+        version: 1.0.0-dev
       '@raphy-js/raph':
         specifier: 1.0.0-dev.2
         version: 1.0.0-dev.2
@@ -218,8 +218,8 @@ packages:
       oxlint:
         optional: true
 
-  '@endge/utils@0.27.0':
-    resolution: {integrity: sha512-abuCAbeV/k/Daez4dsIegw0lB8R8TIAHqRYiXYFHs6JAWm26qWsyOqO5Dji6k5oOF0dlTNpexQkPlBgvefF8wQ==}
+  '@endge/utils@1.0.0-dev':
+    resolution: {integrity: sha512-4ZxT6jLyKT+YJp4m083CNLDcbC81svJXFv0hBuDGsLUPG0WqtM58DR9dhzC41Tsn+ofgiTIH+VgJuQ/UoEqcog==}
 
   '@es-joy/jsdoccomment@0.91.0':
     resolution: {integrity: sha512-vgqlMGNNhZxwDYbUNIHj3Hskb4R28iqdXx90ufHyt/NeuTQkeqjTDslAs9I0/GCAfbxP5BpH5WsL1R1fht5Lxg==}
@@ -2545,7 +2545,7 @@ snapshots:
     optionalDependencies:
       eslint: 10.9.1
 
-  '@endge/utils@0.27.0':
+  '@endge/utils@1.0.0-dev':
     dependencies:
       '@microsoft/fetch-event-source': 2.0.1
       class-transformer: 0.5.1
