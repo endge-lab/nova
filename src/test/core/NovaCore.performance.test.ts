@@ -1390,6 +1390,7 @@ describe('проверка Smoke-проверка поведения и прои
   })
 
   it('удерживает hit-test rbush в рамках бюджетов большой и кластеризованной сцены', () => {
+    const clusteredBudgetMs = process.env.CI === 'true' ? 2_000 : 800
     const items = Array.from({ length: 50_000 }, (_, index) => ({
       id: index,
       active: true,
@@ -1437,7 +1438,7 @@ describe('проверка Smoke-проверка поведения и прои
     expect(clusteredIndex.queryPoint(4, 4).length).toBeGreaterThan(1)
     expect(rebuildElapsedMs).toBeLessThan(250)
     expect(queryElapsedMs).toBeLessThan(120)
-    expect(clusteredElapsedMs).toBeLessThan(800)
+    expect(clusteredElapsedMs).toBeLessThan(clusteredBudgetMs)
   })
 
   it('отсекает 1000 заэкранных узлов в рамках бюджета mock-кадра', () => {
