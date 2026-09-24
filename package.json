@@ -1,7 +1,7 @@
 {
   "name": "@endge/nova",
   "type": "module",
-  "version": "0.16.0-dev.1",
+  "version": "1.0.0-dev",
   "private": false,
   "repository": {
     "type": "git",
@@ -34,7 +34,7 @@
     "lint-fix": "eslint . --fix --cache"
   },
   "dependencies": {
-    "@endge/utils": "^0.27.0",
+    "@endge/utils": "1.0.0-dev",
     "@raphy-js/raph": "1.0.0-dev.2",
     "class-transformer": "^0.5.1",
     "gl-matrix": "^3.4.3",
