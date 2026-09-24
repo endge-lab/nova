@@ -1,0 +1,220 @@
+import type { NovaApp, NovaComponentDescriptor, NovaSurface } from '@/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  Api,
+  Command,
+  Nova,
+
+  NovaComponent,
+
+  NovaComponentNode,
+
+  Prop,
+  Watch,
+} from '@/index'
+import { createTestApp, installCanvasMocks } from '@/test/helpers/novaTestHarness'
+
+interface DecoratedProps {
+  width: number
+  height: number
+  model: { version: number, label?: string }
+}
+
+interface DecoratedApi {
+  readLabel: () => string
+}
+
+interface DecoratedContainerProps {
+  width: number
+  height: number
+  marker: string
+}
+
+@NovaComponent({
+  type: 'test.decorated-counter',
+  dirtyPolicy: {
+    update: ['model.version'],
+    render: ['width', 'height'],
+  },
+})
+class DecoratedCounterNode extends NovaComponentNode<DecoratedProps, DecoratedApi> {
+  @Prop.number({ default: 100 })
+  override get width(): number {
+    return this.getProps().width
+  }
+
+  override set width(value: number) {
+    this.setProps({ width: value })
+  }
+
+  @Prop.number({ default: 40 })
+  override get height(): number {
+    return this.getProps().height
+  }
+
+  override set height(value: number) {
+    this.setProps({ height: value })
+  }
+
+  @Prop.model({ required: true })
+  declare model: { version: number, label?: string }
+
+  readonly watcherCalls: Array<{ next: unknown, prev: unknown, path: string }> = []
+
+  /**
+   * Записывает изменения модели.
+   */
+  @Watch('model.version', { phase: 'update', immediate: true })
+  syncModel(next: unknown, prev: unknown, payload: { path: string }): void {
+    this.watcherCalls.push({ next, prev, path: payload.path })
+  }
+
+  /**
+   * Возвращает label модели.
+   */
+  @Api()
+  readLabel(): string {
+    return this.model.label ?? ''
+  }
+
+  /**
+   * Меняет label модели через command bus.
+   */
+  @Command('test.decorated.rename')
+  rename(label: string): string {
+    this.setProps({ model: { ...this.model, version: this.model.version + 1, label } })
+    return label
+  }
+}
+
+@NovaComponent({
+  type: 'test.decorated-container',
+})
+class DecoratedContainerNode extends NovaComponentNode<DecoratedContainerProps> {
+  @Prop.number({ default: 10 })
+  override get width(): number {
+    return this.getProps().width
+  }
+
+  override set width(value: number) {
+    this.setProps({ width: value })
+  }
+
+  @Prop.number({ default: 10 })
+  override get height(): number {
+    return this.getProps().height
+  }
+
+  override set height(value: number) {
+    this.setProps({ height: value })
+  }
+
+  static normalizeProps(props: Partial<DecoratedContainerProps>): DecoratedContainerProps {
+    return {
+      width: props.width ?? 160,
+      height: props.height ?? 90,
+      marker: props.marker ?? 'custom-normalized',
+    }
+  }
+}
+
+function createDecoratedFixture(): {
+  app: NovaApp
+  surface: NovaSurface
+  node: DecoratedCounterNode
+  descriptor: NovaComponentDescriptor
+} {
+  const app = createTestApp()
+  const surface = app.createSurface('decorators')
+  Nova.registerComponents(app.schema, DecoratedCounterNode as never)
+  const descriptor = app.schema.resolve('test.decorated-counter')!
+  const node = app.schema.createNode(surface, {
+    type: 'test.decorated-counter',
+    id: 'counter',
+    props: { model: { version: 1, label: 'Initial' } },
+  }) as DecoratedCounterNode
+  return { app, surface, node, descriptor }
+}
+
+beforeEach(() => {
+  installCanvasMocks()
+})
+
+describe('декораторы компонентов Nova', () => {
+  it('создаёт метаданные descriptor, значения по умолчанию и границы размера', () => {
+    const { app, descriptor } = createDecoratedFixture()
+
+    expect(descriptor.fields).toMatchObject({
+      width: { type: 'number' },
+      height: { type: 'number' },
+      model: { type: 'record', required: true },
+    })
+    expect(descriptor.normalize?.({ type: 'test.decorated-counter', props: { model: { version: 2 } } })).toMatchObject({
+      width: 100,
+      height: 40,
+      model: { version: 2 },
+    })
+    expect(descriptor.measureBounds?.({ registry: app.schema, depth: 0 }, {
+      type: 'test.decorated-counter',
+      props: { model: { version: 2 }, width: 240, height: 80 },
+    })).toEqual({ x: 0, y: 0, width: 240, height: 80 })
+  })
+
+  it('использует статический normalizeProps и присоединяет дочерние узлы декорированных компонентов', () => {
+    const app = createTestApp()
+    const surface = app.createSurface('decorated-container')
+    Nova.registerComponents(app.schema, [DecoratedCounterNode, DecoratedContainerNode] as never)
+    const node = app.schema.createNode(surface, {
+      type: 'test.decorated-container',
+      id: 'container',
+      props: { width: 240 },
+      children: [
+        {
+          type: 'test.decorated-counter',
+          id: 'container-counter',
+          props: { model: { version: 1, label: 'Child' } },
+        },
+      ],
+    }) as DecoratedContainerNode
+
+    expect(node.getProps()).toMatchObject({ width: 240, height: 90, marker: 'custom-normalized' })
+    expect(node.children).toHaveLength(1)
+    expect(app.components.requireApi<DecoratedApi>('container-counter').readLabel()).toBe('Child')
+  })
+
+  it('запускает немедленные и фазовые watchers для версионированных путей', () => {
+    const { node } = createDecoratedFixture()
+
+    expect(node.watcherCalls).toEqual([{ next: 1, prev: undefined, path: 'model.version' }])
+    node.setProps({ model: { version: 2, label: 'Next' } })
+    node.update()
+
+    expect(node.watcherCalls.at(-1)).toEqual({ next: 2, prev: 1, path: 'model.version' })
+  })
+
+  it('маршрутизирует пути dirty policy и публичный API через метаданные декораторов', () => {
+    const { app, node } = createDecoratedFixture()
+    const dirty = vi.spyOn(node, 'dirty')
+
+    node.setProps({ model: { version: 2, label: 'Updated' } })
+
+    expect(dirty).toHaveBeenCalledWith({ matrix: false, update: true, render: true })
+    expect(app.components.requireApi<DecoratedApi>('counter').readLabel()).toBe('Updated')
+  })
+
+  it('регистрирует команды при mount, освобождает их и требует target при неоднозначности', () => {
+    const { app, surface, node } = createDecoratedFixture()
+    const second = app.schema.createNode(surface, {
+      type: 'test.decorated-counter',
+      id: 'counter-second',
+      props: { model: { version: 1 } },
+    }) as DecoratedCounterNode
+
+    expect(() => app.commands.run('test.decorated.rename', 'Broken')).toThrow(/target or scope/)
+    expect(app.commands.run('test.decorated.rename', 'Renamed', { target: node })).toBe('Renamed')
+    expect(node.getProps().model.label).toBe('Renamed')
+
+    second.remove()
+    expect(app.commands.count('test.decorated.rename')).toBe(1)
+  })
+})

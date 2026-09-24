@@ -1,0 +1,605 @@
+import type { EventList } from '@endge/utils'
+import type {
+  NovaComponentCursorValue,
+  NovaCursorContext,
+  NovaCursorDeclaration,
+  NovaCursorRule,
+  NovaCursorRuntimeState,
+  NovaCursorStateMap,
+  NovaCursorStateName,
+  NovaCursorValue,
+  NovaUrlCursorValue,
+} from '@/domain/types/cursor.types'
+import type { NovaApp } from '@/model/runtime/app/NovaApp'
+import type { NovaNode } from '@/model/runtime/tree/NovaNode'
+import type { NovaSurface } from '@/model/runtime/tree/NovaSurface'
+import { NovaSpatialIndex } from '@/model/runtime/interaction/NovaSpatialIndex'
+
+// Описывает входные данные для синхронизации cursor с pointer.
+export interface NovaCursorPointerSync<E extends EventList> {
+  x: number
+  y: number
+  target: NovaNode<E> | null
+  pressed?: boolean
+  dragging?: boolean
+}
+
+/**
+ * Централизованно выбирает cursor, обновляет DOM cursor и управляет component cursor overlay.
+ */
+export class NovaCursorManager<E extends EventList = Record<string, any>> {
+  readonly cursorNodes = new Set<NovaNode<E>>()
+  lastHitTestCandidates = 0
+
+  private readonly _spatialIndex = new NovaSpatialIndex<E>(32)
+  private readonly _spatialDirtyNodes = new Set<NovaNode<E>>()
+  private readonly _componentNodes = new Map<string, NovaNode<E>>()
+  private _spatialFullDirty = true
+  private _overlaySurface: NovaSurface<E> | null = null
+  private _activeComponentKey = ''
+  private _lastCursorKey = ''
+  private _lastDomCursor = ''
+  private _lastSource: NovaNode<E> | null = null
+  private _lastState: NovaCursorRuntimeState<E> | null = null
+
+  /**
+   * Создает cursor manager для приложения.
+   */
+  constructor(private readonly _app: NovaApp<E>) {}
+
+  /**
+   * Регистрирует node как носителя cursor declaration.
+   */
+  register(node: NovaNode<E>): void {
+    this.cursorNodes.add(node)
+    this.markSpatialDirty(node)
+  }
+
+  /**
+   * Удаляет node из cursor index и active references.
+   */
+  unregister(node: NovaNode<E>): void {
+    this.cursorNodes.delete(node)
+    this._spatialDirtyNodes.delete(node)
+    this._spatialIndex.remove(node)
+    if (this._lastSource === node) {
+      this._lastSource = null
+      this.reset()
+    }
+  }
+
+  /**
+   * Помечает spatial index грязным.
+   */
+  markSpatialDirty(node?: NovaNode<E>, includeChildren = false): void {
+    if (!node) {
+      this._spatialFullDirty = true
+      this._spatialDirtyNodes.clear()
+      return
+    }
+
+    if (!this.cursorNodes.has(node) && !includeChildren) {
+      return
+    }
+    if (this._spatialFullDirty) {
+      return
+    }
+
+    if (this.cursorNodes.has(node)) {
+      this._spatialDirtyNodes.add(node)
+    }
+    if (!includeChildren) {
+      return
+    }
+
+    for (const child of node.children) {
+      if (child instanceof Object && isNovaNode(child)) {
+        this.markSpatialDirty(child as NovaNode<E>, true)
+      }
+    }
+  }
+
+  /**
+   * Синхронизирует cursor с текущим pointer state.
+   */
+  syncPointer(input: NovaCursorPointerSync<E>): void {
+    if (this.cursorNodes.size === 0) {
+      this.lastHitTestCandidates = 0
+      return
+    }
+
+    const source = this._resolveCursorSource(input.target, input.x, input.y)
+    if (!source) {
+      this._applyNativeCursor('default')
+      this._hideActiveComponent()
+      this._lastCursorKey = ''
+      this._lastSource = null
+      this._lastState = null
+      return
+    }
+
+    const state = this._createRuntimeState(source, input)
+    const value = resolveNovaCursorValue(source.cursor, state)
+    if (!value) {
+      this._applyNativeCursor('default')
+      this._hideActiveComponent()
+      this._lastCursorKey = ''
+      this._lastSource = source
+      this._lastState = state
+      return
+    }
+
+    this._applyCursorValue(value, state)
+    this._lastSource = source
+    this._lastState = state
+  }
+
+  /**
+   * Сбрасывает cursor в default.
+   */
+  reset(): void {
+    this._applyNativeCursor('default')
+    this._hideActiveComponent()
+    this._lastCursorKey = ''
+    this._lastSource = null
+    this._lastState = null
+    this.lastHitTestCandidates = 0
+  }
+
+  /**
+   * Обновляет native cursor напрямую для legacy API.
+   */
+  setNativeCursor(value: string): void {
+    this._hideActiveComponent()
+    this._applyNativeCursor(value)
+    this._lastCursorKey = `legacy:${value}`
+  }
+
+  /**
+   * Освобождает component cursor overlay.
+   */
+  destroy(): void {
+    this.reset()
+    for (const node of this._componentNodes.values()) {
+      node.dispose()
+    }
+    this._componentNodes.clear()
+    this._overlaySurface = null
+    this.cursorNodes.clear()
+    this._spatialIndex.clear()
+    this._spatialDirtyNodes.clear()
+    this.lastHitTestCandidates = 0
+  }
+
+  /**
+   * Возвращает последнюю примененную строку DOM cursor.
+   */
+  get lastDomCursor(): string {
+    return this._lastDomCursor
+  }
+
+  /**
+   * Возвращает последнюю source node.
+   */
+  get lastSource(): NovaNode<E> | null {
+    return this._lastSource
+  }
+
+  /**
+   * Возвращает ключ последнего примененного cursor declaration.
+   */
+  get lastCursorKey(): string {
+    return this._lastCursorKey
+  }
+
+  /**
+   * Возвращает последний runtime state cursor.
+   */
+  get lastState(): NovaCursorRuntimeState<E> | null {
+    return this._lastState
+  }
+
+  /**
+   * Восстанавливает DOM cursor после render/backend writers, если они перезаписали canvas style.
+   */
+  reapplyNativeCursor(): void {
+    if (!this._lastDomCursor) {
+      return
+    }
+    if (this._app.canvas.element.style.cursor === this._lastDomCursor) {
+      return
+    }
+
+    this._app.canvas.element.style.cursor = this._lastDomCursor
+  }
+
+  /**
+   * Возвращает фактическую policy cursor hit-test индекса.
+   */
+  get hitTestIndexPolicy(): 'rbush' {
+    return 'rbush'
+  }
+
+  /**
+   * Возвращает количество node в cursor hit-test индексе.
+   */
+  get hitTestIndexedNodeCount(): number {
+    this._syncSpatialIndex()
+    return this._spatialIndex.indexedNodeCount
+  }
+
+  /**
+   * Нормализует и возвращает итоговое значение NovaCursorManager.
+   */
+  private _resolveCursorSource(target: NovaNode<E> | null, x: number, y: number): NovaNode<E> | null {
+    const fromTarget = target ? this._findCursorAncestor(target) : null
+    if (fromTarget) {
+      return fromTarget
+    }
+
+    const fromIndex = this._cursorHitTest(x, y)
+    if (fromIndex) {
+      return fromIndex
+    }
+
+    const previous = this._lastSource
+    if (
+      previous
+      && this.cursorNodes.has(previous)
+      && previous.active
+      && previous.visible
+      && previous.containsPoint(x, y)
+    ) {
+      return previous
+    }
+
+    return null
+  }
+
+  /**
+   * Находит сущность по runtime-критериям NovaCursorManager.
+   */
+  private _findCursorAncestor(target: NovaNode<E>): NovaNode<E> | null {
+    let current: NovaNode<E> | null = target
+    while (current) {
+      if (this.cursorNodes.has(current) && current.active && current.visible) {
+        return current
+      }
+      const parent: unknown = current.parent
+      current = isNovaNode(parent) ? parent as NovaNode<E> : null
+    }
+    return null
+  }
+
+  /**
+   * Выполняет внутренний шаг cursorHitTest для NovaCursorManager.
+   */
+  private _cursorHitTest(x: number, y: number): NovaNode<E> | null {
+    let top: NovaNode<E> | null = null
+
+    for (const node of this._getCursorCandidates(x, y)) {
+      if (!node.active || !node.visible || !node.containsPoint(x, y)) {
+        continue
+      }
+      if (!top || this._app.compareRenderOrder(top, node) < 0) {
+        top = node
+      }
+    }
+
+    return top
+  }
+
+  /**
+   * Возвращает значение состояния NovaCursorManager.
+   */
+  private _getCursorCandidates(x: number, y: number): Array<NovaNode<E>> {
+    this._syncSpatialIndex()
+
+    const candidates = this._spatialIndex.queryPoint(x, y)
+      .filter(node => this.cursorNodes.has(node))
+    this.lastHitTestCandidates = this._spatialIndex.lastQueryCandidateCount
+    return candidates
+  }
+
+  /**
+   * Синхронизирует dirty nodes с cursor spatial index.
+   */
+  private _syncSpatialIndex(): void {
+    if (this._spatialFullDirty) {
+      this._spatialIndex.rebuild(this.cursorNodes)
+      this._spatialDirtyNodes.clear()
+      this._spatialFullDirty = false
+      return
+    }
+
+    if (this._spatialDirtyNodes.size === 0) {
+      return
+    }
+
+    for (const node of this._spatialDirtyNodes) {
+      if (this.cursorNodes.has(node)) {
+        this._spatialIndex.update(node)
+      }
+      else {
+        this._spatialIndex.remove(node)
+      }
+    }
+    this._spatialDirtyNodes.clear()
+  }
+
+  /**
+   * Создает runtime-сущность NovaCursorManager.
+   */
+  private _createRuntimeState(source: NovaNode<E>, input: NovaCursorPointerSync<E>): NovaCursorRuntimeState<E> {
+    const context = source.cursorContext ?? {}
+    const disabled = readDisabled(source, context)
+
+    return {
+      x: input.x,
+      y: input.y,
+      hover: true,
+      pressed: input.pressed === true,
+      dragging: input.dragging === true,
+      disabled,
+      target: input.target,
+      source,
+      context,
+    }
+  }
+
+  /**
+   * Применяет подготовленное состояние NovaCursorManager.
+   */
+  private _applyCursorValue(value: NovaCursorValue, state: NovaCursorRuntimeState<E>): void {
+    const key = cursorValueKey(value)
+    if (typeof value === 'object' && value.type === 'component') {
+      this._applyComponentCursor(value, state, key)
+      return
+    }
+
+    this._hideActiveComponent()
+    this._applyNativeCursor(resolveCssCursor(value))
+    this._lastCursorKey = key
+  }
+
+  /**
+   * Применяет подготовленное состояние NovaCursorManager.
+   */
+  private _applyComponentCursor(value: NovaComponentCursorValue, state: NovaCursorRuntimeState<E>, key: string): void {
+    const surface = this._resolveOverlaySurface()
+    const hotspot = value.hotspot ?? { x: 0, y: 0 }
+    const node = this._resolveComponentNode(surface, value, key)
+
+    if (this._activeComponentKey && this._activeComponentKey !== key) {
+      this._hideComponentNode(this._componentNodes.get(this._activeComponentKey) ?? null)
+    }
+
+    node.visible = true
+    node.options({
+      x: state.x - hotspot.x,
+      y: state.y - hotspot.y,
+    })
+    node.dirty({ matrix: true, render: true })
+    surface.dirty({ render: true })
+    this._applyNativeCursor('none')
+    this._activeComponentKey = key
+    this._lastCursorKey = key
+  }
+
+  /**
+   * Нормализует и возвращает итоговое значение NovaCursorManager.
+   */
+  private _resolveComponentNode(surface: NovaSurface<E>, value: NovaComponentCursorValue, key: string): NovaNode<E> {
+    const existing = this._componentNodes.get(key)
+    if (existing) {
+      return existing
+    }
+
+    const node = this._app.schema.createNode(surface, {
+      type: value.component,
+      id: `nova-cursor:${key}`,
+      props: value.props ?? {},
+    }) as unknown as NovaNode<E>
+    node.options({ zIndex: 1_000_000, interactive: false })
+    this._componentNodes.set(key, node)
+    return node
+  }
+
+  /**
+   * Нормализует и возвращает итоговое значение NovaCursorManager.
+   */
+  private _resolveOverlaySurface(): NovaSurface<E> {
+    if (this._overlaySurface) {
+      return this._overlaySurface
+    }
+
+    const surface = this._app.createSurface('nova-cursor-overlay')
+    surface.options({
+      zIndex: 1_000_000,
+      interactive: false,
+    })
+    this._overlaySurface = surface
+    return surface
+  }
+
+  /**
+   * Выполняет внутренний шаг hideActiveComponent для NovaCursorManager.
+   */
+  private _hideActiveComponent(): void {
+    if (!this._activeComponentKey) {
+      return
+    }
+
+    const node = this._componentNodes.get(this._activeComponentKey)
+    this._hideComponentNode(node ?? null)
+    this._activeComponentKey = ''
+  }
+
+  /**
+   * Выполняет внутренний шаг hideComponentNode для NovaCursorManager.
+   */
+  private _hideComponentNode(node: NovaNode<E> | null): void {
+    if (!node) {
+      return
+    }
+
+    node.visible = false
+    node.dirty({ matrix: true, render: true })
+    node.surface.dirty({ render: true })
+  }
+
+  /**
+   * Применяет подготовленное состояние NovaCursorManager.
+   */
+  private _applyNativeCursor(value: string): void {
+    if (this._lastDomCursor === value && this._app.canvas.element.style.cursor === value) {
+      return
+    }
+
+    this._app.canvas.element.style.cursor = value
+    this._lastDomCursor = value
+  }
+}
+
+// Вычисляет cursor value по declaration и runtime state.
+export function resolveNovaCursorValue<E extends EventList>(
+  declaration: NovaCursorDeclaration | null | undefined,
+  state: NovaCursorRuntimeState<E>,
+): NovaCursorValue | null {
+  if (!declaration) {
+    return null
+  }
+  if (Array.isArray(declaration)) {
+    return resolveRuleCursor(declaration, state)
+  }
+  if (isCursorValue(declaration)) {
+    return declaration
+  }
+
+  const stateMap = declaration as NovaCursorStateMap
+  if (state.disabled && stateMap.disabled !== undefined) {
+    return stateMap.disabled
+  }
+  if (state.dragging && stateMap.dragging !== undefined) {
+    return stateMap.dragging
+  }
+  if (state.pressed && stateMap.pressed !== undefined) {
+    return stateMap.pressed
+  }
+  if (state.hover && stateMap.hover !== undefined) {
+    return stateMap.hover
+  }
+  return stateMap.default ?? null
+}
+
+function resolveRuleCursor<E extends EventList>(
+  rules: Array<NovaCursorRule>,
+  state: NovaCursorRuntimeState<E>,
+): NovaCursorValue | null {
+  for (const rule of rules) {
+    if (cursorRuleMatches(rule.when, state)) {
+      return rule.use
+    }
+  }
+  return null
+}
+
+function cursorRuleMatches<E extends EventList>(
+  condition: NovaCursorRule['when'],
+  state: NovaCursorRuntimeState<E>,
+): boolean {
+  if (!condition) {
+    return true
+  }
+
+  const { state: requiredState, ...contextConditions } = condition
+  if (requiredState !== undefined && !stateMatches(requiredState, state)) {
+    return false
+  }
+
+  for (const [key, expected] of Object.entries(contextConditions)) {
+    if (expected === undefined) {
+      continue
+    }
+    if (state.context[key] !== expected) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function stateMatches<E extends EventList>(
+  required: NovaCursorStateName | Array<NovaCursorStateName>,
+  state: NovaCursorRuntimeState<E>,
+): boolean {
+  const states = Array.isArray(required) ? required : [required]
+  return states.some((item) => {
+    if (item === 'default') {
+      return !state.disabled && !state.dragging && !state.pressed && !state.hover
+    }
+    return state[item] === true
+  })
+}
+
+function isCursorValue(value: NovaCursorDeclaration): value is NovaCursorValue {
+  if (typeof value === 'string') {
+    return true
+  }
+  if (Array.isArray(value)) {
+    return false
+  }
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+  return 'type' in value && (value.type === 'url' || value.type === 'component')
+}
+
+function resolveCssCursor(value: NovaCursorValue): string {
+  if (typeof value === 'string') {
+    return value
+  }
+  if (value.type === 'url') {
+    return formatUrlCursor(value)
+  }
+  return value.fallback ?? 'default'
+}
+
+function formatUrlCursor(value: NovaUrlCursorValue): string {
+  const hotspot = value.hotspot ? ` ${value.hotspot.x} ${value.hotspot.y}` : ''
+  return `url("${value.src}")${hotspot}, ${value.fallback ?? 'default'}`
+}
+
+function cursorValueKey(value: NovaCursorValue): string {
+  if (typeof value === 'string') {
+    return `native:${value}`
+  }
+  return `${value.type}:${stableStringify(value)}`
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value)
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(stableStringify).join(',')}]`
+  }
+
+  const objectValue = value as Record<string, unknown>
+  return `{${Object.keys(objectValue)
+    .sort()
+    .map(key => `${JSON.stringify(key)}:${stableStringify(objectValue[key])}`)
+    .join(',')}}`
+}
+
+function readDisabled(node: NovaNode<any>, context: NovaCursorContext): boolean {
+  if (context.disabled === true) {
+    return true
+  }
+  const maybeComponent = node as unknown as { getProps?: () => Record<string, unknown> }
+  return maybeComponent.getProps?.().disabled === true
+}
+
+function isNovaNode(value: unknown): value is NovaNode<any> {
+  return !!value && typeof value === 'object' && 'surface' in value && 'containsPoint' in value
+}

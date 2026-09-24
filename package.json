@@ -1,0 +1,60 @@
+{
+  "name": "@endge/nova",
+  "type": "module",
+  "version": "0.16.0-dev",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/endge-lab/nova.git"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/nova.js"
+    }
+  },
+  "module": "./dist/nova.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rimraf dist tsconfig.tsbuildinfo",
+    "dev": "vite build --watch",
+    "dev:watch": "vite build --watch",
+    "build": "pnpm typecheck && vite build",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "pretest": "if [ \"$CI\" = \"true\" ]; then echo \"Using published runtime dependencies in CI\"; else pnpm --filter @endge/utils build && pnpm --filter @raphy-js/raph build; fi",
+    "test": "vitest run --config vite.config.ts --maxWorkers=1 --exclude src/test/core/NovaCore.performance.test.ts && vitest run --config vite.config.ts src/test/core/NovaCore.performance.test.ts",
+    "test:perf": "vitest run --config vite.config.ts src/test/**/*.performance.test.ts",
+    "bench": "NODE_OPTIONS=--max-old-space-size=8192 vitest bench --run --config vite.config.ts",
+    "test:coverage": "vitest run --config vite.config.ts --coverage",
+    "lint-check": "eslint . --cache",
+    "lint-fix": "eslint . --fix --cache"
+  },
+  "dependencies": {
+    "@endge/utils": "^0.27.0",
+    "@raphy-js/raph": "1.0.0-dev.2",
+    "class-transformer": "^0.5.1",
+    "gl-matrix": "^3.4.3",
+    "rbush": "^4.0.1"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "9.3.0",
+    "@types/rbush": "^4.0.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vue/language-core": "^3.3.11",
+    "@vue/tsconfig": "^0.9.1",
+    "eslint": "10.9.1",
+    "jsdom": "^26.1.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~6.0.3",
+    "unplugin-dts": "^1.0.3",
+    "vite": "^6.1.0",
+    "vitest": "^3.2.4",
+    "vue": "^3.5.13",
+    "vue-tsc": "^3.3.11"
+  }
+}
