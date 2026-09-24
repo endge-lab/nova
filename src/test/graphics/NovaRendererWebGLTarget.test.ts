@@ -1,0 +1,103 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import {
+  compileNovaRectStyle,
+  compileNovaTextStyle,
+  NovaRenderContext,
+  NovaSchemaRegistry,
+  parseNovaColor,
+} from '@/index'
+import { NovaRenderCommandWriter } from '@/model/render/compiler/NovaRenderCommandWriter'
+import { NovaRenderFrameBuilder } from '@/model/render/compiler/NovaRenderFrameBuilder'
+
+function createFrameBuilder(): NovaRenderFrameBuilder {
+  return new NovaRenderFrameBuilder('target-webgl', {
+    x: 0,
+    y: 0,
+    width: 320,
+    height: 180,
+    dpr: 1,
+  })
+}
+
+describe('контракты целевого renderer WebGL2 Nova', () => {
+  it('сохраняет schema-first контекст целевого render без упорядоченных или пакетных публичных методов', () => {
+    expect('schema' in NovaRenderContext.prototype).toBe(true)
+    expect('schemaOrdered' in NovaRenderContext.prototype).toBe(false)
+    expect('schemaBatched' in NovaRenderContext.prototype).toBe(false)
+  })
+
+  it('отправляет helpers примитивов через тот же путь элемента схемы', () => {
+    const frameBuilder = createFrameBuilder()
+    const writer = new NovaRenderCommandWriter(frameBuilder)
+    const context = new NovaRenderContext(writer, new NovaSchemaRegistry())
+
+    context.rect({ x: 0, y: 0, width: 20, height: 10, styles: { background: '#fff' } })
+    context.schema({ type: 'text', text: 'Nova', x: 0, y: 16, width: 80, height: 20 })
+    context.pushClip({ x: 0, y: 0, width: 100, height: 40 })
+    context.line({ x1: 0, y1: 0, x2: 50, y2: 20, styles: { color: '#111' } })
+    context.popClip()
+
+    const frame = frameBuilder.build()
+
+    expect(frame.items.map(item => item.kind)).toEqual(['rect', 'text', 'line'])
+    expect(frame.commands.filter(command => command.type === 'drawItem')).toHaveLength(3)
+    expect(frame.commands.some(command => command.type === 'clip')).toBe(true)
+    expect(frame.commands.some(command => command.type === 'clearClip')).toBe(true)
+  })
+
+  it('компилирует стили hot path в числовые цвета и разрешённые значения по умолчанию', () => {
+    const color = parseNovaColor('rgba(255, 0, 128, 0.5)')
+    const rect = compileNovaRectStyle({
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      styles: { background: '#ff0000', border: { color: '#000', width: 2, radius: 4 }, opacity: 0.75 },
+    })
+    const text = compileNovaTextStyle({
+      text: 'Label',
+      x: 0,
+      y: 0,
+      width: 100,
+      height: 20,
+      styles: {
+        font: { family: 'monospace', size: 13, weight: '700' },
+        padding: { horizontal: 4, vertical: 2 },
+        align: { horizontal: 'center', vertical: 'middle' },
+        ellipsis: true,
+      },
+    })
+
+    expect(color.r).toBe(1)
+    expect(color.b).toBeCloseTo(128 / 255)
+    expect(color.a).toBeCloseTo(0.5, 2)
+    expect(rect.fill.r).toBe(1)
+    expect(rect.borderWidth).toBe(2)
+    expect(rect.borderRadius).toBe(4)
+    expect(rect.opacity).toBe(0.75)
+    expect(compileNovaRectStyle({
+      x: 0,
+      y: 0,
+      width: 10,
+      height: 10,
+      styles: { background: '#ff0000', radius: 6 },
+    }).borderRadius).toBe(6)
+    expect(text.font).toContain('700 13px monospace')
+    expect(text.padding.left).toBe(4)
+    expect(text.verticalAlign).toBe('middle')
+    expect(text.ellipsis).toBe(true)
+  })
+
+  it('не зависит от webgl-old или воспроизведения drawImage в целевом backend', () => {
+    const rendererSource = readFileSync(resolve(process.cwd(), 'src/model/render/backends/webgl/NovaRendererWebGL.ts'), 'utf8')
+    const frameRendererSource = readFileSync(resolve(process.cwd(), 'src/model/render/backends/webgl/NovaWebGLFrameRenderer.ts'), 'utf8')
+    const combined = `${rendererSource}\n${frameRendererSource}`
+
+    expect(combined).not.toContain('webgl_old')
+    expect(combined).not.toContain('NovaRendererWebGLOld')
+    expect(combined).not.toContain('drawImage')
+    expect(combined).not.toContain('_compatRenderer')
+  })
+})

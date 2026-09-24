@@ -1,0 +1,108 @@
+import type { NovaApp, NovaSurface } from '@/index'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+
+  NovaNode,
+  NovaPhase,
+
+} from '@/index'
+import {
+  createTestApp,
+  installCanvasMocks,
+} from '@/test/helpers/novaTestHarness'
+
+type TestEvents = Record<string, any>
+
+/**
+ * Описывает Nova-node ThemePerfNode и его runtime-поведение.
+ */
+class ThemePerfNode extends NovaNode<TestEvents> {
+  updates = 0
+
+  /**
+   * Создает экземпляр ThemePerfNode и подготавливает базовое состояние.
+   */
+  constructor(app: NovaApp<TestEvents>, surface: NovaSurface<TestEvents>) {
+    super(app, surface)
+    app.theme.observe(this, { phase: NovaPhase.Update })
+  }
+
+  /**
+   * Обновляет runtime-состояние ThemePerfNode.
+   */
+  update(): void {
+    this.updates += 1
+  }
+}
+
+describe('производительность runtime тем Nova', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    document.body.innerHTML = ''
+    installCanvasMocks()
+  })
+
+  it('разрешает tokens активной темы в рамках бюджета hot path', () => {
+    const app = createTestApp<TestEvents>()
+    const tokenCount = 128
+    const readCount = 50_000
+    const tokens: Record<`--${string}`, string> = {}
+    for (let index = 0; index < tokenCount; index += 1) {
+      tokens[`--nova-bench-${index}`] = `#${index.toString(16).padStart(6, '0')}`
+    }
+
+    app.theme.register({
+      id: 'bench',
+      tokens,
+    })
+
+    let checksum = 0
+    const start = performance.now()
+    for (let index = 0; index < readCount; index += 1) {
+      checksum += app.theme.resolve(`--nova-bench-${index % tokenCount}`, '#000000')?.length ?? 0
+    }
+    const elapsed = performance.now() - start
+
+    console.info(`[NovaThemePerf] resolve ${readCount} tokens / ${tokenCount} theme tokens: ${elapsed.toFixed(2)} ms`)
+    expect(checksum).toBe(readCount * 7)
+    expect(elapsed).toBeLessThan(350)
+
+    app.destroy()
+  })
+
+  it('доставляет одно переключение темы множеству подписанных узлов в рамках бюджета mock-кадра', () => {
+    const app = createTestApp<TestEvents>()
+    app.theme.registerMany([
+      {
+        id: 'light',
+        tokens: {
+          '--nova-scene-bg': '#ffffff',
+        },
+      },
+      {
+        id: 'dark',
+        tokens: {
+          '--nova-scene-bg': '#080d18',
+        },
+      },
+    ])
+
+    const nodeCount = 1_000
+    const surface = app.createSurface('theme-fanout')
+    const nodes = Array.from({ length: nodeCount }, () => surface.createNode(ThemePerfNode))
+    const before = nodes.reduce((sum, node) => sum + node.updates, 0)
+
+    const start = performance.now()
+    app.theme.use('dark')
+    app.raph.run()
+    const elapsed = performance.now() - start
+    const delivered = nodes.reduce((sum, node) => sum + node.updates, 0) - before
+
+    console.info(`[NovaThemePerf] Raph theme fanout / ${nodeCount} subscribers: ${elapsed.toFixed(2)} ms`)
+    expect(app.theme.active()).toBe('dark')
+    expect(delivered).toBeGreaterThanOrEqual(nodeCount)
+    expect(elapsed).toBeLessThan(250)
+
+    app.destroy()
+  })
+})
